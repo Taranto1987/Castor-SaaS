@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Search, Copy, CheckCircle2, MessageCircle, RefreshCw, AlertCircle } from "lucide-react";
+import { Search, Copy, CheckCircle2, MessageCircle, RefreshCw, AlertCircle, FileText } from "lucide-react";
 import { useDebounce } from "@/hooks/use-debounce";
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
