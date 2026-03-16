@@ -2,7 +2,9 @@
 
 ## Overview
 
-pnpm workspace monorepo using TypeScript. Each package manages its own dependencies.
+Sistema de Catálogo e Gerador de Orçamentos para Castor Cabo Frio.
+
+pnpm workspace monorepo usando TypeScript. Cada pacote gerencia suas próprias dependências.
 
 ## Stack
 
@@ -15,24 +17,51 @@ pnpm workspace monorepo using TypeScript. Each package manages its own dependenc
 - **Validation**: Zod (`zod/v4`), `drizzle-zod`
 - **API codegen**: Orval (from OpenAPI spec)
 - **Build**: esbuild (CJS bundle)
+- **Crawler**: Playwright (Chromium headless)
+
+## Funcionalidades
+
+1. **Catálogo de produtos** — busca e filtra produtos por nome ou categoria
+2. **Gerador de orçamento** — gera texto formatado para WhatsApp com nome do cliente, produto, preços
+3. **Crawler** — coleta automática de produtos do site lojacastor.com.br (6 categorias: colchões, cama-box, cama-box+colchão, travesseiros, roupa-de-cama, protetor)
+
+## Categorias coletadas
+
+- colchoes
+- cama-box
+- cama-box-colchao
+- travesseiros
+- roupa-de-cama
+- protetor
+
+## API Endpoints
+
+- `GET /api/produtos` — lista produtos (params: categoria, limite)
+- `GET /api/produtos/buscar?q=texto` — busca por texto
+- `GET /api/produtos/categorias` — lista categorias
+- `GET /api/produtos/:id` — produto por ID
+- `POST /api/orcamento` — gera orçamento (body: {cliente, produtoId, observacoes})
+- `POST /api/crawler/iniciar` — inicia coleta do site Castor
+- `GET /api/crawler/status` — status da coleta
 
 ## Structure
 
 ```text
 artifacts-monorepo/
 ├── artifacts/              # Deployable applications
-│   └── api-server/         # Express API server
+│   ├── api-server/         # Express API server (rotas: produtos, orcamento, crawler)
+│   └── castor-orcamento/   # Frontend React + Vite
 ├── lib/                    # Shared libraries
 │   ├── api-spec/           # OpenAPI spec + Orval codegen config
 │   ├── api-client-react/   # Generated React Query hooks
 │   ├── api-zod/            # Generated Zod schemas from OpenAPI
 │   └── db/                 # Drizzle ORM schema + DB connection
-├── scripts/                # Utility scripts (single workspace package)
-│   └── src/                # Individual .ts scripts, run via `pnpm --filter @workspace/scripts run <script>`
-├── pnpm-workspace.yaml     # pnpm workspace (artifacts/*, lib/*, lib/integrations/*, scripts)
-├── tsconfig.base.json      # Shared TS options (composite, bundler resolution, es2022)
-├── tsconfig.json           # Root TS project references
-└── package.json            # Root package with hoisted devDeps
+│       └── src/schema/produtos.ts  # Tabelas: produtos, crawler_status
+├── scripts/                # Utility scripts
+├── pnpm-workspace.yaml
+├── tsconfig.base.json
+├── tsconfig.json
+└── package.json
 ```
 
 ## TypeScript & Composite Projects
@@ -56,41 +85,29 @@ Express 5 API server. Routes live in `src/routes/` and use `@workspace/api-zod` 
 
 - Entry: `src/index.ts` — reads `PORT`, starts Express
 - App setup: `src/app.ts` — mounts CORS, JSON/urlencoded parsing, routes at `/api`
-- Routes: `src/routes/index.ts` mounts sub-routers; `src/routes/health.ts` exposes `GET /health` (full path: `/api/health`)
-- Depends on: `@workspace/db`, `@workspace/api-zod`
+- Routes: `src/routes/index.ts` mounts sub-routers
+- Depends on: `@workspace/db`, `@workspace/api-zod`, `playwright`
 - `pnpm --filter @workspace/api-server run dev` — run the dev server
-- `pnpm --filter @workspace/api-server run build` — production esbuild bundle (`dist/index.cjs`)
-- Build bundles an allowlist of deps (express, cors, pg, drizzle-orm, zod, etc.) and externalizes the rest
+
+### `artifacts/castor-orcamento` (`@workspace/castor-orcamento`)
+
+Frontend React + Vite. Páginas: Home (catálogo + busca), Orçamento (gerador), Atualizar BD (crawler admin).
 
 ### `lib/db` (`@workspace/db`)
 
-Database layer using Drizzle ORM with PostgreSQL. Exports a Drizzle client instance and schema models.
+Database layer using Drizzle ORM with PostgreSQL.
 
-- `src/index.ts` — creates a `Pool` + Drizzle instance, exports schema
-- `src/schema/index.ts` — barrel re-export of all models
-- `src/schema/<modelname>.ts` — table definitions with `drizzle-zod` insert schemas (no models definitions exist right now)
-- `drizzle.config.ts` — Drizzle Kit config (requires `DATABASE_URL`, automatically provided by Replit)
-- Exports: `.` (pool, db, schema), `./schema` (schema only)
-
-Production migrations are handled by Replit when publishing. In development, we just use `pnpm --filter @workspace/db run push`, and we fallback to `pnpm --filter @workspace/db run push-force`.
+- `src/schema/produtos.ts` — tabelas `produtos` e `crawler_status`
+- `drizzle.config.ts` — Drizzle Kit config (requires `DATABASE_URL`)
 
 ### `lib/api-spec` (`@workspace/api-spec`)
 
-Owns the OpenAPI 3.1 spec (`openapi.yaml`) and the Orval config (`orval.config.ts`). Running codegen produces output into two sibling packages:
+OpenAPI spec em `openapi.yaml`. Run codegen: `pnpm --filter @workspace/api-spec run codegen`
 
-1. `lib/api-client-react/src/generated/` — React Query hooks + fetch client
-2. `lib/api-zod/src/generated/` — Zod schemas
+## Notas de Uso
 
-Run codegen: `pnpm --filter @workspace/api-spec run codegen`
-
-### `lib/api-zod` (`@workspace/api-zod`)
-
-Generated Zod schemas from the OpenAPI spec (e.g. `HealthCheckResponse`). Used by `api-server` for response validation.
-
-### `lib/api-client-react` (`@workspace/api-client-react`)
-
-Generated React Query hooks and fetch client from the OpenAPI spec (e.g. `useHealthCheck`, `healthCheck`).
-
-### `scripts` (`@workspace/scripts`)
-
-Utility scripts package. Each script is a `.ts` file in `src/` with a corresponding npm script in `package.json`. Run scripts via `pnpm --filter @workspace/scripts run <script>`. Scripts can import any workspace package (e.g., `@workspace/db`) by adding it as a dependency in `scripts/package.json`.
+1. Ao abrir o sistema pela primeira vez, o banco está vazio
+2. Vá na aba "Atualizar BD" e clique "Iniciar Coleta"
+3. O sistema entra no site da Castor e coleta todos os produtos automaticamente (pode levar alguns minutos)
+4. Após a coleta, os produtos aparecem no Catálogo
+5. Use a busca para encontrar produtos e gere orçamentos formatados para WhatsApp

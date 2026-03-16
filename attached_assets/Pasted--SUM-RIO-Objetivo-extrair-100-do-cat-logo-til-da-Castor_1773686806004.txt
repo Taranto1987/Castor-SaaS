@@ -1,0 +1,381 @@
+## SUMÁRIO
+
+Objetivo: **extrair 100% do catálogo útil da Castor que você trabalha** (colchões, cama box, cama box + colchão, travesseiros, roupa de cama e protetores), gerar **um banco completo** com:
+
+* nome
+* SKU / referência
+* preço cheio
+* preço Pix
+* parcelamento
+* medidas
+* altura
+* categoria
+* URL
+* imagem
+
+e salvar em:
+
+* `produtos_castor.json`
+* `produtos_castor.csv`
+* `produtos_castor.db` (SQLite para consultas rápidas)
+
+Categorias **incluídas**:
+
+```
+https://lojacastor.com.br/colchoes
+https://lojacastor.com.br/cama-box
+https://lojacastor.com.br/cama-box-colch-o
+https://lojacastor.com.br/travesseiros
+https://lojacastor.com.br/roupa-de-cama
+https://lojacastor.com.br/roupa-de-cama/protetor
+```
+
+Categorias **excluídas conforme pedido**:
+
+```
+bem-estar
+estofados
+moveis
+linha-pet
+```
+
+---
+
+# SOLUÇÃO FINAL
+
+Crawler avançado com:
+
+* **Playwright**
+* **extração DOM estruturada**
+* **paginação automática**
+* **deduplicação**
+* **extração de atributos técnicos**
+* **persistência em banco**
+
+Resultado: banco completo de produtos para alimentar seu sistema de orçamento.
+
+---
+
+# ARQUITETURA
+
+Fluxo:
+
+```
+categorias
+   ↓
+descobrir paginação
+   ↓
+extrair links produtos
+   ↓
+abrir produto
+   ↓
+extrair atributos
+   ↓
+normalizar dados
+   ↓
+salvar banco
+```
+
+Tecnologias:
+
+| componente | tecnologia    |
+| ---------- | ------------- |
+| crawler    | Playwright    |
+| parser     | DOM selectors |
+| banco      | SQLite        |
+| exportação | JSON / CSV    |
+
+---
+
+# ESTRUTURA DO PROJETO
+
+```
+castor-crawler-pro
+│
+├─ crawl.js
+├─ package.json
+├─ database.js
+└─ data
+```
+
+---
+
+# package.json
+
+```json
+{
+ "name": "castor-crawler-pro",
+ "version": "1.0.0",
+ "dependencies": {
+  "playwright": "^1.43.0",
+  "better-sqlite3": "^9.4.0",
+  "csv-writer": "^1.6.0"
+ }
+}
+```
+
+---
+
+# INSTALAÇÃO
+
+```
+mkdir castor-crawler-pro
+cd castor-crawler-pro
+
+npm install playwright better-sqlite3 csv-writer
+
+npx playwright install
+```
+
+---
+
+# BANCO DE DADOS — database.js
+
+```javascript
+const Database = require("better-sqlite3");
+
+const db = new Database("data/produtos_castor.db");
+
+db.exec(`
+CREATE TABLE IF NOT EXISTS produtos (
+ id INTEGER PRIMARY KEY,
+ nome TEXT,
+ sku TEXT,
+ preco TEXT,
+ preco_pix TEXT,
+ parcelamento TEXT,
+ medidas TEXT,
+ altura TEXT,
+ categoria TEXT,
+ imagem TEXT,
+ link TEXT
+)
+`);
+
+module.exports = db;
+```
+
+---
+
+# CRAWLER COMPLETO — crawl.js
+
+```javascript
+const { chromium } = require("playwright");
+const fs = require("fs");
+const db = require("./database");
+const createCsvWriter = require("csv-writer").createObjectCsvWriter;
+
+const categorias = [
+
+ "https://lojacastor.com.br/colchoes",
+ "https://lojacastor.com.br/cama-box",
+ "https://lojacastor.com.br/cama-box-colch-o",
+ "https://lojacastor.com.br/travesseiros",
+ "https://lojacastor.com.br/roupa-de-cama",
+ "https://lojacastor.com.br/roupa-de-cama/protetor"
+
+];
+
+async function coletar(){
+
+ const browser = await chromium.launch({ headless:true });
+ const page = await browser.newPage();
+
+ let produtos = [];
+
+ for(const categoria of categorias){
+
+  let pagina = 1;
+
+  while(true){
+
+   const url = `${categoria}?p=${pagina}`;
+
+   await page.goto(url,{timeout:60000});
+
+   await page.waitForTimeout(3000);
+
+   const links = await page.$$eval(
+    "a.product-item-link",
+    els => els.map(e => e.href)
+   );
+
+   if(links.length === 0) break;
+
+   for(const link of links){
+
+    const p = await browser.newPage();
+
+    await p.goto(link);
+
+    await p.waitForTimeout(2500);
+
+    let nome="", sku="", preco="", preco_pix="", parcelamento="", medidas="", altura="", imagem="";
+
+    try{ nome = await p.locator("h1").textContent(); }catch{}
+
+    try{ preco = await p.locator(".price").first().textContent(); }catch{}
+
+    try{ preco_pix = await p.locator("text=/Pix/i").textContent(); }catch{}
+
+    try{ parcelamento = await p.locator("text=/x de/").first().textContent(); }catch{}
+
+    try{ sku = await p.locator("text=/Ref/i").textContent(); }catch{}
+
+    try{
+      const desc = await p.locator(".product.attribute.description").textContent();
+      const match = desc.match(/\d{2,3}x\d{2,3}/);
+      if(match) medidas = match[0];
+    }catch{}
+
+    try{
+      const desc = await p.locator(".product.attribute.description").textContent();
+      const match = desc.match(/\d{2}cm|\d{2} cm/);
+      if(match) altura = match[0];
+    }catch{}
+
+    try{ imagem = await p.locator("img").first().getAttribute("src"); }catch{}
+
+    const produto = {
+
+     nome: nome?.trim(),
+     sku: sku?.trim(),
+     preco: preco?.trim(),
+     preco_pix: preco_pix?.trim(),
+     parcelamento: parcelamento?.trim(),
+     medidas,
+     altura,
+     categoria,
+     imagem,
+     link
+
+    };
+
+    produtos.push(produto);
+
+    db.prepare(`
+     INSERT INTO produtos
+     (nome,sku,preco,preco_pix,parcelamento,medidas,altura,categoria,imagem,link)
+     VALUES (?,?,?,?,?,?,?,?,?,?)
+    `).run(
+     produto.nome,
+     produto.sku,
+     produto.preco,
+     produto.preco_pix,
+     produto.parcelamento,
+     produto.medidas,
+     produto.altura,
+     produto.categoria,
+     produto.imagem,
+     produto.link
+    );
+
+    console.log(produto.nome);
+
+    await p.close();
+
+   }
+
+   pagina++;
+
+  }
+
+ }
+
+ await browser.close();
+
+ fs.mkdirSync("data",{recursive:true});
+
+ fs.writeFileSync(
+  "data/produtos_castor.json",
+  JSON.stringify(produtos,null,2)
+ );
+
+ const csvWriter = createCsvWriter({
+
+  path:"data/produtos_castor.csv",
+
+  header:[
+   {id:"nome",title:"Nome"},
+   {id:"sku",title:"SKU"},
+   {id:"preco",title:"Preco"},
+   {id:"preco_pix",title:"PrecoPix"},
+   {id:"parcelamento",title:"Parcelamento"},
+   {id:"medidas",title:"Medidas"},
+   {id:"altura",title:"Altura"},
+   {id:"categoria",title:"Categoria"},
+   {id:"imagem",title:"Imagem"},
+   {id:"link",title:"Link"}
+  ]
+
+ });
+
+ await csvWriter.writeRecords(produtos);
+
+ console.log("Banco completo criado.");
+
+}
+
+coletar();
+```
+
+---
+
+# EXECUÇÃO
+
+Rodar:
+
+```
+node crawl.js
+```
+
+---
+
+# RESULTADO
+
+Arquivos gerados:
+
+```
+data/produtos_castor.json
+data/produtos_castor.csv
+data/produtos_castor.db
+```
+
+Exemplo de registro:
+
+```json
+{
+ "nome": "Colchão Castor King Premium Amazon Gel Double Face Pocket 193x203x36cm",
+ "sku": "Ref 57235",
+ "preco": "R$ 7.410,04",
+ "preco_pix": "R$ 6.298,53",
+ "parcelamento": "12x de R$ 617,50",
+ "medidas": "193x203",
+ "altura": "36 cm",
+ "categoria": "colchoes",
+ "imagem": "https://...",
+ "link": "https://lojacastor.com.br/..."
+}
+```
+
+---
+
+# RESULTADO OPERACIONAL
+
+Depois disso você pode fazer consultas como:
+
+```
+Amazon Gel King
+```
+
+e o sistema retorna imediatamente:
+
+```
+nome
+preço
+pix
+parcelamento
+link
+```
+
+permitindo gerar **orçamento automático da loja**.

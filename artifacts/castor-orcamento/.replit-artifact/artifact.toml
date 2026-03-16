@@ -1,0 +1,31 @@
+kind = "web"
+previewPath = "/"
+title = "Castor Orçamento"
+version = "1.0.0"
+id = "artifacts/castor-orcamento"
+router = "path"
+
+[[integratedSkills]]
+name = "react-vite"
+version = "1.0.0"
+
+[[services]]
+localPort = 21185
+name = "web"
+paths = ["/"]
+
+[services.development]
+run = "pnpm --filter @workspace/castor-orcamento run dev"
+
+[services.env]
+PORT = "21185"
+BASE_PATH = "/"
+
+[services.production]
+build = ["pnpm", "--filter", "@workspace/castor-orcamento", "run", "build"]
+publicDir = "artifacts/castor-orcamento/dist/public"
+serve = "static"
+
+[[services.production.rewrites]]
+from = "/*"
+to = "/index.html"

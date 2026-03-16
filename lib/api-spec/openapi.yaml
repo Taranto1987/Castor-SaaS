@@ -1,22 +1,24 @@
 openapi: 3.1.0
 info:
-  # Do not change the title, if the title changes, the import paths will be broken
   title: Api
   version: 0.1.0
-  description: API specification
+  description: Castor Orçamento API
 servers:
   - url: /api
     description: Base API path
 tags:
   - name: health
     description: Health operations
+  - name: produtos
+    description: Produtos Castor
+  - name: orcamento
+    description: Gerador de orçamento
 paths:
   /healthz:
     get:
       operationId: healthCheck
       tags: [health]
       summary: Health check
-      description: Returns server health status
       responses:
         "200":
           description: Healthy
@@ -24,6 +26,128 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/HealthStatus"
+  /produtos:
+    get:
+      operationId: listProdutos
+      tags: [produtos]
+      summary: Listar todos os produtos
+      parameters:
+        - name: categoria
+          in: query
+          required: false
+          schema:
+            type: string
+        - name: limite
+          in: query
+          required: false
+          schema:
+            type: number
+      responses:
+        "200":
+          description: Lista de produtos
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Produto"
+  /produtos/buscar:
+    get:
+      operationId: buscarProdutos
+      tags: [produtos]
+      summary: Buscar produtos por nome
+      parameters:
+        - name: q
+          in: query
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Produtos encontrados
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Produto"
+  /produtos/categorias:
+    get:
+      operationId: listCategorias
+      tags: [produtos]
+      summary: Listar categorias disponíveis
+      responses:
+        "200":
+          description: Lista de categorias
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: string
+  /produtos/{id}:
+    get:
+      operationId: getProduto
+      tags: [produtos]
+      summary: Buscar produto por ID
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: number
+      responses:
+        "200":
+          description: Produto encontrado
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Produto"
+        "404":
+          description: Produto não encontrado
+  /orcamento:
+    post:
+      operationId: gerarOrcamento
+      tags: [orcamento]
+      summary: Gerar orçamento formatado
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/OrcamentoInput"
+      responses:
+        "200":
+          description: Orçamento gerado
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OrcamentoOutput"
+  /crawler/iniciar:
+    post:
+      operationId: iniciarCrawler
+      tags: [produtos]
+      summary: Iniciar coleta de produtos do site Castor
+      responses:
+        "200":
+          description: Crawler iniciado
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CrawlerStatus"
+  /crawler/status:
+    get:
+      operationId: statusCrawler
+      tags: [produtos]
+      summary: Verificar status do crawler
+      responses:
+        "200":
+          description: Status atual do crawler
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CrawlerStatus"
+
 components:
   schemas:
     HealthStatus:
@@ -33,4 +157,80 @@ components:
           type: string
       required:
         - status
-
+    Produto:
+      type: object
+      properties:
+        id:
+          type: number
+        nome:
+          type: string
+        sku:
+          type: string
+        preco:
+          type: string
+        precoPix:
+          type: string
+        parcelamento:
+          type: string
+        medidas:
+          type: string
+        altura:
+          type: string
+        categoria:
+          type: string
+        imagem:
+          type: string
+        link:
+          type: string
+        criadoEm:
+          type: string
+      required:
+        - id
+        - nome
+        - categoria
+    OrcamentoInput:
+      type: object
+      properties:
+        cliente:
+          type: string
+        produtoId:
+          type: number
+        observacoes:
+          type: string
+      required:
+        - cliente
+        - produtoId
+    OrcamentoOutput:
+      type: object
+      properties:
+        texto:
+          type: string
+        produto:
+          $ref: "#/components/schemas/Produto"
+      required:
+        - texto
+        - produto
+    CrawlerStatus:
+      type: object
+      properties:
+        status:
+          type: string
+          enum: [idle, running, completed, error]
+        mensagem:
+          type: string
+        totalProdutos:
+          type: number
+        produtosColetados:
+          type: number
+        erros:
+          type: number
+        iniciadoEm:
+          type: string
+        finalizadoEm:
+          type: string
+      required:
+        - status
+        - mensagem
+        - totalProdutos
+        - produtosColetados
+        - erros
