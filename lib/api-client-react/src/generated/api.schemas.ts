@@ -26,13 +26,13 @@ export interface Produto {
 
 export interface OrcamentoInput {
   cliente: string;
-  produtoId: number;
+  produtoIds: number[];
   observacoes?: string;
 }
 
 export interface OrcamentoOutput {
   texto: string;
-  produto: Produto;
+  produtos: Produto[];
 }
 
 export type CrawlerStatusStatus =

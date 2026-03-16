@@ -1,0 +1,316 @@
+
+
+
+Correção:
+
+Implementar **3 componentes obrigatórios**:
+
+```
+ProductCart
+BudgetEngine
+VIPTemplate
+```
+
+Isso resolve:
+
+```
+cama baú queen
++ colchão solteiro
++ cama baú solteiro
+= 1 orçamento
+```
+
+---
+
+# SOLUÇÃO FINAL
+
+Arquitetura correta do gerador:
+
+```
+cliente
+   ↓
+produtos[]
+   ↓
+budgetEngine()
+   ↓
+vipTemplate()
+   ↓
+mensagem WhatsApp
+```
+
+---
+
+# ARQUITETURA
+
+Estrutura funcional:
+
+```
+orcamento
+
+Cliente
+ProdutosSelecionados[]
+
+MotorCalculo
+   soma pix
+   soma prazo
+   calcula parcela
+
+TemplateVIP
+   formata mensagem
+
+PreviewWhatsApp
+```
+
+---
+
+# ARTEFATOS
+
+## 1 — Estrutura de produto
+
+```ts
+export interface Produto {
+
+ id:number
+ nome:string
+ altura:number
+ preco_pix:number
+ preco_prazo:number
+ parcelas:number
+ sku:string
+
+}
+```
+
+---
+
+# 2 — Carrinho de produtos
+
+Arquivo:
+
+```
+components/ProductCart.tsx
+```
+
+```tsx
+import { useState } from "react"
+
+export default function ProductCart(){
+
+const [items,setItems] = useState([])
+
+function addProduct(produto){
+
+setItems([...items,produto])
+
+}
+
+function removeProduct(index){
+
+const copy = [...items]
+copy.splice(index,1)
+
+setItems(copy)
+
+}
+
+return {items,addProduct,removeProduct}
+
+}
+```
+
+---
+
+# 3 — Motor de cálculo
+
+Arquivo:
+
+```
+utils/budgetEngine.ts
+```
+
+```ts
+export function calcular(produtos){
+
+let pix = 0
+let prazo = 0
+
+produtos.forEach(p=>{
+
+pix += p.preco_pix
+prazo += p.preco_prazo
+
+})
+
+const parcela = prazo / 12
+
+return {
+
+pix,
+prazo,
+parcela
+
+}
+
+}
+```
+
+---
+
+# 4 — Template VIP fixo
+
+Arquivo:
+
+```
+utils/vipTemplate.ts
+```
+
+```ts
+import { calcular } from "./budgetEngine"
+
+export function gerarVIP(cliente,produtos,obs){
+
+const calc = calcular(produtos)
+
+const lista = produtos.map((p,i)=>{
+
+return `${i+1}️⃣ ${p.nome}
+Altura: ${p.altura}cm
+Ref: ${p.sku}
+Pix: R$ ${p.preco_pix}
+Prazo: R$ ${p.preco_prazo}`
+
+}).join("\n\n")
+
+return `━━━━━━━━━━━━━━━━━━━━━━
+🇧🇷 CASTOR CABO FRIO
+━━━━━━━━━━━━━━━━━━━━━━
+
+Cliente: ${cliente}
+
+Produtos:
+${lista}
+
+━━━━━━━━━━━━━━━━━━━━━━
+
+💰 PIX
+R$ ${calc.pix.toFixed(2)}
+
+💳 Parcelado
+R$ ${calc.prazo.toFixed(2)}
+
+12x de R$ ${calc.parcela.toFixed(2)}
+
+━━━━━━━━━━━━━━━━━━━━━━
+
+Obs:
+${obs}
+
+📞 (22) 99241-0112
+`
+
+}
+```
+
+---
+
+# 5 — Página orçamento
+
+Arquivo:
+
+```
+pages/orcamento.tsx
+```
+
+```tsx
+import { gerarVIP } from "../utils/vipTemplate"
+
+const mensagem = gerarVIP(
+
+cliente,
+produtosSelecionados,
+observacao
+
+)
+```
+
+---
+
+# EXECUÇÃO
+
+Alterações necessárias no projeto atual:
+
+### 1
+
+Trocar
+
+```
+produtoSelecionado
+```
+
+por
+
+```
+produtosSelecionados[]
+```
+
+---
+
+### 2
+
+Adicionar botão
+
+```
+Adicionar produto
+```
+
+---
+
+### 3
+
+Criar lista visual
+
+```
+Produtos no orçamento
+
+• cama baú queen
+• colchão solteiro
+• cama baú solteiro
+```
+
+---
+
+### 4
+
+Gerar mensagem usando
+
+```
+gerarVIP()
+```
+
+---
+
+# RESULTADO FINAL
+
+O sistema passa a permitir:
+
+```
+Cliente
+
+Produtos
++ cama baú queen
++ colchão solteiro
++ cama baú solteiro
+```
+
+E gerar automaticamente:
+
+```
+1 orçamento
+1 valor total
+1 mensagem VIP
+```
+
+Pronto para **copiar e enviar no WhatsApp**.
+
+---
+

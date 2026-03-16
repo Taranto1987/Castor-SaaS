@@ -1,63 +1,112 @@
 import { Router, type IRouter } from "express";
 import { db } from "@workspace/db";
 import { produtosTable } from "@workspace/db/schema";
-import { eq } from "drizzle-orm";
+import { inArray } from "drizzle-orm";
 
 const router: IRouter = Router();
 
+function parsarPreco(valor?: string | null): number {
+  if (!valor) return 0;
+  const limpo = valor.replace(/[R$\s.]/g, "").replace(",", ".");
+  const num = parseFloat(limpo);
+  return isNaN(num) ? 0 : num;
+}
+
+function extrairParcela(parcelamento?: string | null): number {
+  if (!parcelamento) return 0;
+  const match = parcelamento.match(/[\d]+[,.][\d]+/);
+  if (!match) return 0;
+  const num = parseFloat(match[0].replace(",", "."));
+  return isNaN(num) ? 0 : num;
+}
+
 router.post("/", async (req, res) => {
   try {
-    const { cliente, produtoId, observacoes } = req.body;
+    const { cliente, produtoIds, observacoes } = req.body;
 
-    if (!cliente || !produtoId) {
-      res.status(400).json({ error: "Cliente e produtoId são obrigatórios" });
+    if (!cliente || !produtoIds || !Array.isArray(produtoIds) || produtoIds.length === 0) {
+      res.status(400).json({ error: "Cliente e pelo menos um produto são obrigatórios" });
       return;
     }
 
-    const results = await db.select().from(produtosTable).where(eq(produtosTable.id, parseInt(produtoId))).limit(1);
+    const ids = produtoIds.map((id: unknown) => parseInt(String(id)));
+    const results = await db.select().from(produtosTable).where(inArray(produtosTable.id, ids));
+
     if (results.length === 0) {
-      res.status(404).json({ error: "Produto não encontrado" });
+      res.status(404).json({ error: "Nenhum produto encontrado" });
       return;
     }
 
-    const p = results[0];
+    const ordenados = ids.map(id => results.find(p => p.id === id)).filter(Boolean) as typeof results;
+
+    let totalPix = 0;
+    let totalPrazo = 0;
+
+    const listaProdutos = ordenados.map((p, i) => {
+      const pix = parsarPreco(p.precoPix);
+      const prazo = parsarPreco(p.preco);
+      totalPix += pix;
+      totalPrazo += prazo;
+
+      const linhas: string[] = [
+        `${i + 1}️⃣ ${p.nome}`,
+      ];
+      if (p.medidas) linhas.push(`📐 Medidas: ${p.medidas}`);
+      if (p.altura) linhas.push(`📏 Altura: ${p.altura}`);
+      if (p.sku) linhas.push(`🔖 Ref: ${p.sku}`);
+      if (p.precoPix) linhas.push(`💰 Pix: ${p.precoPix}`);
+      if (p.preco) linhas.push(`💳 Prazo: ${p.preco}`);
+
+      return linhas.join("\n");
+    });
+
+    const parcela12 = totalPrazo / 12;
 
     const linhas: string[] = [
-      "━━━━━━━━━━━━━━━━━━━━━━━",
-      "🛏️ CASTOR CABO FRIO",
-      "━━━━━━━━━━━━━━━━━━━━━━━",
+      "━━━━━━━━━━━━━━━━━━━━━━",
+      "🇧🇷 CASTOR CABO FRIO",
+      "━━━━━━━━━━━━━━━━━━━━━━",
       "",
-      `👤 Cliente: ${cliente}`,
+      `Cliente: ${cliente}`,
       "",
-      `📦 Produto:`,
-      `${p.nome}`,
+      "Produtos Selecionados:",
+      "",
+      listaProdutos.join("\n\n"),
+      "",
+      "━━━━━━━━━━━━━━━━━━━━━━",
+      "",
+      "Valor Total:",
+      "",
+      "💰 PIX",
+      `R$ ${totalPix.toFixed(2)}`,
+      "",
+      "💳 Parcelado",
+      `R$ ${totalPrazo.toFixed(2)}`,
+      "",
+      "ou",
+      "",
+      `12x de R$ ${parcela12.toFixed(2)}`,
+      "",
+      "━━━━━━━━━━━━━━━━━━━━━━",
     ];
-
-    if (p.medidas) linhas.push(`📐 Medidas: ${p.medidas}`);
-    if (p.altura) linhas.push(`📏 Altura: ${p.altura}`);
-    if (p.sku) linhas.push(`🔖 Ref: ${p.sku}`);
-
-    linhas.push("");
-    linhas.push("💰 Valores:");
-
-    if (p.preco) linhas.push(`• Preço: ${p.preco}`);
-    if (p.precoPix) linhas.push(`• Pix: ${p.precoPix} ✅`);
-    if (p.parcelamento) linhas.push(`• Parcelado: ${p.parcelamento}`);
 
     if (observacoes) {
       linhas.push("");
-      linhas.push(`📝 Obs: ${observacoes}`);
+      linhas.push(`Observações:`);
+      linhas.push(observacoes);
+      linhas.push("");
+      linhas.push("━━━━━━━━━━━━━━━━━━━━━━");
     }
 
     linhas.push("");
-    linhas.push("📞 (22) 99241-0112");
-    linhas.push("━━━━━━━━━━━━━━━━━━━━━━━");
+    linhas.push("📞 WhatsApp Loja");
+    linhas.push("(22) 99241-0112");
 
     const texto = linhas.join("\n");
 
     res.json({
       texto,
-      produto: {
+      produtos: ordenados.map(p => ({
         id: p.id,
         nome: p.nome,
         sku: p.sku,
@@ -70,7 +119,7 @@ router.post("/", async (req, res) => {
         imagem: p.imagem,
         link: p.link,
         criadoEm: p.criadoEm,
-      }
+      }))
     });
   } catch (error) {
     console.error("Erro ao gerar orçamento:", error);
