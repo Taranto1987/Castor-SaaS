@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Search, Loader2, PackageX, ExternalLink } from "lucide-react";
+import { Search, Loader2, PackageX, ExternalLink, FileText } from "lucide-react";
 import { useLocation } from "wouter";
 import { motion, AnimatePresence } from "framer-motion";
 import { useDebounce } from "@/hooks/use-debounce";
