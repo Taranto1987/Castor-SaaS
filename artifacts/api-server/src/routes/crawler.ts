@@ -173,6 +173,7 @@ async function executarCrawler() {
   ];
 
   const seenIds = new Set<number>();
+  const seenSkus = new Set<string>();
 
   try {
     await atualizarStatus("running", "Buscando produtos via API...", 0, 0);
@@ -197,8 +198,11 @@ async function executarCrawler() {
       console.log(`[Crawler] ${categoria.nome}: ${items.length} produtos`);
 
       for (const item of items) {
+        if (!item.sku) continue;
         if (seenIds.has(item.id)) continue;
+        if (seenSkus.has(item.sku)) continue;
         seenIds.add(item.id);
+        seenSkus.add(item.sku);
 
         const preco = formatBRL(item.price_range.minimum_price.regular_price.value);
         const precoFinal = item.price_range.minimum_price.final_price.value;
@@ -230,7 +234,7 @@ async function executarCrawler() {
             categoria: categoria.nome,
             imagem: imagem || null,
             link,
-          });
+          }).onConflictDoNothing();
           produtosColetados++;
         } catch (err) {
           console.error(`[Crawler] Erro ao salvar ${item.name}:`, err);

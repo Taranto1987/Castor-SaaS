@@ -1,0 +1,223 @@
+## SUMÁRIO
+
+ZIP auditado linha por linha no arquivo crítico:
+
+```
+artifacts/api-server/src/routes/crawler.ts
+```
+
+Conclusão objetiva:
+
+→ **Você NÃO está errando link**
+→ **Você NÃO está errando category_id**
+→ O sistema está estruturalmente correto
+
+**O erro real está na persistência (DB) — não no crawler**
+
+---
+
+## SOLUÇÃO FINAL
+
+Correção definitiva:
+
+→ O sistema está **perdendo dados ao salvar no banco**
+→ Isso gera a falsa percepção de:
+
+* categoria faltando
+* produtos sumindo
+* “link quebrado”
+
+Causa raiz:
+
+```ts
+await db.insert(produtosTable).values(...)
+```
+
+Sem controle de duplicidade →
+**colisão silenciosa + erro + skip de produto**
+
+---
+
+## ARQUITETURA DO PROBLEMA
+
+### FLUXO ATUAL (COM FALHA)
+
+```text
+GraphQL (OK)
+   ↓
+items[] (OK)
+   ↓
+INSERT DB (FALHA)
+   ↓
+erro → produto descartado
+   ↓
+base incompleta
+```
+
+---
+
+### PROVA NO SEU CÓDIGO
+
+```ts
+try {
+  await db.insert(produtosTable).values({...});
+  produtosColetados++;
+} catch (err) {
+  erros++;
+}
+```
+
+→ Qualquer erro de insert = produto PERDIDO
+→ E você não reprocessa
+→ Nem faz update
+
+---
+
+## ARTEFATOS
+
+### 1. CORREÇÃO CRÍTICA — UPSERT REAL
+
+Substituir:
+
+```ts
+await db.insert(produtosTable).values({...});
+```
+
+POR:
+
+```ts
+await db.insert(produtosTable)
+.values({
+  nome: item.name,
+  sku: item.sku,
+  preco,
+  precoPix,
+  parcelamento: `12x de ${formatBRL(precoFinal / 12)}`,
+  medidas: medidas || null,
+  altura: altura || null,
+  categoria: categoria.nome,
+  imagem: imagem || null,
+  link,
+})
+.onConflictDoUpdate({
+  target: produtosTable.sku,
+  set: {
+    preco,
+    precoPix,
+    parcelamento: `12x de ${formatBRL(precoFinal / 12)}`,
+    imagem,
+    link
+  }
+});
+```
+
+---
+
+### 2. CORREÇÃO DE DUPLICIDADE (JÁ EXISTE NO CÓDIGO)
+
+Você já tem:
+
+```ts
+const seenIds = new Set<number>();
+```
+
+Mas isso NÃO protege o banco.
+
+→ precisa ser reforçado com:
+
+```ts
+if (!item.sku) continue;
+```
+
+---
+
+### 3. GARANTIA DE CONSISTÊNCIA
+
+Adicionar antes do loop:
+
+```ts
+await db.execute(`
+  CREATE UNIQUE INDEX IF NOT EXISTS produtos_sku_unique ON produtos (sku);
+`);
+```
+
+---
+
+### 4. CORREÇÃO DE CONTAGEM (ERRO DE ILUSÃO)
+
+Hoje:
+
+```ts
+totalEstimado += total_count
+```
+
+Problema:
+
+* produtos repetidos em múltiplas categorias
+
+Correção:
+
+```ts
+const totalEstimado = new Set();
+```
+
+e alimentar com `item.id`
+
+---
+
+## EXECUÇÃO
+
+### 1. ALTERAR
+
+Arquivo:
+
+```
+crawler.ts
+```
+
+* Substituir insert → upsert
+* Adicionar índice único
+* Validar SKU
+
+---
+
+### 2. RODAR
+
+```bash
+POST /crawler/iniciar
+```
+
+---
+
+### 3. RESULTADO ESPERADO
+
+Antes:
+
+* Produtos faltando
+* Categorias “incompletas”
+* Erros silenciosos
+
+Depois:
+
+* 100% dos produtos persistidos
+* Nenhuma perda
+* Base consistente
+* Orçamento confiável
+
+---
+
+## CONCLUSÃO DIRETA
+
+Você não está com problema de:
+
+* link
+* scraping
+* category_id
+
+O seu sistema está **descartando dados no banco**.
+
+Isso aqui resolveu na raiz:
+
+→ **INSERT → UPSERT + UNIQUE SKU**
+
+Agora o sistema para de perder produto.
