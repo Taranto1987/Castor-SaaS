@@ -1,7 +1,7 @@
 import { ReactNode } from "react";
 import { Link, useLocation } from "wouter";
 import { cn } from "@/lib/utils";
-import { BedDouble, FileText, Settings, Search, Clock } from "lucide-react";
+import { FileText, Settings, Search, Clock } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 
 interface LayoutProps {
@@ -25,18 +25,12 @@ export default function Layout({ children }: LayoutProps) {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center h-16">
             {/* Logo area */}
-            <Link href="/" className="flex items-center gap-3 group cursor-pointer">
-              <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-primary to-blue-700 flex items-center justify-center text-white shadow-lg shadow-primary/20 group-hover:shadow-xl group-hover:scale-105 transition-all duration-300">
-                <BedDouble className="w-5 h-5" />
-              </div>
-              <div>
-                <h1 className="font-display font-extrabold text-xl text-foreground leading-none tracking-tight">
-                  Castor<span className="text-primary">.</span>
-                </h1>
-                <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold">
-                  Cabo Frio
-                </p>
-              </div>
+            <Link href="/" className="flex items-center cursor-pointer group">
+              <img
+                src="/logo-castor.png"
+                alt="Castor Cabo Frio"
+                className="h-12 w-auto group-hover:scale-105 transition-transform duration-300"
+              />
             </Link>
 
             {/* Desktop Navigation */}
