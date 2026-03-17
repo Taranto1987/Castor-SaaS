@@ -98,4 +98,5 @@ export type ListProdutosParams = {
 
 export type BuscarProdutosParams = {
   q: string;
+  categoria?: string;
 };

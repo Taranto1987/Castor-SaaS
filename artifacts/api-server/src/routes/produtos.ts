@@ -48,28 +48,36 @@ router.get("/categorias", async (_req, res) => {
 
 router.get("/buscar", async (req, res) => {
   try {
-    const { q } = req.query;
+    const { q, categoria } = req.query;
     if (!q || typeof q !== "string") {
       res.status(400).json({ error: "Parâmetro q obrigatório" });
       return;
     }
 
+    const { and } = await import("drizzle-orm");
     const termos = q.trim().split(/\s+/);
-    const condicoes = termos.map(t =>
+    const textoConds = termos.map(t =>
       or(
         ilike(produtosTable.nome, `%${t}%`),
         ilike(produtosTable.sku, `%${t}%`),
-        ilike(produtosTable.medidas, `%${t}%`),
-        ilike(produtosTable.categoria, `%${t}%`)
+        ilike(produtosTable.medidas, `%${t}%`)
       )
     );
 
+    const categoriaCond = categoria && typeof categoria === "string"
+      ? eq(produtosTable.categoria, categoria)
+      : undefined;
+
+    const allConds = [
+      ...(textoConds.length === 1 ? [textoConds[0]] : [and(...textoConds)]),
+      ...(categoriaCond ? [categoriaCond] : [])
+    ].filter(Boolean);
+
     let results;
-    if (condicoes.length === 1) {
-      results = await db.select().from(produtosTable).where(condicoes[0]).limit(50);
+    if (allConds.length === 1) {
+      results = await db.select().from(produtosTable).where(allConds[0]).limit(80);
     } else {
-      const { and } = await import("drizzle-orm");
-      results = await db.select().from(produtosTable).where(and(...condicoes)).limit(50);
+      results = await db.select().from(produtosTable).where(and(...allConds)).limit(80);
     }
 
     res.json(results.map(p => ({

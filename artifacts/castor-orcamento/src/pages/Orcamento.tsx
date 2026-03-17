@@ -1,18 +1,17 @@
-import { useState, useEffect, useRef } from "react";
+import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
-  Search, Copy, CheckCircle2, MessageCircle, RefreshCw, FileText,
-  Plus, X, ShoppingCart, Phone, Percent, ExternalLink, Save, Printer
+  Copy, CheckCircle2, MessageCircle, RefreshCw, FileText,
+  X, ShoppingCart, Phone, Percent, ExternalLink, Save, Printer
 } from "lucide-react";
-import { useDebounce } from "@/hooks/use-debounce";
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
 import {
-  useBuscarProdutos,
   useGerarOrcamento,
   useSalvarOrcamento,
 } from "@workspace/api-client-react";
 import type { Produto } from "@workspace/api-client-react/src/generated/api.schemas";
+import ProductPicker from "@/components/ProductPicker";
 
 export default function Orcamento() {
   const { toast } = useToast();
@@ -23,34 +22,12 @@ export default function Orcamento() {
   const [carrinho, setCarrinho] = useState<Produto[]>([]);
   const [descontoPix, setDescontoPix] = useState<number>(0);
 
-  const [searchQuery, setSearchQuery] = useState("");
-  const [isSearchOpen, setIsSearchOpen] = useState(false);
-  const searchRef = useRef<HTMLDivElement>(null);
-  const debouncedSearch = useDebounce(searchQuery, 300);
-
-  const { data: searchResults, isLoading: isSearching } = useBuscarProdutos(
-    { q: debouncedSearch },
-    { query: { enabled: debouncedSearch.length > 1 } }
-  );
-
   const { mutate: generateQuote, data: quoteResult, isPending: isGenerating } = useGerarOrcamento();
   const { mutate: saveQuote, isPending: isSaving } = useSalvarOrcamento();
 
-  useEffect(() => {
-    function handleClickOutside(event: MouseEvent) {
-      if (searchRef.current && !searchRef.current.contains(event.target as Node)) {
-        setIsSearchOpen(false);
-      }
-    }
-    document.addEventListener("mousedown", handleClickOutside);
-    return () => document.removeEventListener("mousedown", handleClickOutside);
-  }, []);
-
   const handleAddProduct = (p: Produto) => {
     setCarrinho(prev => [...prev, p]);
-    setSearchQuery("");
-    setIsSearchOpen(false);
-    toast({ title: "Produto adicionado", description: p.nome });
+    toast({ title: "Adicionado", description: p.nome.trim().slice(0, 60) });
   };
 
   const handleRemoveProduct = (index: number) => {
@@ -175,90 +152,27 @@ export default function Orcamento() {
               />
             </div>
 
-            {/* Busca de produto */}
-            <div className="space-y-2 relative" ref={searchRef}>
-              <label className="text-sm font-bold text-slate-700">Adicionar Produto</label>
-              <div className="relative">
-                <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-                <input
-                  type="text"
-                  value={searchQuery}
-                  onChange={e => {
-                    setSearchQuery(e.target.value);
-                    setIsSearchOpen(true);
-                  }}
-                  onFocus={() => setIsSearchOpen(true)}
-                  placeholder="Buscar colchão, box, cama baú..."
-                  className="w-full pl-10 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:outline-none focus:border-primary focus:ring-4 focus:ring-primary/10 transition-all font-medium text-sm"
-                />
-              </div>
-
-              <AnimatePresence>
-                {isSearchOpen && debouncedSearch.length > 1 && (
-                  <motion.div
-                    initial={{ opacity: 0, y: -5 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    exit={{ opacity: 0, y: -5 }}
-                    className="absolute z-50 w-full mt-2 bg-white border border-slate-200 rounded-xl shadow-2xl max-h-80 overflow-y-auto"
-                  >
-                    {isSearching ? (
-                      <div className="p-4 text-center text-sm text-slate-500 flex items-center justify-center gap-2">
-                        <RefreshCw className="w-4 h-4 animate-spin" /> Buscando...
-                      </div>
-                    ) : searchResults && searchResults.length > 0 ? (
-                      <div className="p-2 space-y-1">
-                        {searchResults.map(p => (
-                          <div
-                            key={p.id}
-                            onClick={() => handleAddProduct(p)}
-                            className="flex items-center gap-3 p-2 hover:bg-slate-50 rounded-lg cursor-pointer transition-colors group"
-                          >
-                            <img
-                              src={p.imagem || "https://images.unsplash.com/photo-1584031402256-c787e148e02d?w=100"}
-                              alt={p.nome}
-                              className="w-12 h-12 rounded object-cover border border-slate-100 flex-shrink-0"
-                            />
-                            <div className="flex-1 min-w-0">
-                              <p className="text-sm font-bold text-slate-800 truncate">{p.nome}</p>
-                              <div className="flex gap-2 text-xs text-slate-500">
-                                <span>{p.medidas}</span>
-                                <span className="text-primary font-semibold">{p.precoPix}</span>
-                              </div>
-                            </div>
-                            <div className="flex-shrink-0 w-7 h-7 rounded-full bg-primary/10 text-primary flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
-                              <Plus className="w-4 h-4" />
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    ) : (
-                      <div className="p-4 text-center text-sm text-slate-500">Nenhum produto encontrado.</div>
-                    )}
-                  </motion.div>
-                )}
-              </AnimatePresence>
+            {/* Product Picker */}
+            <div className="space-y-2">
+              <label className="text-sm font-bold text-slate-700">Produtos</label>
+              <ProductPicker
+                onAdd={handleAddProduct}
+                carrinhoIds={carrinho.map(p => p.id)}
+              />
             </div>
 
             {/* Carrinho */}
-            <div className="space-y-2">
-              <div className="flex items-center gap-2">
-                <ShoppingCart className="w-4 h-4 text-slate-500" />
-                <label className="text-sm font-bold text-slate-700">
-                  Produtos no Orçamento
-                  {carrinho.length > 0 && (
+            {carrinho.length > 0 && (
+              <div className="space-y-2">
+                <div className="flex items-center gap-2">
+                  <ShoppingCart className="w-4 h-4 text-slate-500" />
+                  <span className="text-sm font-bold text-slate-700">
+                    No orçamento
                     <span className="ml-2 px-2 py-0.5 bg-primary text-white text-xs rounded-full font-bold">
                       {carrinho.length}
                     </span>
-                  )}
-                </label>
-              </div>
-
-              {carrinho.length === 0 ? (
-                <div className="flex flex-col items-center justify-center py-6 bg-slate-50 border-2 border-dashed border-slate-200 rounded-xl text-slate-400 text-sm gap-1">
-                  <ShoppingCart className="w-6 h-6 mb-1 opacity-40" />
-                  Nenhum produto adicionado ainda
+                  </span>
                 </div>
-              ) : (
                 <div className="space-y-2">
                   <AnimatePresence initial={false}>
                     {carrinho.map((p, i) => (
@@ -270,14 +184,14 @@ export default function Orcamento() {
                         className="flex items-center gap-3 p-3 bg-slate-50 border border-slate-200 rounded-xl"
                       >
                         <img
-                          src={p.imagem || "https://images.unsplash.com/photo-1584031402256-c787e148e02d?w=100"}
+                          src={p.imagem || "https://images.unsplash.com/photo-1584031402256-c787e148e02d?w=80"}
                           alt={p.nome}
-                          className="w-10 h-10 rounded object-cover border border-slate-100 flex-shrink-0"
+                          className="w-10 h-10 rounded-lg object-cover border border-slate-100 flex-shrink-0"
                         />
                         <div className="flex-1 min-w-0">
-                          <p className="text-sm font-bold text-slate-800 truncate">{p.nome}</p>
+                          <p className="text-sm font-bold text-slate-800 line-clamp-2 leading-snug">{p.nome.trim()}</p>
                           {p.precoPix && (
-                            <p className="text-xs text-primary font-semibold">{p.precoPix} PIX</p>
+                            <p className="text-xs text-emerald-600 font-semibold mt-0.5">{p.precoPix} PIX</p>
                           )}
                         </div>
                         <button
@@ -290,8 +204,8 @@ export default function Orcamento() {
                     ))}
                   </AnimatePresence>
                 </div>
-              )}
-            </div>
+              </div>
+            )}
 
             {/* Desconto PIX */}
             <div className="space-y-2">
