@@ -6,6 +6,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import Layout from "@/components/Layout";
 import Home from "@/pages/Home";
 import Orcamento from "@/pages/Orcamento";
+import Historico from "@/pages/Historico";
 import Crawler from "@/pages/Crawler";
 import NotFound from "@/pages/not-found";
 
@@ -25,6 +26,7 @@ function Router() {
       <Switch>
         <Route path="/" component={Home} />
         <Route path="/orcamento" component={Orcamento} />
+        <Route path="/historico" component={Historico} />
         <Route path="/crawler" component={Crawler} />
         <Route component={NotFound} />
       </Switch>

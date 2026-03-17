@@ -1,0 +1,39 @@
+Aqui estão algumas sugestões de implementações futuras, divididas por áreas, para você avaliar o que faz mais sentido para a sua loja:
+📦 1. Gestão do Catálogo (Painel Administrativo)
+
+    Tela de Gerenciamento de Produtos: Criar uma tela onde você (ou um gerente) possa adicionar novos colchões/camas, editar preços ou remover produtos que saíram de linha, sem precisar mexer diretamente no banco de dados.
+
+    Imagens nos Produtos: Adicionar a foto do produto no catálogo para facilitar a identificação pelo vendedor e, futuramente, incluir essa foto no PDF gerado para o cliente.
+
+    Controle de Estoque Básico: Mostrar se o produto está disponível para pronta entrega ou se é sob encomenda (com prazo em dias).
+
+🤝 2. Relacionamento com o Cliente (CRM)
+
+    Status do Orçamento: Adicionar a opção de marcar um orçamento como "Pendente", "Vendido/Aprovado" ou "Perdido". Isso ajuda a saber quem o vendedor ainda precisa chamar no WhatsApp para tentar fechar a venda (Follow-up).
+
+    Cadastro de Clientes: Salvar os clientes em uma lista separada. Assim, se o "João Silva" voltar daqui a 2 anos para comprar travesseiros, o sistema já puxa o telefone e o histórico dele automaticamente.
+
+    Validade do Orçamento: Incluir uma data de validade automática (ex: "Preços válidos por 7 dias") para gerar senso de urgência no cliente.
+
+📊 3. Dashboard e Relatórios (Para a Gerência)
+
+    Painel de Metas (Dashboard): Uma tela inicial com gráficos mostrando:
+
+        Total vendido no mês (Orçamentos com status "Vendido").
+
+        Qual vendedor gerou mais vendas.
+
+        Quais são os produtos mais procurados/vendidos.
+
+    Filtros no Histórico: Poder filtrar a tela de histórico por data (ex: "ver apenas orçamentos dessa semana"), por vendedor ou por nome do cliente.
+
+📄 4. Melhorias na Apresentação (PDF e WhatsApp)
+
+    PDF Profissionalizado: Colocar a Logo da Castor, o endereço da loja física de Cabo Frio, o nome do vendedor que atendeu e um espaço para assinatura do cliente.
+
+    Mensagens de Follow-up (Retorno): Criar botões rápidos para enviar mensagens de "E aí, pensou na nossa proposta?" ou "Temos uma condição especial para fechar hoje" direto no WhatsApp de orçamentos antigos.
+
+🔒 5. Controle de Acesso (Níveis de Usuário)
+
+    Perfil Gerente vs. Vendedor: Fazer com que o Vendedor só consiga ver os orçamentos que ele mesmo criou, enquanto o Gerente consegue ver os orçamentos de toda a loja e alterar os preços do catálogo.
+

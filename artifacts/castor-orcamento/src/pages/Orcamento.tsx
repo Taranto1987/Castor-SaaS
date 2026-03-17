@@ -1,12 +1,16 @@
 import { useState, useEffect, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Search, Copy, CheckCircle2, MessageCircle, RefreshCw, FileText, Plus, X, ShoppingCart } from "lucide-react";
+import {
+  Search, Copy, CheckCircle2, MessageCircle, RefreshCw, FileText,
+  Plus, X, ShoppingCart, Phone, Percent, ExternalLink, Save, Printer
+} from "lucide-react";
 import { useDebounce } from "@/hooks/use-debounce";
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
 import {
   useBuscarProdutos,
   useGerarOrcamento,
+  useSalvarOrcamento,
 } from "@workspace/api-client-react";
 import type { Produto } from "@workspace/api-client-react/src/generated/api.schemas";
 
@@ -14,8 +18,10 @@ export default function Orcamento() {
   const { toast } = useToast();
 
   const [cliente, setCliente] = useState("");
+  const [whatsapp, setWhatsapp] = useState("");
   const [observacoes, setObservacoes] = useState("");
   const [carrinho, setCarrinho] = useState<Produto[]>([]);
+  const [descontoPix, setDescontoPix] = useState<number>(0);
 
   const [searchQuery, setSearchQuery] = useState("");
   const [isSearchOpen, setIsSearchOpen] = useState(false);
@@ -28,6 +34,7 @@ export default function Orcamento() {
   );
 
   const { mutate: generateQuote, data: quoteResult, isPending: isGenerating } = useGerarOrcamento();
+  const { mutate: saveQuote, isPending: isSaving } = useSalvarOrcamento();
 
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
@@ -63,10 +70,52 @@ export default function Orcamento() {
     generateQuote({
       data: {
         cliente,
+        whatsapp: whatsapp.trim() || undefined,
         produtoIds: carrinho.map(p => p.id),
-        observacoes: observacoes.trim() || undefined
+        observacoes: observacoes.trim() || undefined,
+        descontoPix: descontoPix > 0 ? descontoPix : undefined,
       }
     });
+  };
+
+  const handleSave = () => {
+    if (!quoteResult) return;
+    saveQuote({
+      data: {
+        cliente,
+        whatsapp: whatsapp.trim() || undefined,
+        produtosJson: carrinho,
+        observacoes: observacoes.trim() || undefined,
+        descontoPix: descontoPix > 0 ? descontoPix : undefined,
+        totalPix: quoteResult.totalPix,
+        totalPrazo: quoteResult.totalPrazo,
+        texto: quoteResult.texto,
+      }
+    }, {
+      onSuccess: () => toast({ title: "Salvo!", description: "Orçamento salvo no histórico." }),
+      onError: () => toast({ title: "Erro", description: "Não foi possível salvar.", variant: "destructive" }),
+    });
+  };
+
+  const handleOpenWhatsApp = () => {
+    if (!quoteResult?.texto) return;
+    const numero = whatsapp.replace(/\D/g, "");
+    const texto = encodeURIComponent(quoteResult.texto);
+    const url = numero
+      ? `https://wa.me/55${numero}?text=${texto}`
+      : `https://wa.me/?text=${texto}`;
+    window.open(url, "_blank");
+  };
+
+  const handlePrint = () => {
+    if (!quoteResult?.texto) return;
+    const win = window.open("", "_blank");
+    if (!win) return;
+    win.document.write(`<html><head><title>Orçamento - ${cliente}</title>
+    <style>body{font-family:monospace;white-space:pre-wrap;padding:32px;font-size:14px;line-height:1.6}</style>
+    </head><body>${quoteResult.texto.replace(/</g, "&lt;")}</body></html>`);
+    win.document.close();
+    win.print();
   };
 
   const [copied, setCopied] = useState(false);
@@ -75,7 +124,7 @@ export default function Orcamento() {
     try {
       await navigator.clipboard.writeText(quoteResult.texto);
       setCopied(true);
-      toast({ title: "Sucesso", description: "Orçamento copiado para a área de transferência!" });
+      toast({ title: "Copiado!", description: "Orçamento copiado para a área de transferência." });
       setTimeout(() => setCopied(false), 2000);
     } catch {
       toast({ title: "Erro", description: "Não foi possível copiar.", variant: "destructive" });
@@ -96,7 +145,7 @@ export default function Orcamento() {
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
         {/* Left Column: Form */}
         <div className="lg:col-span-5 space-y-5">
-          <div className="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm space-y-6">
+          <div className="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm space-y-5">
 
             {/* Cliente */}
             <div className="space-y-2">
@@ -107,6 +156,22 @@ export default function Orcamento() {
                 onChange={e => setCliente(e.target.value)}
                 placeholder="Ex: João da Silva"
                 className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:outline-none focus:border-primary focus:ring-4 focus:ring-primary/10 transition-all font-medium"
+              />
+            </div>
+
+            {/* WhatsApp */}
+            <div className="space-y-2">
+              <label className="text-sm font-bold text-slate-700 flex items-center gap-1.5">
+                <Phone className="w-3.5 h-3.5 text-green-500" />
+                WhatsApp do Cliente
+                <span className="font-normal text-slate-400">(opcional)</span>
+              </label>
+              <input
+                type="tel"
+                value={whatsapp}
+                onChange={e => setWhatsapp(e.target.value)}
+                placeholder="Ex: 22 99999-9999"
+                className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:outline-none focus:border-green-400 focus:ring-4 focus:ring-green-400/10 transition-all font-medium"
               />
             </div>
 
@@ -174,7 +239,7 @@ export default function Orcamento() {
               </AnimatePresence>
             </div>
 
-            {/* Carrinho de produtos */}
+            {/* Carrinho */}
             <div className="space-y-2">
               <div className="flex items-center gap-2">
                 <ShoppingCart className="w-4 h-4 text-slate-500" />
@@ -228,6 +293,27 @@ export default function Orcamento() {
               )}
             </div>
 
+            {/* Desconto PIX */}
+            <div className="space-y-2">
+              <label className="text-sm font-bold text-slate-700 flex items-center gap-1.5">
+                <Percent className="w-3.5 h-3.5 text-emerald-500" />
+                Desconto PIX
+                <span className="font-normal text-slate-400">(opcional)</span>
+              </label>
+              <div className="relative">
+                <input
+                  type="number"
+                  min={0}
+                  max={100}
+                  value={descontoPix || ""}
+                  onChange={e => setDescontoPix(Math.max(0, Math.min(100, Number(e.target.value))))}
+                  placeholder="0"
+                  className="w-full px-4 py-3 pr-10 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:outline-none focus:border-emerald-400 focus:ring-4 focus:ring-emerald-400/10 transition-all font-medium"
+                />
+                <span className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 font-bold text-sm">%</span>
+              </div>
+            </div>
+
             {/* Observações */}
             <div className="space-y-2">
               <label className="text-sm font-bold text-slate-700">
@@ -262,15 +348,30 @@ export default function Orcamento() {
             <motion.div
               initial={{ opacity: 0, scale: 0.95 }}
               animate={{ opacity: 1, scale: 1 }}
-              className="bg-white/50 p-6 md:p-8 rounded-3xl border border-slate-200 shadow-inner flex flex-col items-center justify-center min-h-[400px] relative overflow-hidden"
+              className="bg-white/50 p-6 md:p-8 rounded-3xl border border-slate-200 shadow-inner flex flex-col items-start min-h-[400px] relative overflow-hidden"
             >
               <div className="absolute inset-0 bg-[url('https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?q=80&w=2000')] opacity-5 bg-cover bg-center mix-blend-multiply pointer-events-none" />
 
-              <div className="w-full max-w-md relative z-10">
-                <div className="flex justify-between items-end mb-4">
-                  <span className="text-xs font-bold uppercase tracking-wider text-slate-400 flex items-center gap-2">
-                    <MessageCircle className="w-4 h-4" /> Prévia WhatsApp
-                  </span>
+              <div className="w-full relative z-10">
+                {/* Totals summary */}
+                <div className="grid grid-cols-3 gap-3 mb-5">
+                  <div className="bg-emerald-50 border border-emerald-200 rounded-2xl p-3 text-center">
+                    <p className="text-xs text-emerald-600 font-bold uppercase tracking-wide">PIX Total</p>
+                    <p className="text-lg font-extrabold text-emerald-700 mt-0.5">R$ {quoteResult.totalPix}</p>
+                    {descontoPix > 0 && <p className="text-xs text-emerald-500">{descontoPix}% off</p>}
+                  </div>
+                  <div className="bg-blue-50 border border-blue-200 rounded-2xl p-3 text-center">
+                    <p className="text-xs text-blue-600 font-bold uppercase tracking-wide">Prazo Total</p>
+                    <p className="text-lg font-extrabold text-blue-700 mt-0.5">R$ {quoteResult.totalPrazo}</p>
+                  </div>
+                  <div className="bg-violet-50 border border-violet-200 rounded-2xl p-3 text-center">
+                    <p className="text-xs text-violet-600 font-bold uppercase tracking-wide">12x de</p>
+                    <p className="text-lg font-extrabold text-violet-700 mt-0.5">R$ {quoteResult.parcela12}</p>
+                  </div>
+                </div>
+
+                {/* Actions */}
+                <div className="flex flex-wrap gap-2 mb-4">
                   <button
                     onClick={handleCopy}
                     className={cn(
@@ -281,16 +382,47 @@ export default function Orcamento() {
                     )}
                   >
                     {copied ? <CheckCircle2 className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
-                    {copied ? "Copiado!" : "Copiar Texto"}
+                    {copied ? "Copiado!" : "Copiar"}
+                  </button>
+
+                  <button
+                    onClick={handleOpenWhatsApp}
+                    className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-bold bg-green-500 hover:bg-green-600 text-white shadow-sm transition-all"
+                  >
+                    <ExternalLink className="w-4 h-4" />
+                    {whatsapp ? "Abrir WhatsApp" : "Enviar WhatsApp"}
+                  </button>
+
+                  <button
+                    onClick={handlePrint}
+                    className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-bold bg-white text-slate-700 shadow-sm border border-slate-200 hover:bg-slate-50 transition-all"
+                  >
+                    <Printer className="w-4 h-4" />
+                    PDF
+                  </button>
+
+                  <button
+                    onClick={handleSave}
+                    disabled={isSaving}
+                    className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-bold bg-primary/10 text-primary hover:bg-primary/20 transition-all disabled:opacity-50"
+                  >
+                    {isSaving ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
+                    Salvar
                   </button>
                 </div>
 
-                <div className="whatsapp-bubble p-5 shadow-sm text-[15px] whitespace-pre-wrap">
+                {/* Preview */}
+                <div className="flex items-center gap-2 mb-3">
+                  <MessageCircle className="w-4 h-4 text-slate-400" />
+                  <span className="text-xs font-bold uppercase tracking-wider text-slate-400">Prévia WhatsApp</span>
+                </div>
+
+                <div className="whatsapp-bubble p-5 shadow-sm text-[14px] whitespace-pre-wrap leading-relaxed">
                   {quoteResult.texto}
                 </div>
 
-                <p className="text-center text-xs text-slate-400 mt-6 font-medium">
-                  Copie o texto acima e cole direto na conversa do cliente.
+                <p className="text-center text-xs text-slate-400 mt-4 font-medium">
+                  Copie ou abra direto no WhatsApp do cliente.
                 </p>
               </div>
             </motion.div>

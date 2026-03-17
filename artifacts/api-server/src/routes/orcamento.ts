@@ -1,7 +1,7 @@
 import { Router, type IRouter } from "express";
 import { db } from "@workspace/db";
-import { produtosTable } from "@workspace/db/schema";
-import { inArray } from "drizzle-orm";
+import { produtosTable, orcamentosTable } from "@workspace/db/schema";
+import { inArray, desc } from "drizzle-orm";
 
 const router: IRouter = Router();
 
@@ -12,17 +12,9 @@ function parsarPreco(valor?: string | null): number {
   return isNaN(num) ? 0 : num;
 }
 
-function extrairParcela(parcelamento?: string | null): number {
-  if (!parcelamento) return 0;
-  const match = parcelamento.match(/[\d]+[,.][\d]+/);
-  if (!match) return 0;
-  const num = parseFloat(match[0].replace(",", "."));
-  return isNaN(num) ? 0 : num;
-}
-
 router.post("/", async (req, res) => {
   try {
-    const { cliente, produtoIds, observacoes } = req.body;
+    const { cliente, whatsapp, produtoIds, observacoes, descontoPix = 0 } = req.body;
 
     if (!cliente || !produtoIds || !Array.isArray(produtoIds) || produtoIds.length === 0) {
       res.status(400).json({ error: "Cliente e pelo menos um produto são obrigatórios" });
@@ -39,18 +31,18 @@ router.post("/", async (req, res) => {
 
     const ordenados = ids.map(id => results.find(p => p.id === id)).filter(Boolean) as typeof results;
 
-    let totalPix = 0;
+    const desconto = Math.max(0, Math.min(100, Number(descontoPix) || 0));
+
+    let totalPixBruto = 0;
     let totalPrazo = 0;
 
     const listaProdutos = ordenados.map((p, i) => {
       const pix = parsarPreco(p.precoPix);
       const prazo = parsarPreco(p.preco);
-      totalPix += pix;
+      totalPixBruto += pix;
       totalPrazo += prazo;
 
-      const linhas: string[] = [
-        `${i + 1}️⃣ ${p.nome}`,
-      ];
+      const linhas: string[] = [`${i + 1}️⃣ ${p.nome}`];
       if (p.medidas) linhas.push(`📐 Medidas: ${p.medidas}`);
       if (p.altura) linhas.push(`📏 Altura: ${p.altura}`);
       if (p.sku) linhas.push(`🔖 Ref: ${p.sku}`);
@@ -59,6 +51,10 @@ router.post("/", async (req, res) => {
 
       return linhas.join("\n");
     });
+
+    const totalPix = desconto > 0
+      ? totalPixBruto * (1 - desconto / 100)
+      : totalPixBruto;
 
     const parcela12 = totalPrazo / 12;
 
@@ -77,22 +73,30 @@ router.post("/", async (req, res) => {
       "",
       "Valor Total:",
       "",
-      "💰 PIX",
-      `R$ ${totalPix.toFixed(2)}`,
-      "",
-      "💳 Parcelado",
-      `R$ ${totalPrazo.toFixed(2)}`,
-      "",
-      "ou",
-      "",
-      `12x de R$ ${parcela12.toFixed(2)}`,
-      "",
-      "━━━━━━━━━━━━━━━━━━━━━━",
     ];
+
+    if (desconto > 0) {
+      linhas.push(`💰 PIX (${desconto}% de desconto)`);
+      linhas.push(`~~R$ ${totalPixBruto.toFixed(2)}~~`);
+      linhas.push(`➡️ R$ ${totalPix.toFixed(2)}`);
+    } else {
+      linhas.push("💰 PIX");
+      linhas.push(`R$ ${totalPix.toFixed(2)}`);
+    }
+
+    linhas.push("");
+    linhas.push("💳 Parcelado");
+    linhas.push(`R$ ${totalPrazo.toFixed(2)}`);
+    linhas.push("");
+    linhas.push("ou");
+    linhas.push("");
+    linhas.push(`12x de R$ ${parcela12.toFixed(2)}`);
+    linhas.push("");
+    linhas.push("━━━━━━━━━━━━━━━━━━━━━━");
 
     if (observacoes) {
       linhas.push("");
-      linhas.push(`Observações:`);
+      linhas.push("Observações:");
       linhas.push(observacoes);
       linhas.push("");
       linhas.push("━━━━━━━━━━━━━━━━━━━━━━");
@@ -106,6 +110,9 @@ router.post("/", async (req, res) => {
 
     res.json({
       texto,
+      totalPix: totalPix.toFixed(2),
+      totalPrazo: totalPrazo.toFixed(2),
+      parcela12: parcela12.toFixed(2),
       produtos: ordenados.map(p => ({
         id: p.id,
         nome: p.nome,
@@ -123,6 +130,44 @@ router.post("/", async (req, res) => {
     });
   } catch (error) {
     console.error("Erro ao gerar orçamento:", error);
+    res.status(500).json({ error: "Erro interno" });
+  }
+});
+
+router.post("/salvar", async (req, res) => {
+  try {
+    const { cliente, whatsapp, produtosJson, observacoes, descontoPix, totalPix, totalPrazo, texto, vendedor } = req.body;
+
+    if (!cliente || !texto) {
+      res.status(400).json({ error: "Dados insuficientes para salvar" });
+      return;
+    }
+
+    const inserted = await db.insert(orcamentosTable).values({
+      cliente,
+      whatsapp: whatsapp || null,
+      produtosJson: produtosJson || [],
+      observacoes: observacoes || null,
+      descontoPix: descontoPix || 0,
+      totalPix: totalPix || null,
+      totalPrazo: totalPrazo || null,
+      texto,
+      vendedor: vendedor || null,
+    }).returning();
+
+    res.json({ id: inserted[0].id, mensagem: "Orçamento salvo com sucesso!" });
+  } catch (error) {
+    console.error("Erro ao salvar orçamento:", error);
+    res.status(500).json({ error: "Erro interno" });
+  }
+});
+
+router.get("/historico", async (req, res) => {
+  try {
+    const historico = await db.select().from(orcamentosTable).orderBy(desc(orcamentosTable.criadoEm)).limit(50);
+    res.json(historico);
+  } catch (error) {
+    console.error("Erro ao buscar histórico:", error);
     res.status(500).json({ error: "Erro interno" });
   }
 });

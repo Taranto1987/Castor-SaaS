@@ -1,0 +1,46 @@
+Sistema de Orçamentos VIP (Castor Cabo Frio)
+1. Segurança e Acesso (Nuvem)
+
+    Autenticação de Usuários: Sistema de login seguro utilizando contas do Google (Firebase Auth).
+
+    Proteção de Telas: Bloqueio de acesso ao sistema para usuários não autenticados (Rotas Protegidas).
+
+    Regras de Segurança (Firewall): Configuração de regras no banco de dados garantindo que apenas funcionários logados possam ler, criar ou alterar dados.
+
+2. Banco de Dados e Infraestrutura
+
+    Migração para a Nuvem: Substituição do banco de dados local (SQLite) pelo Firebase Firestore (Google Cloud).
+
+    Catálogo de Produtos Centralizado: Leitura dos produtos (camas, colchões, etc.) diretamente da nuvem, garantindo que todos os vendedores vejam os mesmos preços.
+
+    Registro de Autoria: O sistema agora salva automaticamente qual vendedor (usuário logado) foi o responsável por gerar cada orçamento.
+
+3. Gerador de Orçamentos (Painel Principal)
+
+    Formulário do Cliente: Campos para nome e WhatsApp do cliente.
+
+    Seleção de Produtos: Interface fácil para adicionar e remover itens do catálogo no orçamento.
+
+    Motor de Descontos: Campo para aplicar porcentagem de desconto exclusiva para pagamentos via PIX.
+
+    Cálculo Automático: Soma automática dos valores totais (PIX com desconto e valor a prazo parcelado em até 12x).
+
+    Observações: Campo de texto livre para adicionar detalhes de entrega ou negociação.
+
+4. Exportação e Compartilhamento
+
+    Preview em Tempo Real: Visualização exata de como a mensagem ficará antes de ser enviada.
+
+    Integração com WhatsApp: Botão que abre o WhatsApp (Web ou App) já com o texto formatado e o número do cliente preenchido.
+
+    Geração de PDF: Criação de um documento PDF profissional com o logotipo/nome da loja, dados do cliente, itens e totais, pronto para download ou envio.
+
+    Copiar Texto: Botão rápido para copiar a mensagem inteira para a área de transferência.
+
+5. Histórico e Gestão
+
+    Salvamento na Nuvem: Botão para registrar o orçamento finalizado no banco de dados da loja.
+
+    Tela de Histórico: Painel para visualizar todos os orçamentos gerados pela equipe.
+
+    Detalhamento do Histórico: Exibição de data, hora, nome do cliente, itens orçados e valores finais de cada negociação salva.

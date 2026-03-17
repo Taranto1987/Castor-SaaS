@@ -1,7 +1,7 @@
 import { ReactNode } from "react";
 import { Link, useLocation } from "wouter";
 import { cn } from "@/lib/utils";
-import { BedDouble, FileText, Settings, Search } from "lucide-react";
+import { BedDouble, FileText, Settings, Search, Clock } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 
 interface LayoutProps {
@@ -14,6 +14,7 @@ export default function Layout({ children }: LayoutProps) {
   const navItems = [
     { path: "/", label: "Catálogo", icon: Search },
     { path: "/orcamento", label: "Orçamento", icon: FileText },
+    { path: "/historico", label: "Histórico", icon: Clock },
     { path: "/crawler", label: "Atualizar BD", icon: Settings },
   ];
 
