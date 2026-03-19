@@ -1,0 +1,171 @@
+**SIM.**
+
+Faltam itens obrigatórios para o sistema ficar **operacional completo e confiável em produção**:
+
+---
+
+## BLOCO CRÍTICO AUSENTE — CONTROLE TRANSACIONAL (CONSISTÊNCIA)
+
+**Problema atual:**
+→ fechamento de venda + criação de entrega não estão protegidos por transação
+→ risco real de inconsistência (venda criada sem entrega ou vice-versa)
+
+**Falta implementar:**
+
+```javascript
+await db.transaction(async trx => {
+  const venda = await trx('vendas').insert(...);
+  await trx('orcamentos').update(...);
+  await trx('entregas').insert(...);
+});
+```
+
+---
+
+## BLOCO CRÍTICO — IDP / AUTENTICAÇÃO REAL (SEGURANÇA)
+
+**Problema:**
+→ apenas verificação simples de token (insuficiente)
+
+**Falta:**
+
+* hash de senha (bcrypt)
+* refresh token
+* RBAC completo (admin / vendedor / logística)
+
+---
+
+## BLOCO CRÍTICO — ESTADO OPERACIONAL (STATUS MACHINE)
+
+**Problema:**
+→ status soltos (strings) sem controle de fluxo
+
+**Falta:**
+
+```javascript
+ORCAMENTO: PENDENTE → APROVADO → VENDIDO
+ENTREGA: PENDENTE → ROTEIRIZADO → EM_ROTA → ENTREGUE
+```
+
+Validação obrigatória:
+→ impedir pular estados
+
+---
+
+## BLOCO CRÍTICO — FILA / PROCESSAMENTO ASSÍNCRONO
+
+**Problema:**
+→ geocoding + rota rodando direto na request (lento / instável)
+
+**Falta:**
+
+* fila (BullMQ / Redis)
+* worker separado
+
+---
+
+## BLOCO CRÍTICO — CACHE DE MAPAS
+
+**Problema:**
+→ custo alto e latência no Google Maps
+
+**Falta:**
+
+```sql
+CREATE TABLE geocode_cache (
+  endereco TEXT PRIMARY KEY,
+  lat NUMERIC,
+  lng NUMERIC
+);
+```
+
+---
+
+## BLOCO CRÍTICO — LOG E OBSERVABILIDADE
+
+**Problema:**
+→ sem rastreabilidade de erro
+
+**Falta:**
+
+* log estruturado (pino / winston)
+* tabela de erros
+* request_id por operação
+
+---
+
+## BLOCO CRÍTICO — VALIDAÇÃO DE INPUT
+
+**Problema:**
+→ sistema aceita dado inválido (quebra cálculo)
+
+**Falta:**
+
+* schema validation (zod ou yup)
+
+---
+
+## BLOCO CRÍTICO — IDOTÊNCIA (ANTI DUPLICAÇÃO)
+
+**Problema:**
+→ clicar 2x “fechar venda” duplica venda
+
+**Falta:**
+
+```javascript
+if (orcamento.status === 'VENDIDO') return;
+```
+
+---
+
+## BLOCO CRÍTICO — VERSIONAMENTO DE PREÇO NO ORÇAMENTO
+
+**Problema:**
+→ preço pode mudar depois da venda
+
+**Falta:**
+→ salvar snapshot no orçamento
+
+```sql
+preco_base
+desconto_aplicado
+valor_final
+```
+
+---
+
+## BLOCO CRÍTICO — AGENDAMENTO REAL DE ENTREGA
+
+**Problema:**
+→ todas entregas caem no mesmo dia automaticamente
+
+**Falta:**
+
+* motor de agenda (capacidade por dia/rota)
+
+---
+
+## BLOCO CRÇA — UI OPERACIONAL (HUD COMPLETO)
+
+**Problema:**
+→ HUD ainda não está conectado ao backend real
+
+**Falta:**
+
+* endpoints de métricas reais
+* atualização em tempo real
+
+---
+
+# CONCLUSÃO
+
+**SIM — faltam blocos críticos.**
+
+Sem esses itens:
+
+→ sistema funciona, mas quebra em produção
+→ risco de erro financeiro, duplicação e falha logística
+
+Com esses itens:
+
+→ sistema vira **infraestrutura operacional robusta nível empresa grande**

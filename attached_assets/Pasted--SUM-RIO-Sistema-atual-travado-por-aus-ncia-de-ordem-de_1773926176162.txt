@@ -1,0 +1,394 @@
+# SUMÁRIO
+
+Sistema atual travado por ausência de ordem de execução, inconsistência no núcleo financeiro e ausência de integração entre módulos.
+
+Solução: **reconstrução controlada do CASTOR OS por pipeline sequencial obrigatório**, onde cada bloco é fechado, validado e somente então libera o próximo.
+
+Resultado: **manual único, definitivo e executável**, contendo arquitetura completa, artefatos reais e ordem de implantação sem ambiguidade.
+
+---
+
+# SOLUÇÃO FINAL
+
+Implantação do sistema completo dividido em **7 BLOCOS ESTRUTURAIS**, com dependência rígida:
+
+```
+[1] MOTOR DE ORÇAMENTO
+[2] NORMALIZAÇÃO NUMÉRICA
+[3] CONVERSÃO DE VENDA
+[4] GERAÇÃO DE ENTREGA
+[5] LOGÍSTICA E ROTEIRIZAÇÃO
+[6] HUD + PERFORMANCE
+[7] DADOS + CRAWLER + INTELIGÊNCIA
+```
+
+Cada bloco contém:
+
+* arquitetura própria
+* artefatos obrigatórios
+* validação operacional
+* travas de consistência
+
+---
+
+# ARQUITETURA
+
+## VISÃO GLOBAL DO SISTEMA
+
+```
+CASTOR OS
+
+FRONTEND (Next.js / React)
+   ↓
+API (Node.js / Express)
+   ↓
+DATABASE (PostgreSQL / Supabase)
+   ↓
+SERVIÇOS
+   ├── Engine de cálculo
+   ├── Engine de vendas
+   ├── Engine logística
+   ├── Engine performance
+   └── Engine crawler
+```
+
+---
+
+## ESTRUTURA FINAL
+
+```
+/app
+ ├── /auth
+ ├── /dashboard
+ │    ├── vendedor
+ │    ├── admin
+ │    └── logistica
+ │
+ ├── /orcamento
+ ├── /vendas
+ ├── /entregas
+ ├── /rotas
+ │
+ ├── /engine
+ │    ├── calc.js
+ │    ├── format.js
+ │    ├── scoring.js
+ │    ├── behavior.js
+ │    └── logistics.js
+ │
+ ├── /api
+ │    ├── fechar-venda.js
+ │    ├── gerar-rota.js
+ │    ├── metrics.js
+ │    └── auth.js
+ │
+ └── /lib
+      ├── db.js
+      └── maps.js
+```
+
+---
+
+# ARTEFATOS
+
+# BLOCO 1 — MOTOR DE ORÇAMENTO (CRÍTICO)
+
+## REGRA CENTRAL
+
+```
+VALOR_BASE → DESCONTO (1x) → VALOR_FINAL → PARCELAMENTO
+```
+
+## IMPLEMENTAÇÃO
+
+```javascript
+// /engine/calc.js
+
+export function calcularDesconto(valorBase, percentual) {
+  return valorBase - (valorBase * (percentual / 100));
+}
+
+export function calcularParcela(valorFinal, parcelas) {
+  return valorFinal / parcelas;
+}
+```
+
+```javascript
+// uso obrigatório
+
+const valorBase = produto.preco_cheio;
+
+const valorFinal = calcularDesconto(valorBase, desconto);
+
+const valorParcela = calcularParcela(valorFinal, parcelas);
+
+const valorPix = valorFinal;
+```
+
+## TRAVA
+
+```javascript
+let descontoAplicado = false;
+
+export function aplicarDescontoSeguro(valor, percentual) {
+  if (descontoAplicado) throw new Error("DESCONTO_DUPLICADO");
+  descontoAplicado = true;
+  return calcularDesconto(valor, percentual);
+}
+```
+
+---
+
+# BLOCO 2 — NORMALIZAÇÃO NUMÉRICA
+
+```javascript
+// /engine/format.js
+
+export function formatarBRL(valor) {
+  return new Intl.NumberFormat('pt-BR', {
+    style: 'currency',
+    currency: 'BRL'
+  }).format(valor);
+}
+
+export function parseValorBR(valor) {
+  return Number(valor.replace(/\./g, '').replace(',', '.'));
+}
+```
+
+---
+
+# BLOCO 3 — CONVERSÃO DE VENDA
+
+```javascript
+// /api/fechar-venda.js
+
+import { v4 as uuid } from 'uuid';
+
+export default async function handler(req, res) {
+  const { orcamento_id } = req.body;
+
+  const orcamento = await db('orcamentos')
+    .where({ id: orcamento_id })
+    .first();
+
+  const venda_id = uuid();
+
+  await db('vendas').insert({
+    id: venda_id,
+    orcamento_id,
+    vendedor_id: orcamento.vendedor_id,
+    valor: orcamento.valor
+  });
+
+  await db('orcamentos')
+    .update({ status: 'VENDIDO' })
+    .where({ id: orcamento_id });
+
+  await criarEntrega(venda_id, orcamento);
+
+  res.json({ ok: true });
+}
+```
+
+---
+
+# BLOCO 4 — GERAÇÃO DE ENTREGA
+
+```sql
+CREATE TABLE entregas (
+  id UUID PRIMARY KEY,
+  venda_id UUID,
+  endereco TEXT,
+  latitude NUMERIC,
+  longitude NUMERIC,
+  status TEXT DEFAULT 'PENDENTE',
+  ordem INT,
+  rota_id UUID
+);
+```
+
+```javascript
+// criação automática
+
+async function criarEntrega(venda_id, orcamento) {
+  const geo = await geocodificar(orcamento.endereco);
+
+  await db('entregas').insert({
+    id: uuid(),
+    venda_id,
+    endereco: orcamento.endereco,
+    latitude: geo.lat,
+    longitude: geo.lng
+  });
+}
+```
+
+---
+
+# BLOCO 5 — LOGÍSTICA E ROTA
+
+```javascript
+// /engine/logistics.js
+
+export async function gerarRota(origem, entregas) {
+  const destinos = entregas.map(e => `${e.latitude},${e.longitude}`);
+
+  const response = await axios.get(
+    'https://maps.googleapis.com/maps/api/directions/json',
+    {
+      params: {
+        origin: origem,
+        destination: destinos[destinos.length - 1],
+        waypoints: `optimize:true|${destinos.join('|')}`,
+        key: process.env.GMAPS_KEY
+      }
+    }
+  );
+
+  return response.data.routes[0];
+}
+```
+
+---
+
+# BLOCO 6 — HUD + PERFORMANCE
+
+```sql
+CREATE TABLE metricas_vendedor (
+  vendedor_id UUID,
+  orcamentos INT,
+  vendas INT,
+  faturamento NUMERIC,
+  conversao NUMERIC,
+  ticket_medio NUMERIC,
+  score NUMERIC
+);
+```
+
+```javascript
+// /engine/scoring.js
+
+export function calcularScore(m) {
+  return (
+    (m.conversao * 0.3) +
+    ((m.faturamento / m.meta) * 0.25) +
+    ((1 / m.tempoResposta) * 0.15) +
+    ((m.followups / m.orcamentos) * 0.10) +
+    ((m.ticket / m.mediaEquipe) * 0.10)
+  );
+}
+```
+
+---
+
+# BLOCO 7 — CRAWLER + INTELIGÊNCIA
+
+```sql
+CREATE TABLE produtos (
+  sku TEXT PRIMARY KEY,
+  nome TEXT,
+  preco_vista NUMERIC,
+  preco_prazo NUMERIC,
+  atualizado_em TIMESTAMP
+);
+
+CREATE TABLE historico_precos (
+  sku TEXT,
+  preco NUMERIC,
+  criado_em TIMESTAMP DEFAULT now()
+);
+```
+
+```sql
+INSERT INTO produtos (sku, nome, preco_vista)
+VALUES ($1,$2,$3)
+ON CONFLICT (sku)
+DO UPDATE SET
+  preco_vista = EXCLUDED.preco_vista,
+  atualizado_em = now();
+```
+
+---
+
+# EXECUÇÃO
+
+## ORDEM ABSOLUTA (SEM QUEBRA)
+
+### ETAPA 1 — ORÇAMENTO
+
+* criar valorBase
+* remover duplicação de desconto
+* validar cálculo
+
+### ETAPA 2 — FORMATAÇÃO
+
+* aplicar formatarBRL global
+* corrigir inputs
+
+### ETAPA 3 — VENDA
+
+* implementar endpoint fechar-venda
+* validar persistência
+
+### ETAPA 4 — ENTREGA
+
+* criar tabela entregas
+* gerar entrega automática
+
+### ETAPA 5 — LOGÍSTICA
+
+* ativar geocoding
+* gerar rota otimizada
+* painel logístico funcional
+
+### ETAPA 6 — HUD
+
+* calcular métricas
+* exibir performance
+* ranking ativo
+
+### ETAPA 7 — CRAWLER
+
+* ativar histórico
+* garantir SKU único
+* integrar com orçamento
+
+---
+
+## TRAVA OPERACIONAL
+
+```
+NÃO AVANÇAR BLOCO
+SEM VALIDAR 100% O ANTERIOR
+```
+
+---
+
+# RESULTADO FINAL
+
+Sistema final operando como:
+
+```
+ORÇAMENTO CORRETO
+→ VENDA AUTOMÁTICA
+→ ENTREGA GERADA
+→ ROTA OTIMIZADA
+→ EXECUÇÃO LOGÍSTICA
+→ MONITORAMENTO DE VENDEDOR
+→ INTELIGÊNCIA DE DADOS
+```
+
+---
+
+# DIAGNÓSTICO FINAL
+
+Problema original:
+→ execução fora de ordem + ausência de núcleo confiável
+
+Correção aplicada:
+→ pipeline sequencial com travas técnicas
+
+Estado após execução:
+→ sistema íntegro, previsível e escalável
+→ operação comercial + logística totalmente integrada
