@@ -271,16 +271,16 @@ export default function Orcamento() {
                 <div className="grid grid-cols-3 gap-3 mb-5">
                   <div className="bg-emerald-50 border border-emerald-200 rounded-2xl p-3 text-center">
                     <p className="text-xs text-emerald-600 font-bold uppercase tracking-wide">PIX Total</p>
-                    <p className="text-lg font-extrabold text-emerald-700 mt-0.5">R$ {quoteResult.totalPix}</p>
+                    <p className="text-lg font-extrabold text-emerald-700 mt-0.5">{quoteResult.totalPix}</p>
                     {descontoPix > 0 && <p className="text-xs text-emerald-500">{descontoPix}% off</p>}
                   </div>
                   <div className="bg-blue-50 border border-blue-200 rounded-2xl p-3 text-center">
                     <p className="text-xs text-blue-600 font-bold uppercase tracking-wide">Prazo Total</p>
-                    <p className="text-lg font-extrabold text-blue-700 mt-0.5">R$ {quoteResult.totalPrazo}</p>
+                    <p className="text-lg font-extrabold text-blue-700 mt-0.5">{quoteResult.totalPrazo}</p>
                   </div>
                   <div className="bg-violet-50 border border-violet-200 rounded-2xl p-3 text-center">
                     <p className="text-xs text-violet-600 font-bold uppercase tracking-wide">12x de</p>
-                    <p className="text-lg font-extrabold text-violet-700 mt-0.5">R$ {quoteResult.parcela12}</p>
+                    <p className="text-lg font-extrabold text-violet-700 mt-0.5">{quoteResult.parcela12}</p>
                   </div>
                 </div>
 

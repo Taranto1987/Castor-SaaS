@@ -204,12 +204,11 @@ async function executarCrawler() {
         seenIds.add(item.id);
         seenSkus.add(item.sku);
 
-        const preco = formatBRL(item.price_range.minimum_price.regular_price.value);
-        const precoFinal = item.price_range.minimum_price.final_price.value;
         const precoRegular = item.price_range.minimum_price.regular_price.value;
+        const preco = formatBRL(precoRegular);
 
-        // Pix = 15% off final price (Castor standard discount)
-        const precoPix = formatBRL(precoFinal * 0.85);
+        // PIX = 15% de desconto sobre o PREÇO CHEIO (nunca sobre preço já descontado)
+        const precoPix = formatBRL(precoRegular * 0.85);
 
         const link = `https://lojacastor.com.br/${item.url_key}`;
         const imagem = item.small_image?.url ?? "";
@@ -228,7 +227,7 @@ async function executarCrawler() {
             sku: item.sku,
             preco,
             precoPix,
-            parcelamento: `12x de ${formatBRL(precoFinal / 12)}`,
+            parcelamento: `12x de ${formatBRL(precoRegular / 12)}`,
             medidas: medidas || null,
             altura: altura || null,
             categoria: categoria.nome,

@@ -12,6 +12,10 @@ function parsarPreco(valor?: string | null): number {
   return isNaN(num) ? 0 : num;
 }
 
+function formatBRL(valor: number): string {
+  return valor.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
+}
+
 router.post("/", async (req, res) => {
   try {
     const { cliente, whatsapp, produtoIds, observacoes, descontoPix = 0 } = req.body;
@@ -77,20 +81,20 @@ router.post("/", async (req, res) => {
 
     if (desconto > 0) {
       linhas.push(`💰 PIX (${desconto}% de desconto)`);
-      linhas.push(`~~R$ ${totalPixBruto.toFixed(2)}~~`);
-      linhas.push(`➡️ R$ ${totalPix.toFixed(2)}`);
+      linhas.push(`~~${formatBRL(totalPixBruto)}~~`);
+      linhas.push(`➡️ ${formatBRL(totalPix)}`);
     } else {
       linhas.push("💰 PIX");
-      linhas.push(`R$ ${totalPix.toFixed(2)}`);
+      linhas.push(formatBRL(totalPix));
     }
 
     linhas.push("");
     linhas.push("💳 Parcelado");
-    linhas.push(`R$ ${totalPrazo.toFixed(2)}`);
+    linhas.push(formatBRL(totalPrazo));
     linhas.push("");
     linhas.push("ou");
     linhas.push("");
-    linhas.push(`12x de R$ ${parcela12.toFixed(2)}`);
+    linhas.push(`12x de ${formatBRL(parcela12)}`);
     linhas.push("");
     linhas.push("━━━━━━━━━━━━━━━━━━━━━━");
 
@@ -110,9 +114,9 @@ router.post("/", async (req, res) => {
 
     res.json({
       texto,
-      totalPix: totalPix.toFixed(2),
-      totalPrazo: totalPrazo.toFixed(2),
-      parcela12: parcela12.toFixed(2),
+      totalPix: formatBRL(totalPix),
+      totalPrazo: formatBRL(totalPrazo),
+      parcela12: formatBRL(parcela12),
       produtos: ordenados.map(p => ({
         id: p.id,
         nome: p.nome,
