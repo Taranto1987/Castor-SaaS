@@ -1,8 +1,9 @@
 import { ReactNode } from "react";
 import { Link, useLocation } from "wouter";
 import { cn } from "@/lib/utils";
-import { FileText, Settings, Search, Clock, BarChart2, Truck, Moon } from "lucide-react";
+import { FileText, Settings, Search, Clock, BarChart2, Truck, Moon, LogOut, User } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
+import { useAuth } from "@/contexts/AuthContext";
 
 interface LayoutProps {
   children: ReactNode;
@@ -10,6 +11,7 @@ interface LayoutProps {
 
 export default function Layout({ children }: LayoutProps) {
   const [location] = useLocation();
+  const { user, logout } = useAuth();
 
   const navItems = [
     { path: "/", label: "Catálogo", icon: Search },
@@ -63,6 +65,23 @@ export default function Layout({ children }: LayoutProps) {
                   </Link>
                 );
               })}
+
+              {/* User badge + logout */}
+              {user && (
+                <div className="flex items-center gap-2 ml-2 pl-3 border-l border-slate-200">
+                  <div className="flex items-center gap-1.5 bg-red-50 border border-red-100 rounded-lg px-3 py-1.5">
+                    <User className="w-3.5 h-3.5 text-red-500" />
+                    <span className="text-xs font-bold text-red-700">{user.nome}</span>
+                  </div>
+                  <button
+                    onClick={logout}
+                    title="Sair"
+                    className="p-2 rounded-lg text-slate-400 hover:text-red-600 hover:bg-red-50 transition-all"
+                  >
+                    <LogOut className="w-4 h-4" />
+                  </button>
+                </div>
+              )}
             </nav>
           </div>
         </div>
@@ -86,7 +105,7 @@ export default function Layout({ children }: LayoutProps) {
 
       {/* Mobile Bottom Navigation */}
       <div className="md:hidden fixed bottom-0 left-0 right-0 glass-panel border-t border-slate-200/50 z-50 pb-safe">
-        <nav className="flex justify-around items-center h-16 px-2">
+        <nav className="flex justify-around items-center h-16 px-1">
           {navItems.map((item) => {
             const isActive = location === item.path;
             return (
@@ -110,6 +129,14 @@ export default function Layout({ children }: LayoutProps) {
               </Link>
             );
           })}
+          {/* Logout mobile */}
+          <button
+            onClick={logout}
+            className="flex flex-col items-center justify-center w-full h-full space-y-1 text-slate-400 hover:text-red-500"
+          >
+            <LogOut className="w-5 h-5" />
+            <span className="text-[10px] font-medium">Sair</span>
+          </button>
         </nav>
       </div>
     </div>

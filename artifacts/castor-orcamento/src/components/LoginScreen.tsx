@@ -1,0 +1,154 @@
+import { useState, useRef, KeyboardEvent } from "react";
+import { motion, AnimatePresence } from "framer-motion";
+import { Lock, Eye, EyeOff, LogIn } from "lucide-react";
+import { useAuth } from "@/contexts/AuthContext";
+
+export default function LoginScreen() {
+  const { login } = useAuth();
+  const [codigo, setCodigo] = useState("");
+  const [mostrar, setMostrar] = useState(false);
+  const [erro, setErro] = useState(false);
+  const [carregando, setCarregando] = useState(false);
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  function handleEntrar() {
+    if (!codigo.trim()) return;
+    setCarregando(true);
+    setErro(false);
+
+    setTimeout(() => {
+      const ok = login(codigo);
+      setCarregando(false);
+      if (!ok) {
+        setErro(true);
+        setCodigo("");
+        inputRef.current?.focus();
+      }
+    }, 600);
+  }
+
+  function handleKey(e: KeyboardEvent<HTMLInputElement>) {
+    if (e.key === "Enter") handleEntrar();
+    if (erro) setErro(false);
+  }
+
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-red-950 to-slate-900 flex flex-col items-center justify-center p-6">
+      {/* Logo + branding */}
+      <motion.div
+        initial={{ opacity: 0, y: -30 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.6 }}
+        className="flex flex-col items-center mb-10"
+      >
+        <div className="bg-white rounded-2xl p-4 shadow-2xl mb-5">
+          <img
+            src="/logo-castor.png"
+            alt="Castor"
+            className="h-14 w-auto object-contain"
+            onError={e => {
+              (e.target as HTMLImageElement).style.display = "none";
+            }}
+          />
+        </div>
+        <p className="text-white/50 text-xs font-semibold tracking-[0.2em] uppercase">
+          Sistema de Gestão Interno
+        </p>
+        <h1 className="text-white text-2xl font-black mt-1 tracking-tight">
+          Castor Cabo Frio
+        </h1>
+      </motion.div>
+
+      {/* Card de login */}
+      <motion.div
+        initial={{ opacity: 0, y: 20, scale: 0.97 }}
+        animate={{ opacity: 1, y: 0, scale: 1 }}
+        transition={{ duration: 0.5, delay: 0.2 }}
+        className="w-full max-w-sm bg-white/5 backdrop-blur-sm border border-white/10 rounded-3xl p-8 shadow-2xl"
+      >
+        <div className="flex items-center gap-3 mb-6">
+          <div className="bg-red-500/20 rounded-xl p-2.5">
+            <Lock className="w-5 h-5 text-red-400" />
+          </div>
+          <div>
+            <p className="text-white font-bold text-base leading-tight">Acesso Restrito</p>
+            <p className="text-white/40 text-xs">Apenas equipe autorizada</p>
+          </div>
+        </div>
+
+        <div className="space-y-4">
+          <div>
+            <label className="text-white/60 text-xs font-semibold uppercase tracking-wider block mb-2">
+              Código de acesso
+            </label>
+            <div className="relative">
+              <input
+                ref={inputRef}
+                type={mostrar ? "text" : "password"}
+                value={codigo}
+                onChange={e => { setCodigo(e.target.value); setErro(false); }}
+                onKeyDown={handleKey}
+                placeholder="Digite seu código"
+                autoFocus
+                className={`w-full bg-white/10 border rounded-xl px-4 py-3.5 text-white placeholder-white/30 text-base font-semibold tracking-widest focus:outline-none transition-all pr-12 ${
+                  erro
+                    ? "border-red-500 bg-red-500/10"
+                    : "border-white/20 focus:border-red-400 focus:bg-white/15"
+                }`}
+              />
+              <button
+                type="button"
+                onClick={() => setMostrar(v => !v)}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-white/40 hover:text-white/70 transition-colors"
+              >
+                {mostrar ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+              </button>
+            </div>
+            <AnimatePresence>
+              {erro && (
+                <motion.p
+                  initial={{ opacity: 0, y: -4 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0 }}
+                  className="text-red-400 text-xs font-semibold mt-2"
+                >
+                  ❌ Código inválido. Tente novamente.
+                </motion.p>
+              )}
+            </AnimatePresence>
+          </div>
+
+          <motion.button
+            whileTap={{ scale: 0.97 }}
+            onClick={handleEntrar}
+            disabled={!codigo.trim() || carregando}
+            className="w-full bg-red-600 hover:bg-red-500 disabled:opacity-50 disabled:cursor-not-allowed text-white font-extrabold py-3.5 rounded-xl flex items-center justify-center gap-2 transition-all text-base shadow-lg shadow-red-900/40"
+          >
+            {carregando ? (
+              <motion.div
+                animate={{ rotate: 360 }}
+                transition={{ duration: 0.8, repeat: Infinity, ease: "linear" }}
+                className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full"
+              />
+            ) : (
+              <>
+                <LogIn className="w-4 h-4" />
+                Entrar no sistema
+              </>
+            )}
+          </motion.button>
+        </div>
+      </motion.div>
+
+      {/* Rodapé */}
+      <motion.p
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        transition={{ delay: 0.8 }}
+        className="mt-8 text-white/20 text-xs text-center"
+      >
+        🔒 Sistema privado · Castor Cabo Frio · Av. Júlia Kubitschek, 64
+      </motion.p>
+    </div>
+  );
+}
