@@ -26,6 +26,8 @@ interface Resultado {
   firmeza: string;
   perfil: string;
   justificativa: string;
+  confianca: number;
+  tecnologias: string[];
   estrategia: { continuidade: boolean; migracao: boolean; upgrade: boolean };
 }
 
@@ -251,24 +253,63 @@ function calcularResultado(p: UserProfile): Resultado {
   };
   const perfil = `${p.biotipo === "pesado" ? "Pessoa pesada" : p.biotipo === "medio" ? "Biotipo médio" : "Pessoa leve"}, ${finalidadeLabel[p.finalidade ?? ""] ?? ""}`;
 
-  // Justificativa
+  // Justificativa técnica com referências científicas
   const justificativas: string[] = [];
-  if (estrutura === "MOLA") {
-    if (p.temperatura === "quente") justificativas.push("colchão de mola tem ventilação superior");
-    if (p.biotipo === "pesado") justificativas.push("suporte estrutural ideal para o seu biotipo");
-    if (p.durabilidade === "longo") justificativas.push("durabilidade excepcional a longo prazo");
-    if (p.casal?.includes("casal")) justificativas.push("excelente independência de movimento para casais");
-  } else {
-    if (dores.length > 0 && !dores.includes("nenhuma")) justificativas.push("alívio de pressão para suas dores");
-    if (p.alergia === "rinite") justificativas.push("material hipoalergênico ideal para rinite");
-    if (p.idade === "acima55") justificativas.push("conforto e maciez adequados para sua faixa etária");
-    if (p.posicao === "lado") justificativas.push("excelente absorção de pressão para quem dorme de lado");
-  }
-  const justificativa = justificativas.length > 0
-    ? justificativas.join(", ") + "."
-    : "perfil equilibrado com boa relação custo-benefício.";
+  const tecnologias: string[] = [];
 
-  return { estrutura, firmeza, perfil, justificativa, estrategia };
+  if (estrutura === "MOLA") {
+    if (p.temperatura === "quente") {
+      justificativas.push("a ventilação natural das molas mantém o corpo na temperatura ideal de 18–22°C para sono REM (Stanford Sleep Center)");
+      tecnologias.push("Fresh Comfort Gel®");
+    }
+    if (p.biotipo === "pesado") {
+      justificativas.push("as molas Tecnopedic® de aço temperado eletronicamente garantem suporte real para seu biotipo, sem afundamento precoce (INER)");
+      tecnologias.push("Molas Tecnopedic®");
+    }
+    if (p.casal?.includes("casal")) {
+      justificativas.push("o sistema Pocket® pré-comprimido elimina a transferência de movimento — se um se mexe, o outro não sente");
+      tecnologias.push("Pocket® Autêntico");
+    }
+    if (p.durabilidade === "longo") {
+      justificativas.push("o sistema Double Face permite girar o colchão, aumentando a vida útil em até 50% — projetado para 10+ anos");
+      tecnologias.push("Double Face");
+    }
+    if (!tecnologias.includes("Pocket® Autêntico")) tecnologias.push("Pocket® Autêntico");
+  } else {
+    if (dores.length > 0 && !dores.includes("nenhuma")) {
+      justificativas.push("firmeza média comprovada como superior para dores lombares e de quadril em estudo publicado pela The Lancet");
+      tecnologias.push("Selo Pró-Espuma INER");
+    }
+    if (p.alergia === "rinite" || p.alergia === "pele") {
+      justificativas.push("o tratamento Actigard® elimina permanentemente ácaros, fungos e bactérias do tecido — essencial para saúde respiratória");
+      tecnologias.push("Actigard® Anti-ácaros");
+    }
+    if (p.posicao === "lado" || p.posicao === "brucos") {
+      justificativas.push("o Pillow Top / Euro Pillow reduz pontos de pressão em ombros e quadris, diminuindo o giro na cama em até 80%");
+      tecnologias.push("Pillow Top");
+    }
+    if (p.idade === "acima55") {
+      justificativas.push("conforto articular certificado pelo INER com densidade real garantida — D33 a D45 sem carga mineral");
+      tecnologias.push("Densidade Real INER");
+    }
+    if (p.temperatura === "quente") {
+      justificativas.push("espuma com células abertas + partículas de gel dissipam o calor corporal durante o sono");
+      tecnologias.push("Fresh Comfort Gel®");
+    }
+    if (tecnologias.length === 0) tecnologias.push("Selo Pró-Espuma INER");
+  }
+
+  const justificativa = justificativas.length > 0
+    ? justificativas.slice(0, 2).join("; ") + "."
+    : "perfil equilibrado com boa relação custo-benefício certificada pelo INER.";
+
+  // Grau de confiança (70–99%) baseado na diferença de pontuação
+  const total = scoreMola + scoreEspuma;
+  const dominant = Math.max(scoreMola, scoreEspuma);
+  const rawConfianca = total === 0 ? 0.75 : dominant / total;
+  const confianca = Math.round(70 + rawConfianca * 29);
+
+  return { estrutura, firmeza, perfil, justificativa, confianca, tecnologias, estrategia };
 }
 
 // ─── MENSAGEM WHATSAPP ───────────────────────────────────────────────────────
@@ -312,7 +353,12 @@ function gerarMensagemWA(p: UserProfile, r: Resultado): string {
 Estrutura recomendada: *${r.estrutura === "MOLA" ? "Mola Ensacada" : "Espuma / Viscoelástico"}*
 Firmeza ideal: *${r.firmeza}*
 
-Quero ver as opções disponíveis e saber o melhor preço! 🛏️`;
+Quero ver as opções disponíveis e saber o melhor preço! 🛏️
+
+💊 *Compatibilidade com meu perfil:* ${r.confianca}%
+🔧 *Tecnologias indicadas:* ${r.tecnologias.join(" · ")}
+
+Também tenho interesse no *kit completo* (protetor de colchão + travesseiro)! 😊`;
 }
 
 // ─── CHAT BUBBLE ─────────────────────────────────────────────────────────────
@@ -345,6 +391,7 @@ export default function MapaSono() {
   const [multiSelect, setMultiSelect] = useState<string[]>([]);
   const [resultado, setResultado] = useState<Resultado | null>(null);
   const [showResult, setShowResult] = useState(false);
+  const [precoCalc, setPrecoCalc] = useState("");
   const bottomRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -459,7 +506,7 @@ export default function MapaSono() {
               >
                 {[
                   { icon: "⭐", label: "5.0 no Google", sub: "Avaliação dos clientes" },
-                  { icon: "🏆", label: "1º ReclameAQUI", sub: "Categoria colchões 2022" },
+                  { icon: "🏆", label: "Campeã ReclameAQUI", sub: "Categoria colchões 2025" },
                   { icon: "🇨🇭", label: "60 anos Castor", sub: "Tecnologia suíça" },
                   { icon: "✅", label: "ISO 9001", sub: "Certificação de qualidade" },
                 ].map((s) => (
@@ -575,16 +622,46 @@ export default function MapaSono() {
                 initial={{ opacity: 0, scale: 0.95 }}
                 animate={{ opacity: 1, scale: 1 }}
                 transition={{ delay: 0.3 }}
-                className="ml-12 bg-gradient-to-br from-red-600 to-red-800 rounded-2xl p-5 text-white shadow-xl mb-4"
+                className="ml-12 bg-gradient-to-br from-red-600 to-red-800 rounded-2xl p-5 text-white shadow-xl mb-3"
               >
-                <p className="text-xs font-bold uppercase tracking-widest opacity-80 mb-1">Estrutura recomendada</p>
-                <p className="text-3xl font-black tracking-tight">{resultado.estrutura === "MOLA" ? "🌀 Mola" : "🧽 Espuma"}</p>
-                <p className="text-sm font-bold opacity-90 mt-1">Firmeza: {resultado.firmeza}</p>
-                <div className="mt-3 pt-3 border-t border-white/20">
+                {/* Confiança */}
+                <div className="flex items-center justify-between mb-3">
+                  <div>
+                    <p className="text-[10px] font-bold uppercase tracking-widest opacity-70">Estrutura recomendada</p>
+                    <p className="text-2xl font-black tracking-tight mt-0.5">{resultado.estrutura === "MOLA" ? "🌀 Mola Ensacada" : "🧽 Espuma / Visco"}</p>
+                    <p className="text-xs font-bold opacity-90 mt-0.5">Firmeza: {resultado.firmeza}</p>
+                  </div>
+                  <div className="text-right shrink-0 ml-3">
+                    <p className="text-3xl font-black">{resultado.confianca}%</p>
+                    <p className="text-[10px] opacity-70 font-semibold leading-tight">compatível<br />com seu perfil</p>
+                  </div>
+                </div>
+
+                {/* Barra de confiança */}
+                <div className="w-full h-1.5 bg-white/20 rounded-full mb-3">
+                  <motion.div
+                    className="h-full bg-white rounded-full"
+                    initial={{ width: 0 }}
+                    animate={{ width: `${resultado.confianca}%` }}
+                    transition={{ delay: 0.6, duration: 0.8 }}
+                  />
+                </div>
+
+                {/* Tecnologias */}
+                <div className="flex flex-wrap gap-1.5 mb-3">
+                  {resultado.tecnologias.map(t => (
+                    <span key={t} className="bg-white/15 text-white text-[10px] font-bold px-2 py-1 rounded-full border border-white/20">
+                      {t}
+                    </span>
+                  ))}
+                </div>
+
+                <div className="pt-3 border-t border-white/20">
                   <p className="text-xs opacity-80 leading-relaxed">
                     <strong>Por quê?</strong> {resultado.justificativa}
                   </p>
                 </div>
+
                 {resultado.estrategia.upgrade && (
                   <div className="mt-2 bg-white/10 rounded-xl px-3 py-2 text-xs font-semibold">
                     🚀 Essa será uma grande evolução no seu sono!
@@ -600,6 +677,32 @@ export default function MapaSono() {
                     ✅ Vamos encontrar a versão ideal para você!
                   </div>
                 )}
+              </motion.div>
+
+              {/* Calculadora: custo por noite */}
+              <motion.div
+                initial={{ opacity: 0, y: 8 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.5 }}
+                className="ml-12 bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 mb-3"
+              >
+                <p className="text-xs font-extrabold text-slate-700 mb-2">💡 Calculadora: quanto custa por noite?</p>
+                <div className="flex items-center gap-2">
+                  <span className="text-xs text-slate-500 font-semibold shrink-0">R$</span>
+                  <input
+                    type="number"
+                    placeholder="valor do colchão"
+                    value={precoCalc}
+                    onChange={e => setPrecoCalc(e.target.value)}
+                    className="flex-1 text-sm border border-slate-200 rounded-lg px-2 py-1.5 focus:outline-none focus:border-red-400 min-w-0"
+                  />
+                  {precoCalc && Number(precoCalc) > 0 && (
+                    <span className="text-xs font-extrabold text-emerald-600 shrink-0">
+                      = R$ {(Number(precoCalc) / 3650).toFixed(2)}/noite
+                    </span>
+                  )}
+                </div>
+                <p className="text-[10px] text-slate-400 mt-1.5">Com base em 10 anos de vida útil (3.650 noites) — durabilidade Castor.</p>
               </motion.div>
 
               <BubbleThalles>
