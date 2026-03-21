@@ -292,9 +292,9 @@ function gerarMensagemWA(p: UserProfile, r: Resultado): string {
     ? p.dores.map(d => ({ coluna: "Costas/coluna", quadril: "Quadril", ombros: "Ombros/pescoço", pressao: "Pressão" }[d] ?? d)).join(", ")
     : "Nenhuma";
 
-  return `Olá! Acabei de preencher o *Mapa do Sono* 🛏️
+  return `Olá, ThallesZzz! 👋 Acabei de preencher o *Mapa do Sono* e quero minha recomendação personalizada!
 
-📋 *Meu perfil:*
+📋 *Meu perfil completo:*
 • Finalidade: ${get("finalidade", p.finalidade)}
 • Biotipo: ${get("biotipo", p.biotipo)}
 • Posição ao dormir: ${get("posicao", p.posicao)}
@@ -308,11 +308,11 @@ function gerarMensagemWA(p: UserProfile, r: Resultado): string {
 • Durabilidade esperada: ${get("durabilidade", p.durabilidade)}
 • Histórico: ${get("historico", p.historico)}
 
-🎯 *Resultado do Mapa:*
-Estrutura recomendada: *${r.estrutura}*
-Firmeza: *${r.firmeza}*
+🎯 *Resultado do Mapa do Sono:*
+Estrutura recomendada: *${r.estrutura === "MOLA" ? "Mola Ensacada" : "Espuma / Viscoelástico"}*
+Firmeza ideal: *${r.firmeza}*
 
-Quero atendimento e recomendação personalizada! 😊`;
+Quero ver as opções disponíveis e saber o melhor preço! 🛏️`;
 }
 
 // ─── CHAT BUBBLE ─────────────────────────────────────────────────────────────
@@ -446,15 +446,54 @@ export default function MapaSono() {
             <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
               <BubbleThalles>
                 Olá! Eu sou o <strong>Especialista ThallesZzz</strong> 👋<br /><br />
-                Vou te ajudar a descobrir qual é o colchão <strong>ideal para o seu corpo</strong>, com base no seu perfil de sono.<br /><br />
-                São só 13 perguntinhas rápidas — sem texto, só cliques!
+                Aqui na <strong>Castor Cabo Frio</strong> a gente não vende colchão — a gente resolve o problema do seu sono.<br /><br />
+                Me responde 13 perguntinhas rápidas (só cliques!) e eu descubro qual colchão é <strong>feito para o seu corpo</strong>.
               </BubbleThalles>
+
+              {/* Selos de autoridade */}
+              <motion.div
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.3 }}
+                className="ml-12 grid grid-cols-2 gap-2 mb-3"
+              >
+                {[
+                  { icon: "⭐", label: "5.0 no Google", sub: "Avaliação dos clientes" },
+                  { icon: "🏆", label: "1º ReclameAQUI", sub: "Categoria colchões 2022" },
+                  { icon: "🇨🇭", label: "60 anos Castor", sub: "Tecnologia suíça" },
+                  { icon: "✅", label: "ISO 9001", sub: "Certificação de qualidade" },
+                ].map((s) => (
+                  <div key={s.label} className="bg-white border border-slate-200 rounded-xl px-3 py-2 shadow-sm">
+                    <p className="text-base">{s.icon} <span className="font-extrabold text-slate-800 text-xs">{s.label}</span></p>
+                    <p className="text-[10px] text-slate-400 leading-tight">{s.sub}</p>
+                  </div>
+                ))}
+              </motion.div>
+
+              {/* Depoimentos reais */}
+              <motion.div
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.5 }}
+                className="ml-12 space-y-2 mb-4"
+              >
+                {[
+                  { texto: "\"Não sinto mais dores na coluna desde que comprei aqui. Atendimento nota 10!\"", autor: "— Cliente Google ⭐⭐⭐⭐⭐" },
+                  { texto: "\"Thalles super atencioso, entrega foi rápida e o colchão é incrível.\"", autor: "— Cliente Google ⭐⭐⭐⭐⭐" },
+                  { texto: "\"Atendimento humanizado faz toda diferença. Recomendo demais!\"", autor: "— Cliente Google ⭐⭐⭐⭐⭐" },
+                ].map((d, i) => (
+                  <div key={i} className="bg-slate-50 border border-slate-100 rounded-xl px-3 py-2">
+                    <p className="text-xs text-slate-700 italic leading-relaxed">{d.texto}</p>
+                    <p className="text-[10px] text-slate-400 font-semibold mt-1">{d.autor}</p>
+                  </div>
+                ))}
+              </motion.div>
 
               <div className="flex justify-end mb-4">
                 <motion.button
                   initial={{ opacity: 0, scale: 0.9 }}
                   animate={{ opacity: 1, scale: 1 }}
-                  transition={{ delay: 0.5 }}
+                  transition={{ delay: 0.7 }}
                   onClick={() => setStepIndex(0)}
                   className="flex items-center gap-2 bg-red-600 text-white font-bold px-5 py-3 rounded-2xl rounded-br-sm shadow-md hover:bg-red-700 active:scale-95 transition-all text-sm"
                 >
@@ -564,22 +603,67 @@ export default function MapaSono() {
               </motion.div>
 
               <BubbleThalles>
-                Posso te mostrar agora as opções que temos em estoque com o seu perfil — e <strong>entrega mais barata que o site</strong>! 😉<br /><br />
-                Chama eu no WhatsApp que te atendo na hora!
+                Posso te mostrar agora as opções que temos em estoque com o seu perfil. 🛏️<br /><br />
+                E <strong>entrega mais barata que o site</strong> — a gente faz o preço na hora! 😉
               </BubbleThalles>
+
+              {/* Gatilhos pós-resultado */}
+              <motion.div
+                initial={{ opacity: 0, y: 8 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.4 }}
+                className="ml-12 grid grid-cols-3 gap-2 mb-3"
+              >
+                {[
+                  { icon: "🚚", label: "Entrega rápida" },
+                  { icon: "📦", label: "Pronta entrega" },
+                  { icon: "💳", label: "12x sem juros" },
+                ].map(g => (
+                  <div key={g.label} className="bg-emerald-50 border border-emerald-100 rounded-xl px-2 py-2 text-center">
+                    <p className="text-lg">{g.icon}</p>
+                    <p className="text-[10px] font-bold text-emerald-700 leading-tight">{g.label}</p>
+                  </div>
+                ))}
+              </motion.div>
+
+              {/* Endereço */}
+              <motion.div
+                initial={{ opacity: 0, y: 8 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.6 }}
+                className="ml-12 mb-4"
+              >
+                <a
+                  href="https://maps.app.goo.gl/UuF6w1nAvTgXockS6"
+                  target="_blank"
+                  rel="noreferrer"
+                  className="flex items-start gap-2 bg-white border border-slate-200 rounded-xl px-3 py-3 shadow-sm hover:border-red-300 transition-all group"
+                >
+                  <span className="text-xl mt-0.5">📍</span>
+                  <div>
+                    <p className="text-xs font-bold text-slate-800 group-hover:text-red-600 transition-colors">Av. Júlia Kubitschek, 64</p>
+                    <p className="text-[10px] text-slate-500">Jardim Flamboyant · Cabo Frio - RJ</p>
+                    <p className="text-[10px] text-blue-500 font-semibold mt-0.5">Ver no Google Maps →</p>
+                  </div>
+                </a>
+              </motion.div>
 
               {/* CTAs */}
               <div className="pl-12 flex flex-col gap-2 mt-2">
-                <button
+                <motion.button
+                  initial={{ opacity: 0, scale: 0.95 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  transition={{ delay: 0.8 }}
                   onClick={abrirWhatsApp}
                   className="flex items-center justify-center gap-2 bg-green-500 text-white font-extrabold px-5 py-4 rounded-2xl shadow-lg hover:bg-green-600 active:scale-95 transition-all text-base"
                 >
                   <MessageCircle className="w-5 h-5" />
-                  Falar com ThallesZzz no WhatsApp
-                </button>
+                  Falar com ThallesZzz agora
+                </motion.button>
+                <p className="text-center text-[10px] text-slate-400">Você já vai chegar com seu perfil completo — atendimento instantâneo!</p>
                 <button
                   onClick={reiniciar}
-                  className="flex items-center justify-center gap-2 bg-white text-slate-600 font-semibold border border-slate-200 px-5 py-3 rounded-2xl text-sm hover:bg-slate-50 active:scale-95 transition-all"
+                  className="flex items-center justify-center gap-2 bg-white text-slate-500 font-semibold border border-slate-200 px-5 py-3 rounded-2xl text-sm hover:bg-slate-50 active:scale-95 transition-all"
                 >
                   <RotateCcw className="w-4 h-4" />
                   Refazer o mapa
