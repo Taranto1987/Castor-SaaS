@@ -10,6 +10,7 @@ import Historico from "@/pages/Historico";
 import Crawler from "@/pages/Crawler";
 import Dashboard from "@/pages/Dashboard";
 import Logistica from "@/pages/Logistica";
+import MapaSono from "@/pages/MapaSono";
 import NotFound from "@/pages/not-found";
 
 const queryClient = new QueryClient({
@@ -31,6 +32,7 @@ function Router() {
         <Route path="/historico" component={Historico} />
         <Route path="/dashboard" component={Dashboard} />
         <Route path="/logistica" component={Logistica} />
+        <Route path="/mapa-sono" component={MapaSono} />
         <Route path="/crawler" component={Crawler} />
         <Route component={NotFound} />
       </Switch>

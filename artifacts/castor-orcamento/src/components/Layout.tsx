@@ -1,7 +1,7 @@
 import { ReactNode } from "react";
 import { Link, useLocation } from "wouter";
 import { cn } from "@/lib/utils";
-import { FileText, Settings, Search, Clock, BarChart2, Truck } from "lucide-react";
+import { FileText, Settings, Search, Clock, BarChart2, Truck, Moon } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 
 interface LayoutProps {
@@ -17,6 +17,7 @@ export default function Layout({ children }: LayoutProps) {
     { path: "/historico", label: "Histórico", icon: Clock },
     { path: "/logistica", label: "Logística", icon: Truck },
     { path: "/dashboard", label: "Dashboard", icon: BarChart2 },
+    { path: "/mapa-sono", label: "Mapa do Sono", icon: Moon },
     { path: "/crawler", label: "Atualizar BD", icon: Settings },
   ];
 
