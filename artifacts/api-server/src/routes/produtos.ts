@@ -5,31 +5,33 @@ import { ilike, or, eq } from "drizzle-orm";
 
 const router: IRouter = Router();
 
+function mapProduto(p: typeof produtosTable.$inferSelect) {
+  return {
+    id: p.id,
+    nome: p.nome,
+    sku: p.sku,
+    preco: p.preco,
+    precoPix: p.precoPix,
+    parcelamento: p.parcelamento,
+    medidas: p.medidas,
+    altura: p.altura,
+    categoria: p.categoria,
+    imagem: p.imagem,
+    link: p.link,
+    disponivel: p.disponivel,
+    criadoEm: p.criadoEm,
+  };
+}
+
 router.get("/", async (req, res) => {
   try {
     const { categoria, limite } = req.query;
-    let query = db.select().from(produtosTable);
-
     const results = await db
       .select()
       .from(produtosTable)
       .where(categoria ? eq(produtosTable.categoria, categoria as string) : undefined)
       .limit(limite ? parseInt(limite as string) : 100);
-
-    res.json(results.map(p => ({
-      id: p.id,
-      nome: p.nome,
-      sku: p.sku,
-      preco: p.preco,
-      precoPix: p.precoPix,
-      parcelamento: p.parcelamento,
-      medidas: p.medidas,
-      altura: p.altura,
-      categoria: p.categoria,
-      imagem: p.imagem,
-      link: p.link,
-      criadoEm: p.criadoEm,
-    })));
+    res.json(results.map(mapProduto));
   } catch (error) {
     console.error("Erro ao listar produtos:", error);
     res.status(500).json({ error: "Erro interno" });
@@ -80,22 +82,32 @@ router.get("/buscar", async (req, res) => {
       results = await db.select().from(produtosTable).where(and(...allConds)).limit(80);
     }
 
-    res.json(results.map(p => ({
-      id: p.id,
-      nome: p.nome,
-      sku: p.sku,
-      preco: p.preco,
-      precoPix: p.precoPix,
-      parcelamento: p.parcelamento,
-      medidas: p.medidas,
-      altura: p.altura,
-      categoria: p.categoria,
-      imagem: p.imagem,
-      link: p.link,
-      criadoEm: p.criadoEm,
-    })));
+    res.json(results.map(mapProduto));
   } catch (error) {
     console.error("Erro ao buscar produtos:", error);
+    res.status(500).json({ error: "Erro interno" });
+  }
+});
+
+router.patch("/:id/disponibilidade", async (req, res) => {
+  try {
+    const id = parseInt(req.params.id);
+    const { disponivel } = req.body;
+    if (typeof disponivel !== "boolean") {
+      res.status(400).json({ error: "Campo disponivel (boolean) obrigatório" });
+      return;
+    }
+    const updated = await db.update(produtosTable)
+      .set({ disponivel })
+      .where(eq(produtosTable.id, id))
+      .returning();
+    if (updated.length === 0) {
+      res.status(404).json({ error: "Produto não encontrado" });
+      return;
+    }
+    res.json(mapProduto(updated[0]));
+  } catch (error) {
+    console.error("Erro ao atualizar disponibilidade:", error);
     res.status(500).json({ error: "Erro interno" });
   }
 });
@@ -107,28 +119,12 @@ router.get("/:id", async (req, res) => {
       res.status(400).json({ error: "ID inválido" });
       return;
     }
-
     const results = await db.select().from(produtosTable).where(eq(produtosTable.id, id)).limit(1);
     if (results.length === 0) {
       res.status(404).json({ error: "Produto não encontrado" });
       return;
     }
-
-    const p = results[0];
-    res.json({
-      id: p.id,
-      nome: p.nome,
-      sku: p.sku,
-      preco: p.preco,
-      precoPix: p.precoPix,
-      parcelamento: p.parcelamento,
-      medidas: p.medidas,
-      altura: p.altura,
-      categoria: p.categoria,
-      imagem: p.imagem,
-      link: p.link,
-      criadoEm: p.criadoEm,
-    });
+    res.json(mapProduto(results[0]));
   } catch (error) {
     console.error("Erro ao buscar produto:", error);
     res.status(500).json({ error: "Erro interno" });

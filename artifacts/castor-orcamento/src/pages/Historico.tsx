@@ -72,10 +72,10 @@ function ItemCard({ item }: { item: HistoricoItem }) {
               <Package className="w-3 h-3" />{produtos.length} {produtos.length === 1 ? "produto" : "produtos"}
             </span>
             {item.totalPix && (
-              <span className="text-emerald-600 font-bold">PIX R$ {item.totalPix}</span>
+              <span className="text-emerald-600 font-bold">PIX {item.totalPix}</span>
             )}
             {item.totalPrazo && (
-              <span className="text-blue-600 font-bold">Prazo R$ {item.totalPrazo}</span>
+              <span className="text-blue-600 font-bold">Prazo {item.totalPrazo}</span>
             )}
             {item.descontoPix && item.descontoPix > 0 ? (
               <span className="bg-emerald-100 text-emerald-700 px-1.5 py-0.5 rounded-md font-bold">

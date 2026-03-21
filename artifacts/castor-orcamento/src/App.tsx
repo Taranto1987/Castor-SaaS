@@ -8,6 +8,8 @@ import Home from "@/pages/Home";
 import Orcamento from "@/pages/Orcamento";
 import Historico from "@/pages/Historico";
 import Crawler from "@/pages/Crawler";
+import Dashboard from "@/pages/Dashboard";
+import Logistica from "@/pages/Logistica";
 import NotFound from "@/pages/not-found";
 
 const queryClient = new QueryClient({
@@ -27,6 +29,8 @@ function Router() {
         <Route path="/" component={Home} />
         <Route path="/orcamento" component={Orcamento} />
         <Route path="/historico" component={Historico} />
+        <Route path="/dashboard" component={Dashboard} />
+        <Route path="/logistica" component={Logistica} />
         <Route path="/crawler" component={Crawler} />
         <Route component={NotFound} />
       </Switch>
