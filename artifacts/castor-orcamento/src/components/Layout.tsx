@@ -14,12 +14,11 @@ export default function Layout({ children }: LayoutProps) {
   const { user, logout } = useAuth();
 
   const navItems = [
-    { path: "/", label: "Catálogo", icon: Search },
+    { path: "/equipe", label: "Catálogo", icon: Search },
     { path: "/orcamento", label: "Orçamento", icon: FileText },
     { path: "/historico", label: "Histórico", icon: Clock },
     { path: "/logistica", label: "Logística", icon: Truck },
     { path: "/dashboard", label: "Dashboard", icon: BarChart2 },
-    { path: "/mapa-sono", label: "Mapa do Sono", icon: Moon },
     { path: "/crawler", label: "Atualizar BD", icon: Settings },
   ];
 

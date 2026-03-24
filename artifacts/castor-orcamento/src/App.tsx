@@ -1,50 +1,69 @@
-import { Switch, Route, Router as WouterRouter } from "wouter";
+import { Switch, Route, Router as WouterRouter, useLocation, Redirect } from "wouter";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 
 import { AuthProvider, useAuth } from "@/contexts/AuthContext";
 import LoginScreen from "@/components/LoginScreen";
+import PublicLayout from "@/components/PublicLayout";
 import Layout from "@/components/Layout";
+
+// Public pages
+import Landing from "@/pages/Landing";
+import Catalogo from "@/pages/Catalogo";
+import MapaSono from "@/pages/MapaSono";
+
+// Private pages
 import Home from "@/pages/Home";
 import Orcamento from "@/pages/Orcamento";
 import Historico from "@/pages/Historico";
 import Crawler from "@/pages/Crawler";
 import Dashboard from "@/pages/Dashboard";
 import Logistica from "@/pages/Logistica";
-import MapaSono from "@/pages/MapaSono";
 import NotFound from "@/pages/not-found";
 
 const queryClient = new QueryClient({
   defaultOptions: {
-    queries: {
-      refetchOnWindowFocus: false,
-      staleTime: 5 * 60 * 1000,
-      retry: 1
-    },
+    queries: { refetchOnWindowFocus: false, staleTime: 5 * 60 * 1000, retry: 1 },
   },
 });
 
-function Router() {
+// ── Wraps private pages: shows Login if not authenticated ──────────────────
+function PrivateRoute({ component: Component }: { component: React.ComponentType }) {
+  const { isAuthenticated } = useAuth();
+  if (!isAuthenticated) return <LoginScreen />;
   return (
     <Layout>
-      <Switch>
-        <Route path="/" component={Home} />
-        <Route path="/orcamento" component={Orcamento} />
-        <Route path="/historico" component={Historico} />
-        <Route path="/dashboard" component={Dashboard} />
-        <Route path="/logistica" component={Logistica} />
-        <Route path="/mapa-sono" component={MapaSono} />
-        <Route path="/crawler" component={Crawler} />
-        <Route component={NotFound} />
-      </Switch>
+      <Component />
     </Layout>
   );
 }
 
-function AppGate() {
-  const { isAuthenticated } = useAuth();
-  return isAuthenticated ? <Router /> : <LoginScreen />;
+function AppRoutes() {
+  return (
+    <Switch>
+      {/* ── PUBLIC ─────────────────────────────────────────────────────── */}
+      <Route path="/">
+        <PublicLayout><Landing /></PublicLayout>
+      </Route>
+      <Route path="/catalogo">
+        <PublicLayout><Catalogo /></PublicLayout>
+      </Route>
+      <Route path="/mapa-sono">
+        <PublicLayout><MapaSono /></PublicLayout>
+      </Route>
+
+      {/* ── PRIVATE ────────────────────────────────────────────────────── */}
+      <Route path="/equipe"      component={() => <PrivateRoute component={Home} />} />
+      <Route path="/orcamento"   component={() => <PrivateRoute component={Orcamento} />} />
+      <Route path="/historico"   component={() => <PrivateRoute component={Historico} />} />
+      <Route path="/dashboard"   component={() => <PrivateRoute component={Dashboard} />} />
+      <Route path="/logistica"   component={() => <PrivateRoute component={Logistica} />} />
+      <Route path="/crawler"     component={() => <PrivateRoute component={Crawler} />} />
+
+      <Route component={NotFound} />
+    </Switch>
+  );
 }
 
 function App() {
@@ -53,7 +72,7 @@ function App() {
       <TooltipProvider>
         <AuthProvider>
           <WouterRouter base={import.meta.env.BASE_URL.replace(/\/$/, "")}>
-            <AppGate />
+            <AppRoutes />
           </WouterRouter>
           <Toaster />
         </AuthProvider>
