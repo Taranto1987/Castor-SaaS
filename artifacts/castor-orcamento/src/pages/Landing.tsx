@@ -1,6 +1,8 @@
+import { useState } from "react";
 import { motion } from "framer-motion";
 import { Link } from "wouter";
 import { MessageCircle, Star, MapPin, ChevronRight, Moon, Shield, Zap, Wind, RotateCcw, Award } from "lucide-react";
+import MapaSonoModal from "@/components/MapaSonoModal";
 
 const WHATSAPP = "https://wa.me/5522992410112?text=Olá! Vi o site da Castor Cabo Frio e quero saber mais sobre os colchões!";
 const MAPS = "https://maps.app.goo.gl/UuF6w1nAvTgXockS6";
@@ -15,6 +17,8 @@ const fade = (delay = 0) => ({
 const REGIOES = ["Cabo Frio", "Búzios", "Arraial do Cabo", "São Pedro da Aldeia", "Araruama", "Iguaba Grande", "Saquarema"];
 
 export default function Landing() {
+  const [showMapa, setShowMapa] = useState(false);
+
   return (
     <div className="overflow-x-hidden">
 
@@ -53,10 +57,10 @@ export default function Landing() {
               </motion.div>
 
               <motion.div {...fade(0.3)} className="flex flex-col sm:flex-row gap-3 justify-center md:justify-start">
-                <Link href="/mapa-sono" className="flex items-center justify-center gap-2 bg-red-600 hover:bg-red-500 text-white font-extrabold px-7 py-4 rounded-2xl transition-all shadow-xl shadow-red-900/40 active:scale-95 text-base">
+                <button onClick={() => setShowMapa(true)} className="flex items-center justify-center gap-2 bg-red-600 hover:bg-red-500 text-white font-extrabold px-7 py-4 rounded-2xl transition-all shadow-xl shadow-red-900/40 active:scale-95 text-base">
                   <Moon className="w-5 h-5" />
                   Descobrir meu colchão ideal
-                </Link>
+                </button>
                 <Link href="/catalogo" className="flex items-center justify-center gap-2 bg-white/10 hover:bg-white/20 border border-white/20 text-white font-bold px-7 py-4 rounded-2xl transition-all text-base">
                   Ver catálogo <ChevronRight className="w-4 h-4" />
                 </Link>
@@ -124,9 +128,9 @@ export default function Landing() {
               </motion.p>
             </div>
             <motion.div {...fade(0.3)} className="flex-shrink-0">
-              <Link href="/mapa-sono" className="flex items-center gap-2 bg-white text-red-700 font-extrabold px-7 py-4 rounded-2xl shadow-xl hover:bg-red-50 transition-all active:scale-95 text-base whitespace-nowrap">
+              <button onClick={() => setShowMapa(true)} className="flex items-center gap-2 bg-white text-red-700 font-extrabold px-7 py-4 rounded-2xl shadow-xl hover:bg-red-50 transition-all active:scale-95 text-base whitespace-nowrap">
                 <Moon className="w-5 h-5" /> Fazer o mapa agora
-              </Link>
+              </button>
             </motion.div>
           </div>
         </div>
@@ -296,6 +300,9 @@ export default function Landing() {
         <MessageCircle className="w-5 h-5" />
         <span className="text-sm hidden sm:inline">WhatsApp</span>
       </a>
+
+      {/* ── MODAL MAPA DO SONO ─────────────────────────────────────────────── */}
+      <MapaSonoModal open={showMapa} onClose={() => setShowMapa(false)} />
     </div>
   );
 }
