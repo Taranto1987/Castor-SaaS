@@ -68,6 +68,7 @@ export interface HistoricoItem {
   totalPrazo?: string;
   texto: string;
   vendedor?: string;
+  status?: string;
   criadoEm?: string;
 }
 

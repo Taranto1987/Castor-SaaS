@@ -1,7 +1,7 @@
 import { Router, type IRouter } from "express";
 import { db } from "@workspace/db";
-import { produtosTable, orcamentosTable } from "@workspace/db/schema";
-import { inArray, desc } from "drizzle-orm";
+import { produtosTable, orcamentosTable, entregasTable } from "@workspace/db/schema";
+import { inArray, desc, eq } from "drizzle-orm";
 
 const router: IRouter = Router();
 
@@ -157,6 +157,7 @@ router.post("/salvar", async (req, res) => {
       totalPrazo: totalPrazo || null,
       texto,
       vendedor: vendedor || null,
+      status: "pendente",
     }).returning();
 
     res.json({ id: inserted[0].id, mensagem: "Orçamento salvo com sucesso!" });
@@ -168,10 +169,54 @@ router.post("/salvar", async (req, res) => {
 
 router.get("/historico", async (req, res) => {
   try {
-    const historico = await db.select().from(orcamentosTable).orderBy(desc(orcamentosTable.criadoEm)).limit(50);
+    const historico = await db.select().from(orcamentosTable).orderBy(desc(orcamentosTable.criadoEm)).limit(100);
     res.json(historico);
   } catch (error) {
     console.error("Erro ao buscar histórico:", error);
+    res.status(500).json({ error: "Erro interno" });
+  }
+});
+
+// ── Fechar venda: marca orçamento como vendido e cria entrega ──────────────
+router.post("/:id/fechar", async (req, res) => {
+  try {
+    const id = parseInt(req.params.id);
+    const { endereco, observacoes, dataEntrega } = req.body;
+
+    if (!id || isNaN(id)) {
+      res.status(400).json({ error: "ID inválido" });
+      return;
+    }
+
+    const [orc] = await db.select().from(orcamentosTable).where(eq(orcamentosTable.id, id));
+    if (!orc) {
+      res.status(404).json({ error: "Orçamento não encontrado" });
+      return;
+    }
+
+    await db.update(orcamentosTable)
+      .set({ status: "vendido" })
+      .where(eq(orcamentosTable.id, id));
+
+    const produtos = Array.isArray(orc.produtosJson)
+      ? (orc.produtosJson as any[]).map((p: any) => p.nome).filter(Boolean).join(", ")
+      : "";
+
+    const [entrega] = await db.insert(entregasTable).values({
+      orcamentoId: id,
+      cliente: orc.cliente,
+      whatsapp: orc.whatsapp || null,
+      endereco: endereco || null,
+      produtos: produtos || null,
+      vendedor: orc.vendedor || null,
+      status: "pendente",
+      observacoes: observacoes || null,
+      dataEntrega: dataEntrega || null,
+    }).returning();
+
+    res.json({ mensagem: "Venda fechada! Entrega criada.", entregaId: entrega.id });
+  } catch (error) {
+    console.error("Erro ao fechar venda:", error);
     res.status(500).json({ error: "Erro interno" });
   }
 });

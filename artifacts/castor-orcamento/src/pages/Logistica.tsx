@@ -221,8 +221,12 @@ function ordenarPorRota(entregas: Entrega[]): Entrega[] {
   });
 }
 
-function gerarUrlMaps(paradas: Entrega[]): string {
-  const ORIGEM = encodeURIComponent("Av. Júlia Kubitschek, 64, Cabo Frio, RJ");
+const ORIGEM_CABO_FRIO = "Av. Júlia Kubitschek, 64, Cabo Frio, RJ";
+const ORIGEM_ARARUAMA  = "Av. dos Cearenses, Araruama, RJ";
+
+function gerarUrlMaps(paradas: Entrega[], operacao: string = "cabo_frio"): string {
+  const origemStr = operacao === "araruama" ? ORIGEM_ARARUAMA : ORIGEM_CABO_FRIO;
+  const ORIGEM = encodeURIComponent(origemStr);
   const stops = paradas
     .filter(e => e.endereco?.trim())
     .map(e => encodeURIComponent(`${e.endereco}, ${detectarCidade(e.endereco || "")}, RJ`));
@@ -234,9 +238,11 @@ function gerarUrlMaps(paradas: Entrega[]): string {
 }
 
 function RoteiroPedro({ entregas }: { entregas: Entrega[] }) {
+  const { colaborador } = useAuth();
+  const operacao = colaborador?.operacao ?? "cabo_frio";
   const ativas = entregas.filter(e => e.status === "pendente" || e.status === "em_rota");
   const ordenadas = ordenarPorRota(ativas);
-  const mapsUrl = gerarUrlMaps(ordenadas);
+  const mapsUrl = gerarUrlMaps(ordenadas, operacao);
 
   const porCidade = ORDEM_CIDADES.map(c => ({
     ...c,

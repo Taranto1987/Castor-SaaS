@@ -15,16 +15,23 @@ function parseBRL(valor?: string | null): number {
 router.get("/", async (_req, res) => {
   try {
     const [orcamentos, totalProdutos, entregas] = await Promise.all([
-      db.select().from(orcamentosTable).orderBy(desc(orcamentosTable.criadoEm)).limit(200),
+      db.select().from(orcamentosTable).orderBy(desc(orcamentosTable.criadoEm)).limit(500),
       db.select({ count: sql<number>`count(*)` }).from(produtosTable),
       db.select().from(entregasTable),
     ]);
 
     const totalOrcamentos = orcamentos.length;
+    const vendidos = orcamentos.filter(o => o.status === "vendido");
+    const totalVendas = vendidos.length;
+    const taxaConversao = totalOrcamentos > 0
+      ? Math.round((totalVendas / totalOrcamentos) * 100)
+      : 0;
+
     let somaPixTotal = 0;
     let somaPrazoTotal = 0;
+    let somaPixVendido = 0;
 
-    const contagemVendedor: Record<string, { orcamentos: number; valorPix: number }> = {};
+    const contagemVendedor: Record<string, { orcamentos: number; valorPix: number; vendas: number }> = {};
     const contagemProdutos: Record<string, number> = {};
 
     for (const orc of orcamentos) {
@@ -33,10 +40,13 @@ router.get("/", async (_req, res) => {
       somaPixTotal += pix;
       somaPrazoTotal += prazo;
 
+      if (orc.status === "vendido") somaPixVendido += pix;
+
       const vendedor = orc.vendedor || "Sem vendedor";
-      if (!contagemVendedor[vendedor]) contagemVendedor[vendedor] = { orcamentos: 0, valorPix: 0 };
+      if (!contagemVendedor[vendedor]) contagemVendedor[vendedor] = { orcamentos: 0, valorPix: 0, vendas: 0 };
       contagemVendedor[vendedor].orcamentos++;
       contagemVendedor[vendedor].valorPix += pix;
+      if (orc.status === "vendido") contagemVendedor[vendedor].vendas++;
 
       const produtos = Array.isArray(orc.produtosJson) ? orc.produtosJson as any[] : [];
       for (const p of produtos) {
@@ -83,8 +93,11 @@ router.get("/", async (_req, res) => {
 
     res.json({
       totalOrcamentos,
+      totalVendas,
+      taxaConversao,
       somaPixTotal: somaPixTotal.toLocaleString("pt-BR", { style: "currency", currency: "BRL" }),
       somaPrazoTotal: somaPrazoTotal.toLocaleString("pt-BR", { style: "currency", currency: "BRL" }),
+      somaPixVendido: somaPixVendido.toLocaleString("pt-BR", { style: "currency", currency: "BRL" }),
       totalProdutosCatalogo: Number(totalProdutos[0]?.count ?? 0),
       topProdutos,
       porVendedor,

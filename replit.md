@@ -22,7 +22,7 @@ pnpm workspace monorepo usando TypeScript. Cada pacote gerencia suas próprias d
 ## Funcionalidades
 
 ### Público (sem login)
-- `/` — Landing page: hero "Não vendemos colchão. Resolvemos o seu sono.", 7 cidades da Região dos Lagos, tecnologias Castor, depoimentos Google, categorias
+- `/` — Landing page: hero "Não vendemos colchão. Resolvemos o seu sono.", 7 cidades, tecnologias Castor, depoimentos Google, categorias. **WhatsApp inteligente**: detecta cidade do visitante via IP geolocation (ipapi.co) e direciona para o número correto (Araruama → Nete, outros → Thalles)
 - `/catalogo` — Catálogo público com WhatsApp CTA
 - `/mapa-sono` — Quiz de diagnóstico do sono (13 perguntas, recomendação personalizada com badges de tecnologia + custo por noite + link WhatsApp)
 

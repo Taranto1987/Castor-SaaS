@@ -11,6 +11,7 @@ export const orcamentosTable = pgTable("orcamentos", {
   totalPrazo: text("total_prazo"),
   texto: text("texto").notNull(),
   vendedor: text("vendedor"),
+  status: text("status").notNull().default("pendente"),
   criadoEm: timestamp("criado_em").defaultNow(),
 });
 

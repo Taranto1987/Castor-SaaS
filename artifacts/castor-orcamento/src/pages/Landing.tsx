@@ -1,11 +1,41 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
 import { Link } from "wouter";
 import { MessageCircle, Star, MapPin, ChevronRight, Moon, Shield, Zap, Wind, RotateCcw, Award, BedDouble, Package, Box, Layers, Sparkles } from "lucide-react";
 import MapaSonoModal from "@/components/MapaSonoModal";
 
-const WHATSAPP = "https://wa.me/5522992410112?text=Olá! Vi o site da Castor Cabo Frio e quero saber mais sobre os colchões!";
-const MAPS = "https://maps.app.goo.gl/UuF6w1nAvTgXockS6";
+const WA_CABO_FRIO  = { numero: "5522992410112", loja: "Cabo Frio", contato: "ThallesZzz", tel: "(22) 99241-0112" };
+const WA_ARARUAMA   = { numero: "5522988249183", loja: "Araruama",  contato: "Nete",       tel: "(22) 98824-9183" };
+
+const MAPS_CABO_FRIO = "https://maps.app.goo.gl/UuF6w1nAvTgXockS6";
+const MAPS_ARARUAMA  = "https://maps.app.goo.gl/cGmvFgeubawLRNGy8";
+
+const CIDADES_ARARUAMA = ["araruama", "saquarema", "iguaba grande", "maricá", "silva jardim"];
+
+function waLink(wa: typeof WA_CABO_FRIO, texto?: string) {
+  const msg = texto ?? `Olá! Vi o site da Castor ${wa.loja} e quero saber mais sobre os colchões!`;
+  return `https://wa.me/${wa.numero}?text=${encodeURIComponent(msg)}`;
+}
+
+function useLocalizacao() {
+  const [wa, setWa] = useState(WA_CABO_FRIO);
+
+  useEffect(() => {
+    const controller = new AbortController();
+    fetch("https://ipapi.co/json/", { signal: controller.signal })
+      .then(r => r.json())
+      .then((data: { city?: string }) => {
+        const cidade = (data.city ?? "").toLowerCase();
+        if (CIDADES_ARARUAMA.some(c => cidade.includes(c))) {
+          setWa(WA_ARARUAMA);
+        }
+      })
+      .catch(() => {});
+    return () => controller.abort();
+  }, []);
+
+  return wa;
+}
 
 const fade = (delay = 0) => ({
   initial: { opacity: 0, y: 24 },
@@ -18,6 +48,7 @@ const REGIOES = ["Cabo Frio", "Búzios", "Arraial do Cabo", "São Pedro da Aldei
 
 export default function Landing() {
   const [showMapa, setShowMapa] = useState(false);
+  const wa = useLocalizacao();
 
   return (
     <div className="overflow-x-hidden">
@@ -260,7 +291,7 @@ export default function Landing() {
               </p>
 
               {/* Cabo Frio */}
-              <a href={MAPS} target="_blank" rel="noreferrer"
+              <a href={MAPS_CABO_FRIO} target="_blank" rel="noreferrer"
                 className="flex items-start gap-3 bg-slate-50 border border-slate-200 rounded-2xl px-5 py-4 hover:border-red-300 transition-all group mb-3">
                 <MapPin className="w-5 h-5 text-red-500 mt-0.5 shrink-0" />
                 <div className="flex-1 min-w-0">
@@ -272,7 +303,7 @@ export default function Landing() {
               </a>
 
               {/* Araruama */}
-              <a href="https://maps.app.goo.gl/cGmvFgeubawLRNGy8" target="_blank" rel="noreferrer"
+              <a href={MAPS_ARARUAMA} target="_blank" rel="noreferrer"
                 className="flex items-start gap-3 bg-slate-50 border border-slate-200 rounded-2xl px-5 py-4 hover:border-red-300 transition-all group mb-4">
                 <MapPin className="w-5 h-5 text-red-500 mt-0.5 shrink-0" />
                 <div className="flex-1 min-w-0">
@@ -286,28 +317,42 @@ export default function Landing() {
               <p className="text-xs text-slate-400">Seg–Sex: 9h às 18h &nbsp;·&nbsp; Sáb: 9h às 13h</p>
             </motion.div>
 
+            {/* CTA WhatsApp — inteligente por localização */}
             <motion.div {...fade(0.15)} className="bg-gradient-to-br from-red-600 to-red-900 rounded-3xl p-8 text-white shadow-2xl shadow-red-900/30 text-center">
-              <p className="text-red-200 text-sm font-bold uppercase tracking-wider mb-3">Fale agora mesmo</p>
+              <p className="text-red-200 text-sm font-bold uppercase tracking-wider mb-3">
+                {wa.loja === "Araruama" ? "Loja Araruama" : "Fale agora mesmo"}
+              </p>
               <h3 className="text-2xl font-black mb-3">Atendimento<br />personalizado</h3>
               <p className="text-red-100 text-sm leading-relaxed mb-6">
                 Me chame no WhatsApp e eu respondo na hora. Se quiser, faça o Mapa do Sono antes — você já chega com seu perfil completo!
               </p>
-              <a href={WHATSAPP} target="_blank" rel="noreferrer"
-                className="flex items-center justify-center gap-2 bg-green-500 hover:bg-green-400 text-white font-extrabold px-6 py-4 rounded-2xl transition-all shadow-lg active:scale-95 text-base mb-3">
+              <a
+                href={waLink(wa)}
+                target="_blank"
+                rel="noreferrer"
+                className="flex items-center justify-center gap-2 bg-green-500 hover:bg-green-400 text-white font-extrabold px-6 py-4 rounded-2xl transition-all shadow-lg active:scale-95 text-base mb-3"
+              >
                 <MessageCircle className="w-5 h-5" />
-                Falar com ThallesZzz
+                Falar com {wa.contato}
               </a>
-              <p className="text-red-200/60 text-xs">(22) 99241-0112 · Resposta imediata</p>
+              <p className="text-red-200/60 text-xs">{wa.tel} · Resposta imediata</p>
+              {wa.loja === "Araruama" && (
+                <p className="text-red-300/60 text-[10px] mt-1">Detectamos que você está próximo de Araruama</p>
+              )}
             </motion.div>
           </div>
         </div>
       </section>
 
-      {/* ── FLOATING WHATSAPP ─────────────────────────────────────────────── */}
-      <a href={WHATSAPP} target="_blank" rel="noreferrer"
-        className="fixed bottom-6 right-6 z-50 flex items-center gap-2 bg-green-500 hover:bg-green-600 text-white font-bold px-4 py-3 rounded-2xl shadow-2xl shadow-green-900/40 transition-all active:scale-95 hover:scale-105">
+      {/* ── FLOATING WHATSAPP — inteligente ──────────────────────────────── */}
+      <a
+        href={waLink(wa)}
+        target="_blank"
+        rel="noreferrer"
+        className="fixed bottom-6 right-6 z-50 flex items-center gap-2 bg-green-500 hover:bg-green-600 text-white font-bold px-4 py-3 rounded-2xl shadow-2xl shadow-green-900/40 transition-all active:scale-95 hover:scale-105"
+      >
         <MessageCircle className="w-5 h-5" />
-        <span className="text-sm hidden sm:inline">WhatsApp</span>
+        <span className="text-sm hidden sm:inline">WhatsApp {wa.loja}</span>
       </a>
 
       {/* ── MODAL MAPA DO SONO ─────────────────────────────────────────────── */}

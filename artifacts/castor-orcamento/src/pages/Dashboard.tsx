@@ -1,22 +1,25 @@
 import { motion } from "framer-motion";
-import { BarChart2, TrendingUp, Package, Truck, Users, RefreshCw, ShoppingBag } from "lucide-react";
+import { BarChart2, TrendingUp, Package, Truck, Users, RefreshCw, ShoppingBag, CheckCircle2, Percent } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { cn } from "@/lib/utils";
 
 interface DashboardData {
   totalOrcamentos: number;
+  totalVendas: number;
+  taxaConversao: number;
   somaPixTotal: string;
   somaPrazoTotal: string;
+  somaPixVendido: string;
   totalProdutosCatalogo: number;
   topProdutos: { nome: string; count: number }[];
-  porVendedor: { vendedor: string; orcamentos: number; valorPix: number }[];
+  porVendedor: { vendedor: string; orcamentos: number; valorPix: number; vendas: number }[];
   orcamentosPorDia: { dia: string; count: number }[];
   totalEntregas: number;
   entregasPorStatus: { pendente: number; em_rota: number; entregue: number; cancelado: number };
 }
 
-function StatCard({ icon: Icon, label, value, color }: {
-  icon: React.ElementType; label: string; value: string | number; color: string;
+function StatCard({ icon: Icon, label, value, color, sub }: {
+  icon: React.ElementType; label: string; value: string | number; color: string; sub?: string;
 }) {
   return (
     <motion.div
@@ -29,6 +32,7 @@ function StatCard({ icon: Icon, label, value, color }: {
       </div>
       <p className="text-xs text-slate-500 font-semibold uppercase tracking-wide">{label}</p>
       <p className="text-2xl font-extrabold text-slate-900 mt-1">{value}</p>
+      {sub && <p className="text-xs text-slate-400 mt-0.5">{sub}</p>}
     </motion.div>
   );
 }
@@ -73,12 +77,72 @@ export default function Dashboard() {
         <div className="text-center py-20 text-slate-400">Erro ao carregar dados.</div>
       ) : (
         <>
-          {/* KPIs */}
+          {/* KPIs principais */}
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
             <StatCard icon={FileText2} label="Orçamentos" value={data.totalOrcamentos} color="bg-blue-500" />
-            <StatCard icon={TrendingUp} label="Total PIX" value={data.somaPixTotal} color="bg-emerald-500" />
-            <StatCard icon={Package} label="Produtos" value={data.totalProdutosCatalogo.toLocaleString("pt-BR")} color="bg-violet-500" />
+            <StatCard
+              icon={CheckCircle2}
+              label="Vendas fechadas"
+              value={data.totalVendas}
+              color="bg-emerald-500"
+              sub={`${data.taxaConversao}% de conversão`}
+            />
+            <StatCard icon={TrendingUp} label="Receita PIX" value={data.somaPixVendido} color="bg-green-600" sub="vendas confirmadas" />
             <StatCard icon={Truck} label="Entregas" value={data.totalEntregas} color="bg-orange-500" />
+          </div>
+
+          {/* Funil de conversão */}
+          <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm">
+            <h2 className="font-bold text-slate-800 mb-4 flex items-center gap-2">
+              <Percent className="w-4 h-4 text-blue-500" /> Funil de Conversão
+            </h2>
+            <div className="flex items-center gap-4">
+              <div className="flex-1 space-y-2">
+                <div>
+                  <div className="flex justify-between text-xs font-semibold text-slate-600 mb-1">
+                    <span>Orçamentos</span>
+                    <span>{data.totalOrcamentos}</span>
+                  </div>
+                  <div className="h-3 bg-blue-100 rounded-full">
+                    <div className="h-3 bg-blue-500 rounded-full w-full" />
+                  </div>
+                </div>
+                <div>
+                  <div className="flex justify-between text-xs font-semibold text-slate-600 mb-1">
+                    <span>Vendas fechadas</span>
+                    <span>{data.totalVendas}</span>
+                  </div>
+                  <div className="h-3 bg-emerald-100 rounded-full">
+                    <div
+                      className="h-3 bg-emerald-500 rounded-full transition-all"
+                      style={{ width: `${data.taxaConversao}%` }}
+                    />
+                  </div>
+                </div>
+                <div>
+                  <div className="flex justify-between text-xs font-semibold text-slate-600 mb-1">
+                    <span>Entregas concluídas</span>
+                    <span>{data.entregasPorStatus.entregue}</span>
+                  </div>
+                  <div className="h-3 bg-orange-100 rounded-full">
+                    <div
+                      className="h-3 bg-orange-500 rounded-full transition-all"
+                      style={{ width: data.totalOrcamentos > 0 ? `${Math.round((data.entregasPorStatus.entregue / data.totalOrcamentos) * 100)}%` : "0%" }}
+                    />
+                  </div>
+                </div>
+              </div>
+              <div className="text-center shrink-0">
+                <p className="text-4xl font-black text-emerald-600">{data.taxaConversao}%</p>
+                <p className="text-xs text-slate-400 font-semibold">taxa de conversão</p>
+              </div>
+            </div>
+          </div>
+
+          {/* Totais orçados */}
+          <div className="grid grid-cols-2 gap-4">
+            <StatCard icon={TrendingUp} label="Total orçado PIX" value={data.somaPixTotal} color="bg-slate-500" sub="todos os orçamentos" />
+            <StatCard icon={Package} label="Produtos no catálogo" value={data.totalProdutosCatalogo.toLocaleString("pt-BR")} color="bg-violet-500" />
           </div>
 
           {/* Entregas por status */}
@@ -158,11 +222,20 @@ export default function Dashboard() {
                     <div key={v.vendedor} className="flex items-center justify-between gap-2">
                       <div className="flex-1 min-w-0">
                         <p className="text-sm font-semibold text-slate-700 truncate">{v.vendedor}</p>
-                        <p className="text-xs text-slate-400">{v.orcamentos} orçamento{v.orcamentos !== 1 ? "s" : ""}</p>
+                        <p className="text-xs text-slate-400">
+                          {v.orcamentos} orç. · {v.vendas ?? 0} venda{(v.vendas ?? 0) !== 1 ? "s" : ""}
+                        </p>
                       </div>
-                      <span className="text-xs font-bold text-emerald-700">
-                        {v.valorPix.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}
-                      </span>
+                      <div className="text-right">
+                        <p className="text-xs font-bold text-emerald-700">
+                          {v.valorPix.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}
+                        </p>
+                        {v.orcamentos > 0 && (
+                          <p className="text-[10px] text-slate-400">
+                            {Math.round(((v.vendas ?? 0) / v.orcamentos) * 100)}% conv.
+                          </p>
+                        )}
+                      </div>
                     </div>
                   ))}
                 </div>
