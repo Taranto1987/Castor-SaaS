@@ -124,7 +124,9 @@ export default function Landing() {
                 Mapa do Sono com o Especialista ThallesZzz
               </motion.h2>
               <motion.p {...fade(0.2)} className="text-red-100 text-base leading-relaxed max-w-lg">
-                13 perguntas rápidas (só cliques!) e você descobre exatamente qual colchão é feito para o seu corpo — com base no seu biotipo, posição de dormir, dores e temperatura.
+                Dormir mal, sentir desconforto ao acordar ou ter calor à noite são sinais de desalinhamento entre seu corpo e o colchão.
+                <br /><br />
+                Este diagnóstico de engenharia do sono analisa seu perfil e determina com precisão o colchão ideal — promovendo alinhamento da coluna, redistribuição de pressão e conforto térmico.
               </motion.p>
             </div>
             <motion.div {...fade(0.3)} className="flex-shrink-0">
