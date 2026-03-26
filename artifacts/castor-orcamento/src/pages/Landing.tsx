@@ -5,7 +5,7 @@ import { MessageCircle, Star, MapPin, ChevronRight, Moon, Shield, Zap, Wind, Rot
 import MapaSonoModal from "@/components/MapaSonoModal";
 
 const WA_CABO_FRIO  = { numero: "5522992410112", loja: "Cabo Frio", contato: "ThallesZzz", tel: "(22) 99241-0112" };
-const WA_ARARUAMA   = { numero: "5522988249183", loja: "Araruama",  contato: "Nete",       tel: "(22) 98824-9183" };
+const WA_ARARUAMA   = { numero: "5522333437720", loja: "Araruama",  contato: "Marcela",    tel: "(22) 3343-7720" };
 
 const MAPS_CABO_FRIO = "https://maps.app.goo.gl/UuF6w1nAvTgXockS6";
 const MAPS_ARARUAMA  = "https://maps.app.goo.gl/cGmvFgeubawLRNGy8";
