@@ -539,12 +539,34 @@ export default function MapaSono() {
               <div className="flex justify-end mb-4">
                 <motion.button
                   initial={{ opacity: 0, scale: 0.9 }}
-                  animate={{ opacity: 1, scale: 1 }}
-                  transition={{ delay: 0.7 }}
+                  animate={{
+                    opacity: 1,
+                    scale: [1, 1.04, 1, 1.04, 1],
+                    boxShadow: [
+                      "0 4px 20px rgba(220,38,38,0.35)",
+                      "0 4px 32px rgba(220,38,38,0.65)",
+                      "0 4px 20px rgba(220,38,38,0.35)",
+                      "0 4px 32px rgba(220,38,38,0.65)",
+                      "0 4px 20px rgba(220,38,38,0.35)",
+                    ],
+                  }}
+                  transition={{
+                    opacity: { duration: 0.4, delay: 0.7 },
+                    scale: { delay: 1.4, duration: 1.6, ease: "easeInOut", repeat: Infinity, repeatDelay: 2.5 },
+                    boxShadow: { delay: 1.4, duration: 1.6, ease: "easeInOut", repeat: Infinity, repeatDelay: 2.5 },
+                  }}
+                  whileHover={{ scale: 1.06 }}
+                  whileTap={{ scale: 0.95 }}
                   onClick={() => setStepIndex(0)}
-                  className="flex items-center gap-2 bg-red-600 text-white font-bold px-5 py-3 rounded-2xl rounded-br-sm shadow-md hover:bg-red-700 active:scale-95 transition-all text-sm"
+                  className="flex items-center gap-2 bg-red-600 text-white font-extrabold px-6 py-3.5 rounded-2xl rounded-br-sm shadow-lg hover:bg-red-500 text-sm"
                 >
-                  Quero descobrir meu colchão ideal <ChevronRight className="w-4 h-4" />
+                  Quero descobrir meu colchão ideal
+                  <motion.span
+                    animate={{ x: [0, 4, 0] }}
+                    transition={{ duration: 0.8, repeat: Infinity, repeatDelay: 3 }}
+                  >
+                    <ChevronRight className="w-4 h-4" />
+                  </motion.span>
                 </motion.button>
               </div>
             </motion.div>
