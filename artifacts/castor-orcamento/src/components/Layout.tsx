@@ -68,9 +68,14 @@ export default function Layout({ children }: LayoutProps) {
               {/* User badge + logout */}
               {user && (
                 <div className="flex items-center gap-2 ml-2 pl-3 border-l border-slate-200">
-                  <div className="flex items-center gap-1.5 bg-red-50 border border-red-100 rounded-lg px-3 py-1.5">
-                    <User className="w-3.5 h-3.5 text-red-500" />
-                    <span className="text-xs font-bold text-red-700">{user.nome}</span>
+                  <div className={cn(
+                    "flex items-center gap-1.5 rounded-lg px-3 py-1.5 border",
+                    user.operacao === "araruama"
+                      ? "bg-blue-50 border-blue-100 text-blue-700"
+                      : "bg-red-50 border-red-100 text-red-700"
+                  )}>
+                    <User className="w-3.5 h-3.5" />
+                    <span className="text-xs font-bold">{user.nome.split(" ")[0]}</span>
                   </div>
                   <button
                     onClick={logout}

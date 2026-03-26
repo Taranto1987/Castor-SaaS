@@ -1,8 +1,9 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   Copy, CheckCircle2, MessageCircle, RefreshCw, FileText,
-  X, ShoppingCart, Phone, Percent, ExternalLink, Save, Printer
+  X, ShoppingCart, Phone, Percent, ExternalLink, Save, Printer,
+  User, MapPin
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
@@ -12,9 +13,17 @@ import {
 } from "@workspace/api-client-react";
 import type { Produto } from "@workspace/api-client-react/src/generated/api.schemas";
 import ProductPicker from "@/components/ProductPicker";
+import { useAuth } from "@/contexts/AuthContext";
+import { personalizarTexto } from "@/lib/personalizarTexto";
+
+const OPERACAO_LABEL: Record<string, string> = {
+  cabo_frio: "Cabo Frio + Região",
+  araruama:  "Araruama",
+};
 
 export default function Orcamento() {
   const { toast } = useToast();
+  const { user } = useAuth();
 
   const [cliente, setCliente] = useState("");
   const [whatsapp, setWhatsapp] = useState("");
@@ -25,6 +34,14 @@ export default function Orcamento() {
   const { mutate: generateQuote, data: quoteResult, isPending: isGenerating } = useGerarOrcamento();
   const { mutate: saveQuote, isPending: isSaving } = useSalvarOrcamento();
 
+  // ── Texto personalizado ──────────────────────────────────────────────────────
+  const textoPersonalizado = useMemo(() => {
+    if (!quoteResult?.texto) return "";
+    if (!user) return quoteResult.texto;
+    return personalizarTexto(quoteResult.texto, user, cliente);
+  }, [quoteResult?.texto, user, cliente]);
+
+  // ── Handlers ─────────────────────────────────────────────────────────────────
   const handleAddProduct = (p: Produto) => {
     setCarrinho(prev => [...prev, p]);
     toast({ title: "Adicionado", description: p.nome.trim().slice(0, 60) });
@@ -66,40 +83,41 @@ export default function Orcamento() {
         descontoPix: descontoPix > 0 ? descontoPix : undefined,
         totalPix: quoteResult.totalPix,
         totalPrazo: quoteResult.totalPrazo,
-        texto: quoteResult.texto,
+        texto: textoPersonalizado,
+        vendedor: user?.nome ?? undefined,
       }
     }, {
       onSuccess: () => toast({ title: "Salvo!", description: "Orçamento salvo no histórico." }),
-      onError: () => toast({ title: "Erro", description: "Não foi possível salvar.", variant: "destructive" }),
+      onError:   () => toast({ title: "Erro", description: "Não foi possível salvar.", variant: "destructive" }),
     });
   };
 
   const handleOpenWhatsApp = () => {
-    if (!quoteResult?.texto) return;
+    if (!textoPersonalizado) return;
     const numero = whatsapp.replace(/\D/g, "");
-    const texto = encodeURIComponent(quoteResult.texto);
-    const url = numero
+    const texto  = encodeURIComponent(textoPersonalizado);
+    const url    = numero
       ? `https://wa.me/55${numero}?text=${texto}`
       : `https://wa.me/?text=${texto}`;
     window.open(url, "_blank");
   };
 
   const handlePrint = () => {
-    if (!quoteResult?.texto) return;
+    if (!textoPersonalizado) return;
     const win = window.open("", "_blank");
     if (!win) return;
     win.document.write(`<html><head><title>Orçamento - ${cliente}</title>
     <style>body{font-family:monospace;white-space:pre-wrap;padding:32px;font-size:14px;line-height:1.6}</style>
-    </head><body>${quoteResult.texto.replace(/</g, "&lt;")}</body></html>`);
+    </head><body>${textoPersonalizado.replace(/</g, "&lt;")}</body></html>`);
     win.document.close();
     win.print();
   };
 
   const [copied, setCopied] = useState(false);
   const handleCopy = async () => {
-    if (!quoteResult?.texto) return;
+    if (!textoPersonalizado) return;
     try {
-      await navigator.clipboard.writeText(quoteResult.texto);
+      await navigator.clipboard.writeText(textoPersonalizado);
       setCopied(true);
       toast({ title: "Copiado!", description: "Orçamento copiado para a área de transferência." });
       setTimeout(() => setCopied(false), 2000);
@@ -108,15 +126,35 @@ export default function Orcamento() {
     }
   };
 
+  // ── UI ────────────────────────────────────────────────────────────────────────
   return (
     <div className="max-w-6xl mx-auto space-y-8 pb-20">
-      <div>
-        <h1 className="text-3xl md:text-4xl font-display font-extrabold text-slate-900 tracking-tight">
-          Gerador de Orçamento VIP
-        </h1>
-        <p className="text-slate-500 mt-2 text-sm md:text-base max-w-2xl">
-          Monte combos com vários produtos e gere a mensagem padrão VIP da loja pronta para o WhatsApp.
-        </p>
+      {/* Header */}
+      <div className="flex flex-col sm:flex-row sm:items-end gap-3">
+        <div className="flex-1">
+          <h1 className="text-3xl md:text-4xl font-display font-extrabold text-slate-900 tracking-tight">
+            Gerador de Orçamento VIP
+          </h1>
+          <p className="text-slate-500 mt-1 text-sm md:text-base max-w-2xl">
+            Monte combos com vários produtos e gere a mensagem personalizada pronta para o WhatsApp.
+          </p>
+        </div>
+
+        {/* Collaborator badge */}
+        {user && (
+          <div className={cn(
+            "flex items-center gap-2 px-3 py-2 rounded-2xl border text-sm font-bold shrink-0",
+            user.operacao === "araruama"
+              ? "bg-blue-50 border-blue-200 text-blue-700"
+              : "bg-primary/10 border-primary/20 text-primary"
+          )}>
+            <User className="w-4 h-4" />
+            <span>{user.nome.split(" ")[0]}</span>
+            <span className="font-normal text-slate-400">·</span>
+            <MapPin className="w-3.5 h-3.5" />
+            <span className="font-normal">{OPERACAO_LABEL[user.operacao]}</span>
+          </div>
+        )}
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
@@ -136,7 +174,7 @@ export default function Orcamento() {
               />
             </div>
 
-            {/* WhatsApp */}
+            {/* WhatsApp do cliente */}
             <div className="space-y-2">
               <label className="text-sm font-bold text-slate-700 flex items-center gap-1.5">
                 <Phone className="w-3.5 h-3.5 text-green-500" />
@@ -258,7 +296,7 @@ export default function Orcamento() {
 
         {/* Right Column: Result */}
         <div className="lg:col-span-7">
-          {quoteResult ? (
+          {textoPersonalizado ? (
             <motion.div
               initial={{ opacity: 0, scale: 0.95 }}
               animate={{ opacity: 1, scale: 1 }}
@@ -267,20 +305,34 @@ export default function Orcamento() {
               <div className="absolute inset-0 bg-[url('https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?q=80&w=2000')] opacity-5 bg-cover bg-center mix-blend-multiply pointer-events-none" />
 
               <div className="w-full relative z-10">
+                {/* Collaborator identity bar */}
+                {user && (
+                  <div className={cn(
+                    "flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-bold mb-4 w-full",
+                    user.operacao === "araruama"
+                      ? "bg-blue-50 text-blue-700 border border-blue-100"
+                      : "bg-primary/8 text-primary border border-primary/15"
+                  )}>
+                    <User className="w-3.5 h-3.5 shrink-0" />
+                    <span>{user.header}</span>
+                    <span className="ml-auto font-normal text-slate-400">{user.wa}</span>
+                  </div>
+                )}
+
                 {/* Totals summary */}
                 <div className="grid grid-cols-3 gap-3 mb-5">
                   <div className="bg-emerald-50 border border-emerald-200 rounded-2xl p-3 text-center">
                     <p className="text-xs text-emerald-600 font-bold uppercase tracking-wide">PIX Total</p>
-                    <p className="text-lg font-extrabold text-emerald-700 mt-0.5">{quoteResult.totalPix}</p>
+                    <p className="text-lg font-extrabold text-emerald-700 mt-0.5">{quoteResult?.totalPix}</p>
                     {descontoPix > 0 && <p className="text-xs text-emerald-500">{descontoPix}% off</p>}
                   </div>
                   <div className="bg-blue-50 border border-blue-200 rounded-2xl p-3 text-center">
                     <p className="text-xs text-blue-600 font-bold uppercase tracking-wide">Prazo Total</p>
-                    <p className="text-lg font-extrabold text-blue-700 mt-0.5">{quoteResult.totalPrazo}</p>
+                    <p className="text-lg font-extrabold text-blue-700 mt-0.5">{quoteResult?.totalPrazo}</p>
                   </div>
                   <div className="bg-violet-50 border border-violet-200 rounded-2xl p-3 text-center">
                     <p className="text-xs text-violet-600 font-bold uppercase tracking-wide">12x de</p>
-                    <p className="text-lg font-extrabold text-violet-700 mt-0.5">{quoteResult.parcela12}</p>
+                    <p className="text-lg font-extrabold text-violet-700 mt-0.5">{quoteResult?.parcela12}</p>
                   </div>
                 </div>
 
@@ -332,7 +384,7 @@ export default function Orcamento() {
                 </div>
 
                 <div className="whatsapp-bubble p-5 shadow-sm text-[14px] whitespace-pre-wrap leading-relaxed">
-                  {quoteResult.texto}
+                  {textoPersonalizado}
                 </div>
 
                 <p className="text-center text-xs text-slate-400 mt-4 font-medium">
