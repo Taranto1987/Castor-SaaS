@@ -133,7 +133,7 @@ export default function PublicLayout({ children }: PublicLayoutProps) {
         <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="grid grid-cols-1 md:grid-cols-3 gap-8 mb-8">
             <div>
-              <img src="/logo-castor.png" alt="Castor" className="h-10 w-auto mb-3 brightness-200 contrast-0" />
+              <img src="/logo-exclusiva.png" alt="Castor" className="h-10 w-auto mb-3" />
               <p className="text-slate-400 text-sm leading-relaxed">
                 Especialistas em engenharia do sono em Cabo Frio. Não vendemos colchão — resolvemos o seu sono.
               </p>
