@@ -12,13 +12,14 @@ const fade = (delay = 0) => ({
   transition: { duration: 0.55, delay },
 });
 
+const REGIOES = ["Cabo Frio", "Búzios", "Arraial do Cabo", "São Pedro da Aldeia", "Araruama", "Iguaba Grande", "Saquarema"];
+
 export default function Landing() {
   return (
     <div className="overflow-x-hidden">
 
       {/* ── HERO ─────────────────────────────────────────────────────────── */}
       <section className="relative bg-gradient-to-br from-slate-900 via-red-950 to-slate-900 text-white overflow-hidden">
-        {/* Subtle grid texture */}
         <div className="absolute inset-0 opacity-[0.04]" style={{
           backgroundImage: "repeating-linear-gradient(0deg,#fff 0,#fff 1px,transparent 1px,transparent 60px),repeating-linear-gradient(90deg,#fff 0,#fff 1px,transparent 1px,transparent 60px)"
         }} />
@@ -29,7 +30,7 @@ export default function Landing() {
             {/* Text */}
             <div className="flex-1 text-center md:text-left">
               <motion.div {...fade(0)} className="inline-flex items-center gap-2 bg-red-500/20 border border-red-400/30 rounded-full px-4 py-1.5 text-red-300 text-xs font-bold uppercase tracking-wider mb-6">
-                <Star className="w-3.5 h-3.5 fill-red-400 text-red-400" /> Especialistas em Engenharia do Sono · Cabo Frio
+                <Star className="w-3.5 h-3.5 fill-red-400 text-red-400" /> Especialistas em Sono · Região dos Lagos – RJ
               </motion.div>
 
               <motion.h1 {...fade(0.1)} className="text-4xl md:text-5xl lg:text-6xl font-black leading-[1.08] tracking-tight mb-6">
@@ -38,21 +39,26 @@ export default function Landing() {
                 Resolvemos<br />o seu sono.
               </motion.h1>
 
-              <motion.p {...fade(0.2)} className="text-slate-300 text-lg leading-relaxed mb-8 max-w-xl">
-                Diagnóstico personalizado, tecnologia suíça Castor e atendimento de quem realmente entende do assunto — tudo isso aqui em Cabo Frio.
+              <motion.p {...fade(0.2)} className="text-slate-300 text-lg leading-relaxed mb-4 max-w-xl">
+                Diagnóstico personalizado, tecnologia suíça Castor e atendimento de quem realmente entende do assunto.
               </motion.p>
 
+              {/* Cidades atendidas */}
+              <motion.div {...fade(0.25)} className="flex flex-wrap gap-2 justify-center md:justify-start mb-8">
+                {REGIOES.map(c => (
+                  <span key={c} className="bg-white/10 border border-white/15 text-white/70 text-xs font-semibold px-3 py-1 rounded-full">
+                    📍 {c}
+                  </span>
+                ))}
+              </motion.div>
+
               <motion.div {...fade(0.3)} className="flex flex-col sm:flex-row gap-3 justify-center md:justify-start">
-                <Link href="/mapa-sono">
-                  <a className="flex items-center justify-center gap-2 bg-red-600 hover:bg-red-500 text-white font-extrabold px-7 py-4 rounded-2xl transition-all shadow-xl shadow-red-900/40 active:scale-95 text-base">
-                    <Moon className="w-5 h-5" />
-                    Descobrir meu colchão ideal
-                  </a>
+                <Link href="/mapa-sono" className="flex items-center justify-center gap-2 bg-red-600 hover:bg-red-500 text-white font-extrabold px-7 py-4 rounded-2xl transition-all shadow-xl shadow-red-900/40 active:scale-95 text-base">
+                  <Moon className="w-5 h-5" />
+                  Descobrir meu colchão ideal
                 </Link>
-                <Link href="/catalogo">
-                  <a className="flex items-center justify-center gap-2 bg-white/10 hover:bg-white/20 border border-white/20 text-white font-bold px-7 py-4 rounded-2xl transition-all text-base">
-                    Ver catálogo <ChevronRight className="w-4 h-4" />
-                  </a>
+                <Link href="/catalogo" className="flex items-center justify-center gap-2 bg-white/10 hover:bg-white/20 border border-white/20 text-white font-bold px-7 py-4 rounded-2xl transition-all text-base">
+                  Ver catálogo <ChevronRight className="w-4 h-4" />
                 </Link>
               </motion.div>
             </div>
@@ -62,7 +68,7 @@ export default function Landing() {
               initial={{ opacity: 0, scale: 0.9, x: 40 }}
               animate={{ opacity: 1, scale: 1, x: 0 }}
               transition={{ duration: 0.7, delay: 0.2 }}
-              className="flex-shrink-0 relative"
+              className="flex-shrink-0"
             >
               <div className="relative w-64 h-64 md:w-80 md:h-80">
                 <div className="absolute inset-0 bg-gradient-to-br from-red-500/30 to-red-900/30 rounded-[2rem] backdrop-blur-sm border border-white/10 shadow-2xl" />
@@ -109,9 +115,7 @@ export default function Landing() {
               </div>
             </div>
             <div className="flex-1 text-center md:text-left">
-              <motion.p {...fade(0)} className="text-red-200 text-sm font-bold uppercase tracking-wider mb-2">
-                Exclusivo · Castor Cabo Frio
-              </motion.p>
+              <motion.p {...fade(0)} className="text-red-200 text-sm font-bold uppercase tracking-wider mb-2">Exclusivo · Castor Cabo Frio</motion.p>
               <motion.h2 {...fade(0.1)} className="text-2xl md:text-3xl font-black leading-tight mb-3">
                 Mapa do Sono com o Especialista ThallesZzz
               </motion.h2>
@@ -120,10 +124,8 @@ export default function Landing() {
               </motion.p>
             </div>
             <motion.div {...fade(0.3)} className="flex-shrink-0">
-              <Link href="/mapa-sono">
-                <a className="flex items-center gap-2 bg-white text-red-700 font-extrabold px-7 py-4 rounded-2xl shadow-xl hover:bg-red-50 transition-all active:scale-95 text-base whitespace-nowrap">
-                  <Moon className="w-5 h-5" /> Fazer o mapa agora
-                </a>
+              <Link href="/mapa-sono" className="flex items-center gap-2 bg-white text-red-700 font-extrabold px-7 py-4 rounded-2xl shadow-xl hover:bg-red-50 transition-all active:scale-95 text-base whitespace-nowrap">
+                <Moon className="w-5 h-5" /> Fazer o mapa agora
               </Link>
             </motion.div>
           </div>
@@ -175,23 +177,21 @@ export default function Landing() {
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             {[
-              { texto: "Não sinto mais dores na coluna desde que comprei aqui. O Thalles foi super atencioso, explicou tudo com detalhes e a entrega foi mais rápida do que eu esperava. Recomendo demais!", autor: "Cliente Google", stars: 5 },
-              { texto: "Atendimento humanizado faz toda diferença. Fui bem atendida, o vendedor conhece muito sobre ergonomia do sono. O colchão chegou rápido e a qualidade é incrível. Loja super séria!", autor: "Cliente Google", stars: 5 },
-              { texto: "Melhor compra que fiz! Acordava todo dia com dor nas costas, depois do colchão Castor isso acabou. O Thalles me ajudou a escolher o certo para o meu perfil. Nota 10!", autor: "Cliente Google", stars: 5 },
+              { texto: "Não sinto mais dores na coluna desde que comprei aqui. O Thalles foi super atencioso, explicou tudo com detalhes e a entrega foi mais rápida do que eu esperava. Recomendo demais!", local: "Cabo Frio" },
+              { texto: "Atendimento humanizado faz toda diferença. Fui bem atendida, o vendedor conhece muito sobre ergonomia do sono. O colchão chegou rápido e a qualidade é incrível. Loja super séria!", local: "Búzios" },
+              { texto: "Melhor compra que fiz! Acordava todo dia com dor nas costas, depois do colchão Castor isso acabou. O Thalles me ajudou a escolher o certo para o meu perfil. Nota 10!", local: "Arraial do Cabo" },
             ].map((d, i) => (
               <motion.div key={i} {...fade(i * 0.1)} className="bg-slate-50 border border-slate-200 rounded-2xl p-6">
                 <div className="flex gap-0.5 mb-4">
-                  {Array.from({ length: d.stars }).map((_, j) => (
-                    <Star key={j} className="w-4 h-4 fill-amber-400 text-amber-400" />
-                  ))}
+                  {[1,2,3,4,5].map(j => <Star key={j} className="w-4 h-4 fill-amber-400 text-amber-400" />)}
                 </div>
                 <p className="text-slate-700 text-sm leading-relaxed italic mb-4">"{d.texto}"</p>
                 <div className="flex items-center gap-2">
-                  <div className="w-8 h-8 rounded-full bg-red-100 flex items-center justify-center">
+                  <div className="w-8 h-8 rounded-full bg-red-100 flex items-center justify-center shrink-0">
                     <span className="text-red-600 font-bold text-xs">G</span>
                   </div>
                   <div>
-                    <p className="text-xs font-bold text-slate-800">{d.autor}</p>
+                    <p className="text-xs font-bold text-slate-800">Cliente Google · {d.local}</p>
                     <p className="text-[10px] text-slate-400">⭐⭐⭐⭐⭐ Google Maps</p>
                   </div>
                 </div>
@@ -207,6 +207,7 @@ export default function Landing() {
           <motion.div {...fade()} className="text-center mb-12">
             <p className="text-red-600 font-bold text-sm uppercase tracking-wider mb-2">Portfólio completo</p>
             <h2 className="text-3xl font-black text-slate-900">Explore nossos produtos</h2>
+            <p className="text-slate-500 mt-2 text-sm">Entrega em toda a Região dos Lagos — {REGIOES.join(" · ")}</p>
           </motion.div>
 
           <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
@@ -219,25 +220,21 @@ export default function Landing() {
               { emoji: "🏠", nome: "Roupa de Cama", desc: "Jogo de lençóis e edredom", cat: "roupa-de-cama" },
             ].map((c, i) => (
               <motion.div key={c.cat} {...fade(i * 0.07)}>
-                <Link href={`/catalogo?categoria=${c.cat}`}>
-                  <a className="flex items-center gap-4 bg-white border border-slate-200 rounded-2xl px-5 py-4 hover:border-red-300 hover:shadow-md transition-all group">
-                    <span className="text-3xl">{c.emoji}</span>
-                    <div>
-                      <p className="font-extrabold text-slate-900 group-hover:text-red-600 transition-colors">{c.nome}</p>
-                      <p className="text-xs text-slate-400">{c.desc}</p>
-                    </div>
-                    <ChevronRight className="w-4 h-4 text-slate-300 group-hover:text-red-400 ml-auto transition-colors" />
-                  </a>
+                <Link href={`/catalogo?categoria=${c.cat}`} className="flex items-center gap-4 bg-white border border-slate-200 rounded-2xl px-5 py-4 hover:border-red-300 hover:shadow-md transition-all group">
+                  <span className="text-3xl">{c.emoji}</span>
+                  <div>
+                    <p className="font-extrabold text-slate-900 group-hover:text-red-600 transition-colors">{c.nome}</p>
+                    <p className="text-xs text-slate-400">{c.desc}</p>
+                  </div>
+                  <ChevronRight className="w-4 h-4 text-slate-300 group-hover:text-red-400 ml-auto transition-colors" />
                 </Link>
               </motion.div>
             ))}
           </div>
 
           <motion.div {...fade(0.3)} className="text-center mt-8">
-            <Link href="/catalogo">
-              <a className="inline-flex items-center gap-2 bg-red-600 hover:bg-red-700 text-white font-extrabold px-8 py-4 rounded-2xl shadow-lg transition-all active:scale-95">
-                Ver todo o catálogo <ChevronRight className="w-4 h-4" />
-              </a>
+            <Link href="/catalogo" className="inline-flex items-center gap-2 bg-red-600 hover:bg-red-700 text-white font-extrabold px-8 py-4 rounded-2xl shadow-lg transition-all active:scale-95">
+              Ver todo o catálogo <ChevronRight className="w-4 h-4" />
             </Link>
           </motion.div>
         </div>
@@ -250,15 +247,22 @@ export default function Landing() {
             <motion.div {...fade()}>
               <p className="text-red-600 font-bold text-sm uppercase tracking-wider mb-3">Visite a loja</p>
               <h2 className="text-3xl font-black text-slate-900 mb-4">Estamos em<br />Cabo Frio – RJ</h2>
-              <p className="text-slate-500 mb-6 leading-relaxed">
-                Venha testar na prática, deitar no colchão certo e sair com a certeza de ter feito o melhor investimento para a sua saúde.
+              <p className="text-slate-500 mb-4 leading-relaxed">
+                Venha testar na prática e sair com a certeza de ter feito o melhor investimento para a sua saúde do sono.
               </p>
-              <a
-                href={MAPS}
-                target="_blank"
-                rel="noreferrer"
-                className="flex items-start gap-3 bg-slate-50 border border-slate-200 rounded-2xl px-5 py-4 hover:border-red-300 transition-all group mb-6"
-              >
+
+              {/* Região de cobertura */}
+              <div className="bg-red-50 border border-red-100 rounded-xl px-4 py-3 mb-5">
+                <p className="text-xs font-bold text-red-700 mb-2">🚚 Entregamos em toda a Região dos Lagos</p>
+                <div className="flex flex-wrap gap-1.5">
+                  {REGIOES.map(c => (
+                    <span key={c} className="bg-white border border-red-200 text-red-600 text-xs font-semibold px-2.5 py-1 rounded-full">{c}</span>
+                  ))}
+                </div>
+              </div>
+
+              <a href={MAPS} target="_blank" rel="noreferrer"
+                className="flex items-start gap-3 bg-slate-50 border border-slate-200 rounded-2xl px-5 py-4 hover:border-red-300 transition-all group mb-4">
                 <MapPin className="w-5 h-5 text-red-500 mt-0.5 shrink-0" />
                 <div>
                   <p className="font-extrabold text-slate-900 group-hover:text-red-600 transition-colors">Av. Júlia Kubitschek, 64</p>
@@ -275,12 +279,8 @@ export default function Landing() {
               <p className="text-red-100 text-sm leading-relaxed mb-6">
                 Me chame no WhatsApp e eu respondo na hora. Se quiser, faça o Mapa do Sono antes — você já chega com seu perfil completo!
               </p>
-              <a
-                href={WHATSAPP}
-                target="_blank"
-                rel="noreferrer"
-                className="flex items-center justify-center gap-2 bg-green-500 hover:bg-green-400 text-white font-extrabold px-6 py-4 rounded-2xl transition-all shadow-lg shadow-green-900/40 active:scale-95 text-base mb-3"
-              >
+              <a href={WHATSAPP} target="_blank" rel="noreferrer"
+                className="flex items-center justify-center gap-2 bg-green-500 hover:bg-green-400 text-white font-extrabold px-6 py-4 rounded-2xl transition-all shadow-lg active:scale-95 text-base mb-3">
                 <MessageCircle className="w-5 h-5" />
                 Falar com ThallesZzz
               </a>
@@ -291,12 +291,8 @@ export default function Landing() {
       </section>
 
       {/* ── FLOATING WHATSAPP ─────────────────────────────────────────────── */}
-      <a
-        href={WHATSAPP}
-        target="_blank"
-        rel="noreferrer"
-        className="fixed bottom-6 right-6 z-50 flex items-center gap-2 bg-green-500 hover:bg-green-600 text-white font-bold px-4 py-3 rounded-2xl shadow-2xl shadow-green-900/40 transition-all active:scale-95 hover:scale-105"
-      >
+      <a href={WHATSAPP} target="_blank" rel="noreferrer"
+        className="fixed bottom-6 right-6 z-50 flex items-center gap-2 bg-green-500 hover:bg-green-600 text-white font-bold px-4 py-3 rounded-2xl shadow-2xl shadow-green-900/40 transition-all active:scale-95 hover:scale-105">
         <MessageCircle className="w-5 h-5" />
         <span className="text-sm hidden sm:inline">WhatsApp</span>
       </a>

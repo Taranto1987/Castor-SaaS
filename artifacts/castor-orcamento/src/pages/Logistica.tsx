@@ -1,10 +1,11 @@
 import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Truck, Plus, RefreshCw, CheckCircle2, Clock, Navigation, XCircle, ChevronDown, ChevronUp, Phone } from "lucide-react";
+import { Truck, Plus, RefreshCw, CheckCircle2, Clock, Navigation, XCircle, ChevronDown, ChevronUp, Phone, MapPin, Route, ExternalLink } from "lucide-react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
+import { useAuth } from "@/contexts/AuthContext";
 
 interface Entrega {
   id: number;
@@ -191,6 +192,193 @@ function NovaEntregaModal({ onClose, onSave }: { onClose: () => void; onSave: (d
   );
 }
 
+// ── Cidades cobertas e ordem de rota ──────────────────────────────────────
+const ORDEM_CIDADES: { nome: string; keywords: string[] }[] = [
+  { nome: "Cabo Frio",         keywords: ["cabo frio", "flamboyant", "passagem", "braga", "palmeiras", "peró"] },
+  { nome: "Arraial do Cabo",   keywords: ["arraial do cabo", "arraial"] },
+  { nome: "São Pedro da Aldeia", keywords: ["são pedro", "sao pedro", "aldeia"] },
+  { nome: "Iguaba Grande",     keywords: ["iguaba"] },
+  { nome: "Araruama",          keywords: ["araruama"] },
+  { nome: "Búzios",            keywords: ["búzios", "buzios", "armação"] },
+  { nome: "Saquarema",         keywords: ["saquarema"] },
+];
+
+function detectarCidade(endereco: string): string {
+  const lower = endereco.toLowerCase();
+  for (const c of ORDEM_CIDADES) {
+    if (c.keywords.some(k => lower.includes(k))) return c.nome;
+  }
+  return "Outras";
+}
+
+function ordenarPorRota(entregas: Entrega[]): Entrega[] {
+  return [...entregas].sort((a, b) => {
+    const cidadeA = detectarCidade(a.endereco || "");
+    const cidadeB = detectarCidade(b.endereco || "");
+    const idxA = ORDEM_CIDADES.findIndex(c => c.nome === cidadeA);
+    const idxB = ORDEM_CIDADES.findIndex(c => c.nome === cidadeB);
+    return (idxA === -1 ? 99 : idxA) - (idxB === -1 ? 99 : idxB);
+  });
+}
+
+function gerarUrlMaps(paradas: Entrega[]): string {
+  const ORIGEM = encodeURIComponent("Av. Júlia Kubitschek, 64, Cabo Frio, RJ");
+  const stops = paradas
+    .filter(e => e.endereco?.trim())
+    .map(e => encodeURIComponent(`${e.endereco}, ${detectarCidade(e.endereco || "")}, RJ`));
+  if (!stops.length) return `https://www.google.com/maps/search/?api=1&query=${ORIGEM}`;
+  const destino = stops[stops.length - 1];
+  const waypoints = stops.slice(0, -1).join("/");
+  const base = `https://www.google.com/maps/dir/${ORIGEM}/${waypoints ? waypoints + "/" : ""}${destino}`;
+  return base;
+}
+
+function RoteiroPedro({ entregas }: { entregas: Entrega[] }) {
+  const ativas = entregas.filter(e => e.status === "pendente" || e.status === "em_rota");
+  const ordenadas = ordenarPorRota(ativas);
+  const mapsUrl = gerarUrlMaps(ordenadas);
+
+  const porCidade = ORDEM_CIDADES.map(c => ({
+    ...c,
+    paradas: ordenadas.filter(e => detectarCidade(e.endereco || "") === c.nome),
+  })).filter(c => c.paradas.length > 0);
+
+  const semEndereco = ativas.filter(e => !e.endereco?.trim());
+
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 16 }}
+      animate={{ opacity: 1, y: 0 }}
+      className="bg-gradient-to-br from-red-700 to-red-900 rounded-2xl p-5 text-white shadow-xl shadow-red-900/30 mb-6"
+    >
+      <div className="flex items-start justify-between mb-4">
+        <div className="flex items-center gap-3">
+          <div className="w-10 h-10 bg-white/20 rounded-xl flex items-center justify-center shrink-0">
+            <Route className="w-5 h-5 text-white" />
+          </div>
+          <div>
+            <h2 className="font-extrabold text-lg leading-tight">Roteiro de Hoje</h2>
+            <p className="text-red-200 text-xs">
+              {ordenadas.length} parada{ordenadas.length !== 1 ? "s" : ""} · otimizado por região
+            </p>
+          </div>
+        </div>
+        {ordenadas.length > 0 && (
+          <a
+            href={mapsUrl}
+            target="_blank"
+            rel="noreferrer"
+            className="flex items-center gap-1.5 bg-white text-red-700 font-extrabold text-xs px-4 py-2.5 rounded-xl shadow-lg hover:bg-red-50 transition-all active:scale-95 shrink-0"
+          >
+            <Navigation className="w-4 h-4" />
+            Iniciar Rota
+            <ExternalLink className="w-3 h-3 opacity-60" />
+          </a>
+        )}
+      </div>
+
+      {ordenadas.length === 0 ? (
+        <div className="text-center py-6">
+          <CheckCircle2 className="w-10 h-10 text-green-400 mx-auto mb-2" />
+          <p className="font-bold text-green-200">Nada pendente!</p>
+          <p className="text-red-200 text-xs mt-1">Todas as entregas foram concluídas.</p>
+        </div>
+      ) : (
+        <div className="space-y-4">
+          {/* Paradas ordenadas por cidade */}
+          {porCidade.map((grupo, gi) => (
+            <div key={grupo.nome}>
+              <div className="flex items-center gap-2 mb-2">
+                <MapPin className="w-3.5 h-3.5 text-red-300 shrink-0" />
+                <span className="text-red-200 text-xs font-bold uppercase tracking-wider">{grupo.nome}</span>
+                <span className="text-red-300/60 text-xs">({grupo.paradas.length})</span>
+              </div>
+              <div className="space-y-2">
+                {grupo.paradas.map((e, pi) => {
+                  const numGlobal = ordenadas.indexOf(e) + 1;
+                  return (
+                    <div key={e.id}
+                      className="bg-white/10 border border-white/15 rounded-xl px-4 py-3 flex items-start gap-3">
+                      <span className="w-7 h-7 bg-white/20 rounded-lg flex items-center justify-center text-xs font-extrabold shrink-0 mt-0.5">
+                        {numGlobal}
+                      </span>
+                      <div className="flex-1 min-w-0">
+                        <p className="font-extrabold text-sm leading-tight truncate">{e.cliente}</p>
+                        {e.endereco && (
+                          <p className="text-red-200 text-xs mt-0.5 leading-snug">{e.endereco}</p>
+                        )}
+                        {e.produtos && (
+                          <p className="text-red-300/70 text-xs mt-0.5 truncate">{e.produtos}</p>
+                        )}
+                      </div>
+                      <div className="flex flex-col gap-1 items-end shrink-0">
+                        {e.whatsapp && (
+                          <a
+                            href={`https://wa.me/55${e.whatsapp.replace(/\D/g, "")}?text=Olá ${e.cliente}! Sou o Pedro, entregador da Castor Cabo Frio. Estou a caminho para entregar o seu pedido!`}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="flex items-center gap-1 bg-green-500 hover:bg-green-400 text-white text-[10px] font-bold px-2.5 py-1.5 rounded-lg transition-all"
+                          >
+                            <Phone className="w-3 h-3" /> WA
+                          </a>
+                        )}
+                        {e.endereco && (
+                          <a
+                            href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(e.endereco + ", " + grupo.nome + ", RJ")}`}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="flex items-center gap-1 bg-white/20 hover:bg-white/30 text-white text-[10px] font-bold px-2.5 py-1.5 rounded-lg transition-all"
+                          >
+                            <MapPin className="w-3 h-3" />
+                          </a>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          ))}
+
+          {/* Sem endereço */}
+          {semEndereco.length > 0 && (
+            <div>
+              <p className="text-red-300 text-xs font-bold uppercase tracking-wider mb-2">⚠️ Sem endereço cadastrado</p>
+              {semEndereco.map(e => (
+                <div key={e.id} className="bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 flex items-center justify-between gap-3">
+                  <div>
+                    <p className="font-bold text-sm">{e.cliente}</p>
+                    <p className="text-red-300 text-xs">Confirmar endereço antes de sair</p>
+                  </div>
+                  {e.whatsapp && (
+                    <a href={`https://wa.me/55${e.whatsapp.replace(/\D/g, "")}`} target="_blank" rel="noreferrer"
+                      className="bg-green-500 hover:bg-green-400 text-white text-xs font-bold px-3 py-1.5 rounded-lg">
+                      <Phone className="w-3 h-3 inline mr-1" /> Ligar
+                    </a>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
+
+          {/* Legenda de rota */}
+          <div className="border-t border-white/10 pt-3">
+            <p className="text-red-300/70 text-[10px] font-semibold uppercase tracking-wider mb-1.5">Ordem da rota saindo da loja:</p>
+            <div className="flex flex-wrap gap-1.5">
+              {ORDEM_CIDADES.map((c, i) => (
+                <span key={c.nome} className="flex items-center gap-1 text-[10px] text-red-200/60">
+                  <span className="font-bold">{i + 1}.</span> {c.nome}
+                  {i < ORDEM_CIDADES.length - 1 && <span className="text-red-400/30">→</span>}
+                </span>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
+    </motion.div>
+  );
+}
+
 export default function Logistica() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -248,6 +436,10 @@ export default function Logistica() {
 
   return (
     <div className="max-w-3xl mx-auto space-y-6 pb-20">
+
+      {/* Roteiro otimizado do Pedro — visível para todos, mas protagonista para ENTREGA */}
+      <RoteiroPedro entregas={entregas} />
+
       <div className="flex items-start justify-between">
         <div>
           <h1 className="text-3xl md:text-4xl font-display font-extrabold text-slate-900 tracking-tight">

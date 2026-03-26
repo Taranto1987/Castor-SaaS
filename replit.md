@@ -21,9 +21,29 @@ pnpm workspace monorepo usando TypeScript. Cada pacote gerencia suas próprias d
 
 ## Funcionalidades
 
-1. **Catálogo de produtos** — busca e filtra produtos por nome ou categoria
-2. **Gerador de orçamento** — gera texto formatado para WhatsApp com nome do cliente, produto, preços
-3. **Crawler** — coleta automática de produtos do site lojacastor.com.br (6 categorias: colchões, cama-box, cama-box+colchão, travesseiros, roupa-de-cama, protetor)
+### Público (sem login)
+- `/` — Landing page: hero "Não vendemos colchão. Resolvemos o seu sono.", 7 cidades da Região dos Lagos, tecnologias Castor, depoimentos Google, categorias
+- `/catalogo` — Catálogo público com WhatsApp CTA
+- `/mapa-sono` — Quiz de diagnóstico do sono (13 perguntas, recomendação personalizada com badges de tecnologia + custo por noite + link WhatsApp)
+
+### Privado (código de acesso: THALLES / CASTOR2 / ENTREGA)
+- `/equipe` — Catálogo interno com gerador de orçamento
+- `/orcamento` — Gerador de orçamento formatado para WhatsApp
+- `/historico` — Histórico de orçamentos
+- `/dashboard` — Métricas e painel da equipe
+- `/logistica` — Controle de entregas + **Roteiro Otimizado do Pedro** (agrupa pendentes + em_rota por cidade, gera URL Google Maps multi-parada, botão WhatsApp por cliente)
+- `/crawler` — Atualização do banco de dados via crawler
+
+### Roteiro do Pedro
+- Cidades cobertas em ordem: Cabo Frio → Arraial do Cabo → São Pedro da Aldeia → Iguaba Grande → Araruama → Búzios → Saquarema
+- Ponto de partida: Av. Júlia Kubitschek, 64, Cabo Frio
+- Detecta cidade pelo endereço (keywords por cidade)
+- Gera URL Google Maps com todas as paradas
+- Botão WhatsApp por parada com mensagem pré-formatada para o Pedro
+
+### Auth
+- Códigos: THALLES (dono), CASTOR2 (irmã/admin), ENTREGA (Pedro/entregador)
+- sessionStorage, AuthContext, LoginScreen brandado
 
 ## Categorias coletadas
 
