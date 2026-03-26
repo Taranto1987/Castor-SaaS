@@ -29,17 +29,25 @@ export function personalizarTexto(textoApi: string, user: AuthUser, cliente: str
     t = t.replace(clienteLine, `${clienteLine}\n\n${saudacao}`);
   }
 
-  // 3. Substituir rodapé com WA e link da loja corretos
+  // 3. Substituir rodapé com WA, endereço e links da loja corretos
+  const rodape = [
+    `📞 ${user.assinatura}`,
+    user.wa,
+    `📍 ${user.endereco}`,
+    `🗺️ ${user.mapsLink}`,
+    `⭐ ${user.lojaLink}`,
+  ].join("\n");
+
   t = t.replace(
     `📞 WhatsApp Loja\n${SEPARADOR.slice(0, 0)}(22) 99241-0112`,
-    `📞 ${user.assinatura}\n${user.wa}\n🔗 ${user.lojaLink}`
+    rodape
   );
 
-  // Fallback: se o replace acima não achou o padrão exato (WA diferente na API)
+  // Fallback: se o replace acima não achou o padrão exato
   if (t.includes("📞 WhatsApp Loja")) {
     t = t
       .replace("📞 WhatsApp Loja", `📞 ${user.assinatura}`)
-      .replace("(22) 99241-0112", `${user.wa}\n🔗 ${user.lojaLink}`);
+      .replace("(22) 99241-0112", `${user.wa}\n📍 ${user.endereco}\n🗺️ ${user.mapsLink}\n⭐ ${user.lojaLink}`);
   }
 
   return t;

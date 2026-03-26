@@ -152,10 +152,22 @@ export default function PublicLayout({ children }: PublicLayoutProps) {
               </div>
             </div>
             <div>
-              <p className="font-bold text-sm uppercase tracking-wider text-slate-300 mb-3">Contato</p>
-              <div className="space-y-2 text-sm text-slate-400">
-                <p>📍 Av. Júlia Kubitschek, 64</p>
-                <p>Jardim Flamboyant · Cabo Frio – RJ</p>
+              <p className="font-bold text-sm uppercase tracking-wider text-slate-300 mb-3">Nossas Lojas</p>
+              <div className="space-y-3 text-sm text-slate-400">
+                <a href="https://maps.app.goo.gl/UuF6w1nAvTgXockS6" target="_blank" rel="noreferrer" className="flex items-start gap-2 hover:text-slate-200 transition-colors group">
+                  <span className="mt-0.5 shrink-0">📍</span>
+                  <span>
+                    <span className="font-semibold text-slate-300 group-hover:text-white block">Cabo Frio</span>
+                    Av. Júlia Kubitschek, 64 · Jardim Flamboyant
+                  </span>
+                </a>
+                <a href="https://maps.app.goo.gl/cGmvFgeubawLRNGy8" target="_blank" rel="noreferrer" className="flex items-start gap-2 hover:text-slate-200 transition-colors group">
+                  <span className="mt-0.5 shrink-0">📍</span>
+                  <span>
+                    <span className="font-semibold text-slate-300 group-hover:text-white block">Araruama</span>
+                    Araruama – RJ
+                  </span>
+                </a>
                 <a
                   href={WHATSAPP}
                   target="_blank"

@@ -7,20 +7,26 @@ export type Operacao = "cabo_frio" | "araruama";
 export type Tom      = "especialista" | "acolhedor" | "direto" | "proximo" | "tecnico";
 
 export interface ColaboradorConfig {
-  nome:      string;
-  papel:     Papel;
-  operacao:  Operacao;
-  wa:        string;        // número formatado para exibição (22) XXXXX-XXXX
-  waRaw:     string;        // só dígitos para URL do WA
-  lojaLink:  string;
-  tom:       Tom;
-  header:    string;        // cabeçalho do orçamento
-  assinatura: string;       // linha de assinatura final
+  nome:       string;
+  papel:      Papel;
+  operacao:   Operacao;
+  wa:         string;        // número formatado para exibição (22) XXXXX-XXXX
+  waRaw:      string;        // só dígitos para URL do WA
+  lojaLink:   string;        // Google Business (avaliações)
+  mapsLink:   string;        // Google Maps (navegação)
+  endereco:   string;        // endereço de exibição
+  tom:        Tom;
+  header:     string;        // cabeçalho do orçamento
+  assinatura: string;        // linha de assinatura final
 }
 
 // ─── COLABORADORES ────────────────────────────────────────────────────────────
-const CABO_FRIO_LINK = "https://share.google/bDIGyrtnaNFOMfWEd";
-const ARARUAMA_LINK  = "https://share.google/o7duCdh84jQYnPn7z";
+const CABO_FRIO_LINK      = "https://share.google/bDIGyrtnaNFOMfWEd";
+const ARARUAMA_LINK       = "https://share.google/o7duCdh84jQYnPn7z";
+const CABO_FRIO_MAPS      = "https://maps.app.goo.gl/UuF6w1nAvTgXockS6";
+const ARARUAMA_MAPS       = "https://maps.app.goo.gl/cGmvFgeubawLRNGy8";
+const CABO_FRIO_ENDERECO  = "Av. Júlia Kubitschek, 64 · Jardim Flamboyant · Cabo Frio – RJ";
+const ARARUAMA_ENDERECO   = "Araruama – RJ";
 
 export const COLABORADORES: Record<string, ColaboradorConfig> = {
   THALLES: {
@@ -30,6 +36,8 @@ export const COLABORADORES: Record<string, ColaboradorConfig> = {
     wa:         "(22) 99241-0112",
     waRaw:      "5522992410112",
     lojaLink:   CABO_FRIO_LINK,
+    mapsLink:   CABO_FRIO_MAPS,
+    endereco:   CABO_FRIO_ENDERECO,
     tom:        "especialista",
     header:     "🛏️ CASTOR CABO FRIO | ThallesZzz",
     assinatura: "ThallesZzz — Especialista em Sono",
@@ -41,6 +49,8 @@ export const COLABORADORES: Record<string, ColaboradorConfig> = {
     wa:         "(22) 98844-7240",
     waRaw:      "5522988447240",
     lojaLink:   CABO_FRIO_LINK,
+    mapsLink:   CABO_FRIO_MAPS,
+    endereco:   CABO_FRIO_ENDERECO,
     tom:        "acolhedor",
     header:     "🏪 CASTOR CABO FRIO | Marcela",
     assinatura: "Marcela Taranto — Castor Cabo Frio",
@@ -52,6 +62,8 @@ export const COLABORADORES: Record<string, ColaboradorConfig> = {
     wa:         "(22) 98832-7816",
     waRaw:      "5522988327816",
     lojaLink:   CABO_FRIO_LINK,
+    mapsLink:   CABO_FRIO_MAPS,
+    endereco:   CABO_FRIO_ENDERECO,
     tom:        "direto",
     header:     "🏪 CASTOR CABO FRIO | Vagner",
     assinatura: "Vagner — Castor Cabo Frio",
@@ -63,6 +75,8 @@ export const COLABORADORES: Record<string, ColaboradorConfig> = {
     wa:         "(22) 98824-9183",
     waRaw:      "5522988249183",
     lojaLink:   ARARUAMA_LINK,
+    mapsLink:   ARARUAMA_MAPS,
+    endereco:   ARARUAMA_ENDERECO,
     tom:        "proximo",
     header:     "💙 CASTOR ARARUAMA | Nete",
     assinatura: "Nete Rafaele — Castor Araruama",
@@ -74,6 +88,8 @@ export const COLABORADORES: Record<string, ColaboradorConfig> = {
     wa:         "(22) 2665-6035",
     waRaw:      "5522266560035",
     lojaLink:   ARARUAMA_LINK,
+    mapsLink:   ARARUAMA_MAPS,
+    endereco:   ARARUAMA_ENDERECO,
     tom:        "tecnico",
     header:     "🏪 CASTOR ARARUAMA | Pedro Paulo",
     assinatura: "Pedro Paulo — Castor Araruama",
@@ -86,6 +102,8 @@ export const COLABORADORES: Record<string, ColaboradorConfig> = {
     wa:         "(22) 99241-0112",
     waRaw:      "5522992410112",
     lojaLink:   CABO_FRIO_LINK,
+    mapsLink:   CABO_FRIO_MAPS,
+    endereco:   CABO_FRIO_ENDERECO,
     tom:        "especialista",
     header:     "🏪 CASTOR CABO FRIO",
     assinatura: "Castor Cabo Frio",
@@ -97,6 +115,8 @@ export const COLABORADORES: Record<string, ColaboradorConfig> = {
     wa:         "(22) 99241-0112",
     waRaw:      "5522992410112",
     lojaLink:   CABO_FRIO_LINK,
+    mapsLink:   CABO_FRIO_MAPS,
+    endereco:   CABO_FRIO_ENDERECO,
     tom:        "direto",
     header:     "🏪 CASTOR CABO FRIO",
     assinatura: "Castor Cabo Frio",

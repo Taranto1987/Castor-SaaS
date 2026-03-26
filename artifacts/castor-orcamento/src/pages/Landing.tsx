@@ -253,31 +253,36 @@ export default function Landing() {
         <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-10 items-center">
             <motion.div {...fade()}>
-              <p className="text-red-600 font-bold text-sm uppercase tracking-wider mb-3">Visite a loja</p>
-              <h2 className="text-3xl font-black text-slate-900 mb-4">Estamos em<br />Cabo Frio – RJ</h2>
-              <p className="text-slate-500 mb-4 leading-relaxed">
+              <p className="text-red-600 font-bold text-sm uppercase tracking-wider mb-3">Nossas lojas</p>
+              <h2 className="text-3xl font-black text-slate-900 mb-4">Duas lojas na<br />Região dos Lagos</h2>
+              <p className="text-slate-500 mb-5 leading-relaxed">
                 Venha testar na prática e sair com a certeza de ter feito o melhor investimento para a sua saúde do sono.
               </p>
 
-              {/* Região de cobertura */}
-              <div className="bg-red-50 border border-red-100 rounded-xl px-4 py-3 mb-5">
-                <p className="text-xs font-bold text-red-700 mb-2">🚚 Entregamos em toda a Região dos Lagos</p>
-                <div className="flex flex-wrap gap-1.5">
-                  {REGIOES.map(c => (
-                    <span key={c} className="bg-white border border-red-200 text-red-600 text-xs font-semibold px-2.5 py-1 rounded-full">{c}</span>
-                  ))}
-                </div>
-              </div>
-
+              {/* Cabo Frio */}
               <a href={MAPS} target="_blank" rel="noreferrer"
-                className="flex items-start gap-3 bg-slate-50 border border-slate-200 rounded-2xl px-5 py-4 hover:border-red-300 transition-all group mb-4">
+                className="flex items-start gap-3 bg-slate-50 border border-slate-200 rounded-2xl px-5 py-4 hover:border-red-300 transition-all group mb-3">
                 <MapPin className="w-5 h-5 text-red-500 mt-0.5 shrink-0" />
-                <div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-xs font-bold text-red-600 uppercase tracking-wide mb-0.5">Cabo Frio</p>
                   <p className="font-extrabold text-slate-900 group-hover:text-red-600 transition-colors">Av. Júlia Kubitschek, 64</p>
                   <p className="text-sm text-slate-500">Jardim Flamboyant · Cabo Frio – RJ · 28913-100</p>
                   <p className="text-xs text-blue-500 font-semibold mt-1">Ver no Google Maps →</p>
                 </div>
               </a>
+
+              {/* Araruama */}
+              <a href="https://maps.app.goo.gl/cGmvFgeubawLRNGy8" target="_blank" rel="noreferrer"
+                className="flex items-start gap-3 bg-slate-50 border border-slate-200 rounded-2xl px-5 py-4 hover:border-red-300 transition-all group mb-4">
+                <MapPin className="w-5 h-5 text-red-500 mt-0.5 shrink-0" />
+                <div className="flex-1 min-w-0">
+                  <p className="text-xs font-bold text-red-600 uppercase tracking-wide mb-0.5">Araruama</p>
+                  <p className="font-extrabold text-slate-900 group-hover:text-red-600 transition-colors">Castor Colchões Araruama</p>
+                  <p className="text-sm text-slate-500">Araruama – RJ</p>
+                  <p className="text-xs text-blue-500 font-semibold mt-1">Ver no Google Maps →</p>
+                </div>
+              </a>
+
               <p className="text-xs text-slate-400">Seg–Sex: 9h às 18h &nbsp;·&nbsp; Sáb: 9h às 13h</p>
             </motion.div>
 
