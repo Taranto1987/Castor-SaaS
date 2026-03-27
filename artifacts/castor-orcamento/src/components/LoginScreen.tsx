@@ -11,20 +11,19 @@ export default function LoginScreen() {
   const [carregando, setCarregando] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
 
-  function handleEntrar() {
+  async function handleEntrar() {
     if (!codigo.trim()) return;
     setCarregando(true);
     setErro(false);
 
-    setTimeout(() => {
-      const ok = login(codigo);
-      setCarregando(false);
-      if (!ok) {
-        setErro(true);
-        setCodigo("");
-        inputRef.current?.focus();
-      }
-    }, 600);
+    await new Promise(resolve => setTimeout(resolve, 400));
+    const ok = await login(codigo);
+    setCarregando(false);
+    if (!ok) {
+      setErro(true);
+      setCodigo("");
+      inputRef.current?.focus();
+    }
   }
 
   function handleKey(e: KeyboardEvent<HTMLInputElement>) {

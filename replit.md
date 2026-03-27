@@ -30,7 +30,8 @@ pnpm workspace monorepo usando TypeScript. Cada pacote gerencia suas próprias d
 - `/equipe` — Catálogo interno com gerador de orçamento
 - `/orcamento` — Gerador de orçamento formatado para WhatsApp
 - `/historico` — Histórico de orçamentos com **follow-up automático**: badge "X dias em aberto" + botão "Cobrar" que gera mensagem WA pré-escrita + alerta de urgência para orçamentos ≥ 2 dias sem resposta
-- `/dashboard` — Métricas, funil de conversão, **meta do mês** com barra de progresso (localStorage por operação, editável pelo dono), top produtos, por vendedor
+- `/dashboard` — Métricas, funil de conversão, **meta do mês** com barra de progresso (persistida no banco via API, editável pelo dono), top produtos, por vendedor
+- `/financeiro` — **Gestão Financeira Completa** (apenas dono): Visão Geral (KPIs lucro/receita/despesas, alertas inteligentes, resumo diário WhatsApp), Despesas (CRUD + recorrentes automáticas + confirmação), Comissões (2% padrão, configurável por vendedor, cálculo automático sobre vendas), DRE Simplificado (receita - custos - despesas - comissões = lucro líquido)
 - `/logistica` — Controle de entregas + **Roteiro Otimizado do Pedro** + ao marcar entregue: **modal de avaliação Google** com link correto por loja (CF vs Araruama)
 - `/equipe/clientes` — **CRM básico**: agrupa orçamentos por cliente (WA/nome), mostra total gasto, # compras, última visita, taxa de conversão, badge recorrente/prospect
 - `/outlet` — **Outlet por Encomenda**: produtos da fábrica sem estoque, margem 60% automática, badge "Encomenda X dias", fluxo de pedido por WA; admins podem adicionar/remover produtos
@@ -53,6 +54,8 @@ pnpm workspace monorepo usando TypeScript. Cada pacote gerencia suas próprias d
 - Códigos: THALLES (dono/CF), MARCELA (vendedor/CF), VAGNER (vendedor/CF), NETE (vendedor/Araruama), PEDROPAULO (vendedor/Araruama), CASTOR2 (admin/CF), ENTREGA (Pedro/entrega)
 - sessionStorage, AuthContext, LoginScreen brandado
 - **Isolamento por papel**: APIs recebem `?vendedor=NOME&papel=PAPEL`. Dono vê tudo, vendedor vê só seus próprios dados (histórico, dashboard, clientes, entregas). Pedro (entrega) vê todas as entregas.
+- **Financeiro auth**: rotas financeiras usam sessão server-side via `x-session-token` header. Login em POST /api/auth/login retorna token validado pelo servidor. requireDono verifica sessão + papel=dono. GET /metas é público para Dashboard.
+- **Recurring expenses**: scheduler automático roda ao iniciar o servidor e a cada hora. No horário 00:00, gera despesas recorrentes do mês automaticamente (com idempotência por recorrenteId+mês+ano). Despesas geradas ficam com confirmada=false aguardando aprovação do dono.
 
 ## Categorias coletadas
 
@@ -65,6 +68,9 @@ pnpm workspace monorepo usando TypeScript. Cada pacote gerencia suas próprias d
 
 ## API Endpoints
 
+- `POST /api/auth/login` — cria sessão server-side (body: code) → retorna token, nome, papel
+- `GET /api/auth/me` — valida sessão (header: x-session-token)
+- `POST /api/auth/logout` — destrói sessão
 - `GET /api/produtos` — lista produtos (params: categoria, limite, interno=1 para incluir esgotados)
 - `GET /api/produtos/outlet` — lista produtos com encomenda=true
 - `POST /api/produtos/outlet` — cria produto de encomenda (custo × 1.6 = precoPix automático)
@@ -83,6 +89,25 @@ pnpm workspace monorepo usando TypeScript. Cada pacote gerencia suas próprias d
 - `POST /api/entregas` — cria entrega
 - `PATCH /api/entregas/:id/status` — atualiza status
 - `GET /api/dashboard` — dados analíticos da operação
+- `GET /api/financeiro/despesas` — lista despesas (params: mes, ano, categoria)
+- `POST /api/financeiro/despesas` — cria despesa
+- `PUT /api/financeiro/despesas/:id` — atualiza despesa
+- `DELETE /api/financeiro/despesas/:id` — remove despesa
+- `GET /api/financeiro/despesas-recorrentes` — lista templates recorrentes
+- `POST /api/financeiro/despesas-recorrentes` — cria template recorrente
+- `DELETE /api/financeiro/despesas-recorrentes/:id` — desativa recorrente
+- `POST /api/financeiro/gerar-recorrentes` — gera despesas do mês a partir dos templates
+- `GET /api/financeiro/comissoes` — lista config de comissões
+- `POST /api/financeiro/comissoes` — salva/atualiza percentual de comissão por vendedor
+- `GET /api/financeiro/comissoes/calculo` — calcula comissões do mês (params: mes, ano)
+- `GET /api/financeiro/dre` — DRE simplificado do mês (receita, custos, despesas, comissões, lucro)
+- `GET /api/financeiro/resumo-diario` — resumo do dia formatado para WhatsApp
+- `GET /api/financeiro/metas` — busca meta do mês (params: mes, ano, operacao)
+- `POST /api/financeiro/metas` — salva/atualiza meta do mês
+- `GET /api/financeiro/alertas` — alertas inteligentes (meta em risco, followup, despesas acima da média, margem baixa)
+- `GET /api/financeiro/categorias-despesa` — lista categorias pré-definidas
+- `GET /api/financeiro/evolucao` — evolução mensal de faturamento, despesas e lucro (params: meses)
+- `POST /api/financeiro/despesas/:id/comprovante` — upload de comprovante (imagem) para uma despesa
 - `POST /api/crawler/iniciar` — inicia coleta do site Castor
 - `GET /api/crawler/status` — status da coleta
 
@@ -91,6 +116,10 @@ pnpm workspace monorepo usando TypeScript. Cada pacote gerencia suas próprias d
 - `orcamentos`: id, cliente, whatsapp, produtosJson, observacoes, descontoPix, totalPix, totalPrazo, texto, vendedor, **status** (pendente|vendido), criadoEm
 - `entregas`: id, orcamentoId, cliente, whatsapp, endereco, produtos, status, vendedor, observacoes, dataEntrega, criadoEm
 - `crawler_status`: id, status, mensagem, totalProdutos, produtosColetados, erros, iniciadoEm, finalizadoEm, atualizadoEm
+- `despesas`: id, valor (numeric), categoria, descricao, comprovante, recorrente, recorrenteId, confirmada, data, criadoEm
+- `despesas_recorrentes`: id, valor, categoria, descricao, ativo, diaVencimento, criadoEm
+- `comissoes_config`: id, vendedor (unique), percentual (default 2%), criadoEm
+- `metas`: id, mes, ano, valor (numeric), operacao, criadoEm
 
 ## Structure
 

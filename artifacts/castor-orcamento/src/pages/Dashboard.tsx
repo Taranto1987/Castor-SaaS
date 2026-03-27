@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   BarChart2, TrendingUp, Package, Truck, Users, RefreshCw,
@@ -30,11 +30,6 @@ function parseBRL(str?: string): number {
 
 function formatBRL(val: number) {
   return val.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
-}
-
-function getMetaKey(operacao: string) {
-  const now = new Date();
-  return `castor_meta_${operacao}_${now.getFullYear()}_${now.getMonth() + 1}`;
 }
 
 function getMesAtual() {
@@ -131,19 +126,33 @@ export default function Dashboard() {
   const operacao = user?.operacao ?? "cabo_frio";
   const isDono = user?.papel === "dono";
 
-  const [meta, setMeta] = useState<number>(0);
   const [showMetaModal, setShowMetaModal] = useState(false);
 
-  useEffect(() => {
-    const key = getMetaKey(operacao);
-    const stored = localStorage.getItem(key);
-    if (stored) setMeta(parseFloat(stored));
-  }, [operacao]);
+  const now = new Date();
+  const mesAtual = now.getMonth() + 1;
+  const anoAtual = now.getFullYear();
 
-  const handleSaveMeta = (val: number) => {
-    const key = getMetaKey(operacao);
-    localStorage.setItem(key, String(val));
-    setMeta(val);
+  const { data: metaData, refetch: refetchMeta } = useQuery<{ valor: string } | null>({
+    queryKey: ["meta", mesAtual, anoAtual, operacao],
+    queryFn: async () => {
+      const res = await fetch(`/api/financeiro/metas?mes=${mesAtual}&ano=${anoAtual}&operacao=${operacao}`);
+      if (!res.ok) throw new Error("Erro");
+      return res.json();
+    },
+    staleTime: 5 * 60 * 1000,
+  });
+
+  const meta = metaData ? parseFloat(metaData.valor) : 0;
+
+  const handleSaveMeta = async (val: number) => {
+    try {
+      await fetch("/api/financeiro/metas", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "x-session-token": user?.sessionToken || "" },
+        body: JSON.stringify({ mes: mesAtual, ano: anoAtual, valor: val, operacao }),
+      });
+      refetchMeta();
+    } catch {}
   };
 
   const dashParams = new URLSearchParams();

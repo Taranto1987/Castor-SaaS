@@ -125,18 +125,16 @@ export const COLABORADORES: Record<string, ColaboradorConfig> = {
 
 // ─── TYPE ─────────────────────────────────────────────────────────────────────
 
-export type AuthUser = ColaboradorConfig & { codigo: string };
+export type AuthUser = ColaboradorConfig & { codigo: string; sessionToken?: string };
 
 type AuthContextType = {
   user: AuthUser | null;
-  login: (codigo: string) => boolean;
+  login: (codigo: string) => Promise<boolean>;
   logout: () => void;
   isAuthenticated: boolean;
 };
 
 const AuthContext = createContext<AuthContextType | null>(null);
-
-// ─── PROVIDER ─────────────────────────────────────────────────────────────────
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<AuthUser | null>(() => {
@@ -148,17 +146,41 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   });
 
-  function login(codigo: string): boolean {
+  async function login(codigo: string): Promise<boolean> {
     const normalizado = codigo.trim().toUpperCase();
     const found = COLABORADORES[normalizado];
     if (!found) return false;
-    const authUser: AuthUser = { ...found, codigo: normalizado };
+
+    let sessionToken: string | undefined;
+    try {
+      const res = await fetch("/api/auth/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ code: normalizado }),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        sessionToken = data.token;
+      }
+    } catch {}
+
+    if (!sessionToken && found.papel === "dono") {
+      return false;
+    }
+
+    const authUser: AuthUser = { ...found, codigo: normalizado, sessionToken };
     sessionStorage.setItem(SESSION_KEY, JSON.stringify(authUser));
     setUser(authUser);
     return true;
   }
 
   function logout() {
+    if (user?.sessionToken) {
+      fetch("/api/auth/logout", {
+        method: "POST",
+        headers: { "x-session-token": user.sessionToken },
+      }).catch(() => {});
+    }
     sessionStorage.removeItem(SESSION_KEY);
     setUser(null);
   }
