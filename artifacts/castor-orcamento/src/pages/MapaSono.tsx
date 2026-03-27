@@ -7,6 +7,10 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
+const WA_CABO_FRIO = { numero: "5522992410112", contato: "ThallesZzz", loja: "Cabo Frio" };
+const WA_ARARUAMA  = { numero: "5522333437720", contato: "Marcela",    loja: "Araruama" };
+const CIDADES_ARARUAMA = ["araruama", "saquarema", "iguaba grande", "maricá", "silva jardim"];
+
 interface ProdutoCatalogo {
   id: number;
   nome: string;
@@ -303,7 +307,7 @@ function calcularResultado(p: UserProfile): Resultado {
   return { estrutura, firmeza, perfil, justificativa, confianca, tecnologias, estrategia };
 }
 
-function gerarMensagemWA(p: UserProfile, r: Resultado): string {
+function gerarMensagemWA(p: UserProfile, r: Resultado, contato: string): string {
   const labels: Record<string, Record<string, string>> = {
     finalidade: { diario: "Uso diário", praia: "Casa de praia", ocasional: "Uso ocasional" },
     biotipo:    { leve: "Leve (até 60kg)", medio: "Médio (60–90kg)", pesado: "Pesado (+90kg)" },
@@ -319,7 +323,7 @@ function gerarMensagemWA(p: UserProfile, r: Resultado): string {
   const doresLabel = Array.isArray(p.dores) && !p.dores.includes("nenhuma")
     ? p.dores.map(d => ({ coluna: "Costas/coluna", quadril: "Quadril", ombros: "Ombros/pescoço", pressao: "Pressão" }[d] ?? d)).join(", ")
     : "Nenhuma";
-  return `Olá, ThallesZzz! 👋 Acabei de preencher o *Mapa do Sono* e quero minha recomendação personalizada!\n\n📋 *Meu perfil completo:*\n• Finalidade: ${get("finalidade", p.finalidade)}\n• Biotipo: ${get("biotipo", p.biotipo)}\n• Posição ao dormir: ${get("posicao", p.posicao)}\n• Dores: ${doresLabel}\n• Temperatura: ${get("temperatura", p.temperatura)}\n• Uso: ${get("casal", p.casal)}\n• Firmeza preferida: ${get("firmeza", p.firmeza)}\n• Peso: ${p.peso ?? "—"} / Altura: ${p.altura ?? "—"}\n• Idade: ${p.idade ?? "—"}\n• Alergia: ${get("alergia", p.alergia)}\n• Durabilidade esperada: ${get("durabilidade", p.durabilidade)}\n• Histórico: ${get("historico", p.historico)}\n\n🎯 *Resultado do Mapa do Sono:*\nEstrutura recomendada: *${r.estrutura === "MOLA" ? "Mola Ensacada" : "Espuma / Viscoelástico"}*\nFirmeza ideal: *${r.firmeza}*\n\nQuero ver as opções disponíveis e saber o melhor preço! 🛏️\n\n💊 *Compatibilidade com meu perfil:* ${r.confianca}%\n🔧 *Tecnologias indicadas:* ${r.tecnologias.join(" · ")}\n\nTambém tenho interesse no *kit completo* (protetor de colchão + travesseiro)! 😊`;
+  return `Olá, ${contato}! 👋 Acabei de preencher o *Mapa do Sono* e quero minha recomendação personalizada!\n\n📋 *Meu perfil completo:*\n• Finalidade: ${get("finalidade", p.finalidade)}\n• Biotipo: ${get("biotipo", p.biotipo)}\n• Posição ao dormir: ${get("posicao", p.posicao)}\n• Dores: ${doresLabel}\n• Temperatura: ${get("temperatura", p.temperatura)}\n• Uso: ${get("casal", p.casal)}\n• Firmeza preferida: ${get("firmeza", p.firmeza)}\n• Peso: ${p.peso ?? "—"} / Altura: ${p.altura ?? "—"}\n• Idade: ${p.idade ?? "—"}\n• Alergia: ${get("alergia", p.alergia)}\n• Durabilidade esperada: ${get("durabilidade", p.durabilidade)}\n• Histórico: ${get("historico", p.historico)}\n\n🎯 *Resultado do Mapa do Sono:*\nEstrutura recomendada: *${r.estrutura === "MOLA" ? "Mola Ensacada" : "Espuma / Viscoelástico"}*\nFirmeza ideal: *${r.firmeza}*\n\nQuero ver as opções disponíveis e saber o melhor preço! 🛏️\n\n💊 *Compatibilidade com meu perfil:* ${r.confianca}%\n🔧 *Tecnologias indicadas:* ${r.tecnologias.join(" · ")}\n\nTambém tenho interesse no *kit completo* (protetor de colchão + travesseiro)! 😊`;
 }
 
 // ─── OPTION CARD ─────────────────────────────────────────────────────────────
@@ -366,11 +370,26 @@ export default function MapaSono() {
   const [showResult, setShowResult] = useState(false);
   const [precoCalc, setPrecoCalc]   = useState("");
   const [produtosRec, setProdutosRec] = useState<ProdutoCatalogo[]>([]);
+  const [waDestino, setWaDestino] = useState(WA_CABO_FRIO);
   const scrollRef = useRef<HTMLDivElement>(null);
 
   const currentStep = stepIndex >= 0 && stepIndex < STEPS.length ? STEPS[stepIndex] : null;
   const total       = STEPS.length;
   const pct         = stepIndex < 0 ? 0 : Math.round(((stepIndex) / total) * 100);
+
+  useEffect(() => {
+    const controller = new AbortController();
+    fetch("https://ipapi.co/json/", { signal: controller.signal })
+      .then(r => r.json())
+      .then((data: { city?: string }) => {
+        const cidade = (data.city ?? "").toLowerCase();
+        if (CIDADES_ARARUAMA.some(c => cidade.includes(c))) {
+          setWaDestino(WA_ARARUAMA);
+        }
+      })
+      .catch(() => {});
+    return () => controller.abort();
+  }, []);
 
   useEffect(() => {
     scrollRef.current?.scrollTo({ top: 0, behavior: "smooth" });
@@ -488,12 +507,12 @@ export default function MapaSono() {
           {/* Hero topo */}
           <div className="bg-gradient-to-br from-red-700 to-red-900 px-6 py-8 text-white text-center">
             <div className="w-16 h-16 rounded-2xl overflow-hidden mx-auto mb-4 border-2 border-white/20 shadow-lg">
-              <img src="/thalles-avatar.jpg" alt="ThallesZzz" className="w-full h-full object-cover object-top" />
+              <img src="/thalles-avatar.jpg" alt="Especialista" className="w-full h-full object-cover object-top" />
             </div>
-            <p className="text-red-200 text-xs font-bold uppercase tracking-wider mb-1">Exclusivo · Castor Cabo Frio</p>
+            <p className="text-red-200 text-xs font-bold uppercase tracking-wider mb-1">Exclusivo · Castor {waDestino.loja}</p>
             <h2 className="text-2xl font-black leading-tight mb-2">Mapa do Sono</h2>
             <p className="text-red-100 text-sm leading-relaxed">
-              Diagnóstico personalizado com o Especialista ThallesZzz
+              Diagnóstico personalizado com {waDestino.contato}
             </p>
           </div>
 
@@ -533,7 +552,7 @@ export default function MapaSono() {
   // ── RESULTADO ───────────────────────────────────────────────────────────────
 
   if (showResult && resultado) {
-    const wa = `https://wa.me/5522992410112?text=${encodeURIComponent(gerarMensagemWA(profile, resultado))}`;
+    const wa = `https://wa.me/${waDestino.numero}?text=${encodeURIComponent(gerarMensagemWA(profile, resultado, waDestino.contato))}`;
     return (
       <div ref={scrollRef} className="bg-[#EDEBE8] min-h-full p-4">
         <div className="w-full max-w-[380px] mx-auto space-y-3">
@@ -641,7 +660,7 @@ export default function MapaSono() {
               <div className="divide-y divide-slate-50">
                 {produtosRec.map(p => {
                   const msgProduto = encodeURIComponent(
-                    `Olá, ThallesZzz! 👋 Pelo Mapa do Sono recebi a recomendação *${resultado?.estrutura === "MOLA" ? "Mola Ensacada" : "Espuma/Viscoelástico"}* e gostei do colchão *${p.nome}*. Pode me dar mais detalhes e melhores condições? 🛏️`
+                    `Olá, ${waDestino.contato}! 👋 Pelo Mapa do Sono recebi a recomendação *${resultado?.estrutura === "MOLA" ? "Mola Ensacada" : "Espuma/Viscoelástico"}* e gostei do colchão *${p.nome}*. Pode me dar mais detalhes e melhores condições? 🛏️`
                   );
                   return (
                     <div key={p.id} className="flex items-center justify-between px-4 py-3 gap-3">
@@ -655,7 +674,7 @@ export default function MapaSono() {
                         )}
                       </div>
                       <a
-                        href={`https://wa.me/5522992410112?text=${msgProduto}`}
+                        href={`https://wa.me/${waDestino.numero}?text=${msgProduto}`}
                         target="_blank"
                         rel="noreferrer"
                         className="flex items-center gap-1 bg-green-500 hover:bg-green-600 text-white text-[10px] font-extrabold px-2.5 py-1.5 rounded-lg transition-all shrink-0 active:scale-95"
@@ -723,7 +742,7 @@ export default function MapaSono() {
               className="flex items-center justify-center gap-2 w-full bg-green-500 hover:bg-green-400 text-white font-extrabold px-5 py-4 rounded-2xl shadow-lg transition-all active:scale-95 text-base"
             >
               <MessageCircle className="w-5 h-5" />
-              Falar com ThallesZzz agora
+              Falar com {waDestino.contato} agora
             </a>
             <p className="text-center text-[10px] text-slate-400">Você já chega com seu perfil completo — atendimento instantâneo!</p>
             <button
