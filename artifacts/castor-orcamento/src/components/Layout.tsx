@@ -1,7 +1,7 @@
 import { ReactNode } from "react";
 import { Link, useLocation } from "wouter";
 import { cn } from "@/lib/utils";
-import { FileText, Settings, Search, Clock, BarChart2, Truck, Moon, LogOut, User, Users, ShoppingCart } from "lucide-react";
+import { FileText, Settings, Search, Clock, BarChart2, Truck, Moon, LogOut, User, Users, ShoppingCart, Package } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useAuth } from "@/contexts/AuthContext";
 
@@ -21,6 +21,7 @@ export default function Layout({ children }: LayoutProps) {
     { path: "/dashboard",       label: "Dashboard",  icon: BarChart2 },
     { path: "/equipe/clientes", label: "Clientes",   icon: Users },
     { path: "/outlet",          label: "Outlet",     icon: ShoppingCart },
+    { path: "/estoque",         label: "Estoque",    icon: Package },
     { path: "/crawler",         label: "Atualizar",  icon: Settings },
   ];
 

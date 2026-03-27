@@ -22,6 +22,7 @@ import Dashboard from "@/pages/Dashboard";
 import Logistica from "@/pages/Logistica";
 import Clientes from "@/pages/Clientes";
 import Outlet from "@/pages/Outlet";
+import Estoque from "@/pages/Estoque";
 import NotFound from "@/pages/not-found";
 
 const queryClient = new QueryClient({
@@ -64,6 +65,7 @@ function AppRoutes() {
       <Route path="/crawler"            component={() => <PrivateRoute component={Crawler} />} />
       <Route path="/equipe/clientes"    component={() => <PrivateRoute component={Clientes} />} />
       <Route path="/outlet"             component={() => <PrivateRoute component={Outlet} />} />
+      <Route path="/estoque"            component={() => <PrivateRoute component={Estoque} />} />
 
       <Route component={NotFound} />
     </Switch>

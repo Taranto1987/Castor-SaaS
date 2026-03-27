@@ -1,7 +1,7 @@
 import { Router, type IRouter } from "express";
 import { db } from "@workspace/db";
 import { produtosTable } from "@workspace/db/schema";
-import { ilike, or, eq, and } from "drizzle-orm";
+import { ilike, or, eq, and, isNull, gt, ne, sql } from "drizzle-orm";
 
 const router: IRouter = Router();
 
@@ -22,17 +22,23 @@ function mapProduto(p: typeof produtosTable.$inferSelect) {
     encomenda: p.encomenda,
     custoBRL: p.custoBRL,
     prazoEncomenda: p.prazoEncomenda,
+    estoque: p.estoque,
     criadoEm: p.criadoEm,
   };
 }
 
 router.get("/", async (req, res) => {
   try {
-    const { categoria, limite } = req.query;
+    const { categoria, limite, interno } = req.query;
+    const conds: any[] = [];
+    if (categoria) conds.push(eq(produtosTable.categoria, categoria as string));
+    if (interno !== "1") {
+      conds.push(or(isNull(produtosTable.estoque), gt(produtosTable.estoque, 0)));
+    }
     const results = await db
       .select()
       .from(produtosTable)
-      .where(categoria ? eq(produtosTable.categoria, categoria as string) : undefined)
+      .where(conds.length > 0 ? and(...conds) : undefined)
       .limit(limite ? parseInt(limite as string) : 100);
     res.json(results.map(mapProduto));
   } catch (error) {
@@ -136,9 +142,11 @@ router.get("/buscar", async (req, res) => {
       ? eq(produtosTable.categoria, categoria)
       : undefined;
 
+    const stockCond = or(isNull(produtosTable.estoque), gt(produtosTable.estoque, 0));
     const allConds = [
       ...(textoConds.length === 1 ? [textoConds[0]] : [and(...textoConds)]),
-      ...(categoriaCond ? [categoriaCond] : [])
+      ...(categoriaCond ? [categoriaCond] : []),
+      stockCond,
     ].filter(Boolean);
 
     let results;
@@ -174,6 +182,47 @@ router.patch("/:id/disponibilidade", async (req, res) => {
     res.json(mapProduto(updated[0]));
   } catch (error) {
     console.error("Erro ao atualizar disponibilidade:", error);
+    res.status(500).json({ error: "Erro interno" });
+  }
+});
+
+router.get("/estoque", async (_req, res) => {
+  try {
+    const results = await db
+      .select()
+      .from(produtosTable)
+      .where(eq(produtosTable.encomenda, false))
+      .orderBy(produtosTable.nome);
+    res.json(results.map(mapProduto));
+  } catch (error) {
+    console.error("Erro ao listar estoque:", error);
+    res.status(500).json({ error: "Erro interno" });
+  }
+});
+
+router.patch("/:id/estoque", async (req, res) => {
+  try {
+    const id = parseInt(req.params.id);
+    if (isNaN(id)) {
+      res.status(400).json({ error: "ID inválido" });
+      return;
+    }
+    const { estoque } = req.body;
+    if (typeof estoque !== "number" || estoque < 0) {
+      res.status(400).json({ error: "Campo estoque (número >= 0) obrigatório" });
+      return;
+    }
+    const updated = await db.update(produtosTable)
+      .set({ estoque, disponivel: estoque > 0 })
+      .where(eq(produtosTable.id, id))
+      .returning();
+    if (updated.length === 0) {
+      res.status(404).json({ error: "Produto não encontrado" });
+      return;
+    }
+    res.json(mapProduto(updated[0]));
+  } catch (error) {
+    console.error("Erro ao atualizar estoque:", error);
     res.status(500).json({ error: "Erro interno" });
   }
 });

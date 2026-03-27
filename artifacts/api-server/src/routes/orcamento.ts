@@ -1,7 +1,7 @@
 import { Router, type IRouter } from "express";
 import { db } from "@workspace/db";
 import { produtosTable, orcamentosTable, entregasTable } from "@workspace/db/schema";
-import { inArray, desc, eq } from "drizzle-orm";
+import { inArray, desc, eq, sql, isNotNull, gt, and } from "drizzle-orm";
 
 const router: IRouter = Router();
 
@@ -205,13 +205,36 @@ router.post("/:id/fechar", async (req, res) => {
       return;
     }
 
+    if (orc.status === "vendido") {
+      res.status(409).json({ error: "Orçamento já foi fechado como venda" });
+      return;
+    }
+
     await db.update(orcamentosTable)
       .set({ status: "vendido" })
       .where(eq(orcamentosTable.id, id));
 
-    const produtos = Array.isArray(orc.produtosJson)
-      ? (orc.produtosJson as any[]).map((p: any) => p.nome).filter(Boolean).join(", ")
-      : "";
+    const produtosJson = Array.isArray(orc.produtosJson) ? (orc.produtosJson as any[]) : [];
+
+    const qtdPorId = new Map<number, number>();
+    for (const p of produtosJson) {
+      if (p.id) qtdPorId.set(p.id, (qtdPorId.get(p.id) || 0) + 1);
+    }
+
+    if (qtdPorId.size > 0) {
+      const prods = await db.select().from(produtosTable).where(inArray(produtosTable.id, [...qtdPorId.keys()]));
+      for (const prod of prods) {
+        if (prod.estoque !== null && prod.estoque > 0) {
+          const qty = qtdPorId.get(prod.id) || 1;
+          const novoEstoque = Math.max(0, prod.estoque - qty);
+          await db.update(produtosTable)
+            .set({ estoque: novoEstoque, disponivel: novoEstoque > 0 })
+            .where(eq(produtosTable.id, prod.id));
+        }
+      }
+    }
+
+    const produtos = produtosJson.map((p: any) => p.nome).filter(Boolean).join(", ");
 
     const [entrega] = await db.insert(entregasTable).values({
       orcamentoId: id,

@@ -34,6 +34,7 @@ pnpm workspace monorepo usando TypeScript. Cada pacote gerencia suas próprias d
 - `/logistica` — Controle de entregas + **Roteiro Otimizado do Pedro** + ao marcar entregue: **modal de avaliação Google** com link correto por loja (CF vs Araruama)
 - `/equipe/clientes` — **CRM básico**: agrupa orçamentos por cliente (WA/nome), mostra total gasto, # compras, última visita, taxa de conversão, badge recorrente/prospect
 - `/outlet` — **Outlet por Encomenda**: produtos da fábrica sem estoque, margem 60% automática, badge "Encomenda X dias", fluxo de pedido por WA; admins podem adicionar/remover produtos
+- `/estoque` — **Controle de Estoque**: lista todos os produtos não-encomenda, badges (esgotado/baixo/OK), filtros, busca. Dono pode ajustar quantidade com +/-. **Baixa automática** ao fechar venda (`/orcamento/:id/fechar`). Catálogo público esconde produtos com estoque=0.
 - `/crawler` — Atualização do banco de dados via crawler
 
 ### MapaSono — Mapa do Sono (público)
@@ -64,13 +65,15 @@ pnpm workspace monorepo usando TypeScript. Cada pacote gerencia suas próprias d
 
 ## API Endpoints
 
-- `GET /api/produtos` — lista produtos (params: categoria, limite)
+- `GET /api/produtos` — lista produtos (params: categoria, limite, interno=1 para incluir esgotados)
 - `GET /api/produtos/outlet` — lista produtos com encomenda=true
 - `POST /api/produtos/outlet` — cria produto de encomenda (custo × 1.6 = precoPix automático)
 - `PATCH /api/produtos/:id/encomenda` — toggle encomenda (boolean)
 - `PATCH /api/produtos/:id/disponibilidade` — toggle disponivel
 - `GET /api/produtos/buscar?q=texto` — busca por texto
 - `GET /api/produtos/categorias` — lista categorias
+- `GET /api/produtos/estoque` — lista produtos não-encomenda para controle de estoque
+- `PATCH /api/produtos/:id/estoque` — atualiza estoque (body: {estoque: number})
 - `GET /api/produtos/:id` — produto por ID
 - `POST /api/orcamento` — gera orçamento
 - `POST /api/orcamentos/salvar` — salva orçamento no histórico
@@ -84,7 +87,7 @@ pnpm workspace monorepo usando TypeScript. Cada pacote gerencia suas próprias d
 - `GET /api/crawler/status` — status da coleta
 
 ## Schema DB
-- `produtos`: id, nome, sku, preco, precoPix, parcelamento, medidas, altura, categoria, imagem, link, disponivel, **encomenda** (bool), **custoBRL**, **prazoEncomenda**, criadoEm
+- `produtos`: id, nome, sku, preco, precoPix, parcelamento, medidas, altura, categoria, imagem, link, disponivel, **encomenda** (bool), **custoBRL**, **prazoEncomenda**, **estoque** (integer, null=sem controle, 0=esgotado), criadoEm
 - `orcamentos`: id, cliente, whatsapp, produtosJson, observacoes, descontoPix, totalPix, totalPrazo, texto, vendedor, **status** (pendente|vendido), criadoEm
 - `entregas`: id, orcamentoId, cliente, whatsapp, endereco, produtos, status, vendedor, observacoes, dataEntrega, criadoEm
 - `crawler_status`: id, status, mensagem, totalProdutos, produtosColetados, erros, iniciadoEm, finalizadoEm, atualizadoEm
