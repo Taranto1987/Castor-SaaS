@@ -95,18 +95,7 @@ export default function Layout({ children }: LayoutProps) {
 
       {/* Main Content Area */}
       <main className="flex-1 w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 relative z-10">
-        <AnimatePresence mode="wait">
-          <motion.div
-            key={location}
-            initial={{ opacity: 0, y: 12 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -12 }}
-            transition={{ duration: 0.3, ease: "easeOut" }}
-            className="h-full"
-          >
-            {children}
-          </motion.div>
-        </AnimatePresence>
+        {children}
       </main>
 
       {/* Mobile Bottom Navigation */}
