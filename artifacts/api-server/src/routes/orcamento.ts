@@ -210,10 +210,6 @@ router.post("/:id/fechar", async (req, res) => {
       return;
     }
 
-    await db.update(orcamentosTable)
-      .set({ status: "vendido" })
-      .where(eq(orcamentosTable.id, id));
-
     interface ProdutoItem { id?: number; nome?: string }
     const produtosJson: ProdutoItem[] = Array.isArray(orc.produtosJson)
       ? (orc.produtosJson as ProdutoItem[])
@@ -224,34 +220,42 @@ router.post("/:id/fechar", async (req, res) => {
       if (p.id) qtdPorId.set(p.id, (qtdPorId.get(p.id) || 0) + 1);
     }
 
-    if (qtdPorId.size > 0) {
-      const prods = await db.select().from(produtosTable).where(inArray(produtosTable.id, [...qtdPorId.keys()]));
-      for (const prod of prods) {
-        if (prod.estoque !== null && prod.estoque > 0) {
-          const qty = qtdPorId.get(prod.id) || 1;
-          const novoEstoque = Math.max(0, prod.estoque - qty);
-          await db.update(produtosTable)
-            .set({ estoque: novoEstoque, disponivel: novoEstoque > 0 })
-            .where(eq(produtosTable.id, prod.id));
-        }
-      }
-    }
-
     const produtos = produtosJson.map((p) => p.nome).filter(Boolean).join(", ");
 
-    const [entrega] = await db.insert(entregasTable).values({
-      orcamentoId: id,
-      cliente: orc.cliente,
-      whatsapp: orc.whatsapp || null,
-      endereco: endereco || null,
-      produtos: produtos || null,
-      vendedor: orc.vendedor || null,
-      status: "pendente",
-      observacoes: observacoes || null,
-      dataEntrega: dataEntrega || null,
-    }).returning();
+    const result = await db.transaction(async (tx) => {
+      await tx.update(orcamentosTable)
+        .set({ status: "vendido" })
+        .where(eq(orcamentosTable.id, id));
 
-    res.json({ mensagem: "Venda fechada! Entrega criada.", entregaId: entrega.id });
+      if (qtdPorId.size > 0) {
+        const prods = await tx.select().from(produtosTable).where(inArray(produtosTable.id, [...qtdPorId.keys()]));
+        for (const prod of prods) {
+          if (prod.estoque !== null && prod.estoque > 0) {
+            const qty = qtdPorId.get(prod.id) || 1;
+            const novoEstoque = Math.max(0, prod.estoque - qty);
+            await tx.update(produtosTable)
+              .set({ estoque: novoEstoque, disponivel: novoEstoque > 0 })
+              .where(eq(produtosTable.id, prod.id));
+          }
+        }
+      }
+
+      const [entrega] = await tx.insert(entregasTable).values({
+        orcamentoId: id,
+        cliente: orc.cliente,
+        whatsapp: orc.whatsapp || null,
+        endereco: endereco || null,
+        produtos: produtos || null,
+        vendedor: orc.vendedor || null,
+        status: "pendente",
+        observacoes: observacoes || null,
+        dataEntrega: dataEntrega || null,
+      }).returning();
+
+      return entrega;
+    });
+
+    res.json({ mensagem: "Venda fechada! Entrega criada.", entregaId: result.id });
   } catch (error) {
     console.error("Erro ao fechar venda:", error);
     res.status(500).json({ error: "Erro interno" });

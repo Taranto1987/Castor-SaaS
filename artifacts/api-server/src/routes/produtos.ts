@@ -207,8 +207,8 @@ router.patch("/:id/estoque", async (req, res) => {
       return;
     }
     const { estoque } = req.body;
-    if (typeof estoque !== "number" || estoque < 0) {
-      res.status(400).json({ error: "Campo estoque (número >= 0) obrigatório" });
+    if (typeof estoque !== "number" || !Number.isInteger(estoque) || estoque < 0) {
+      res.status(400).json({ error: "Campo estoque (inteiro >= 0) obrigatório" });
       return;
     }
     const updated = await db.update(produtosTable)
