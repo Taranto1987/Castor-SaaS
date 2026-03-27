@@ -38,5 +38,6 @@ export function trackPageView(pageName: string) {
 }
 
 export function trackCatalogoWhatsApp(produto: string, loja: string) {
+  push("whatsapp_click", { origem: "catalogo", loja, produto });
   push("catalogo_whatsapp", { produto, loja });
 }
