@@ -3,6 +3,7 @@ import { motion } from "framer-motion";
 import { Link } from "wouter";
 import { MessageCircle, Star, MapPin, ChevronRight, Moon, Shield, Zap, Wind, RotateCcw, Award, BedDouble, Package, Box, Layers, Sparkles } from "lucide-react";
 import MapaSonoModal from "@/components/MapaSonoModal";
+import { trackWhatsAppClick, trackPageView } from "@/lib/tracking";
 
 const WA_CABO_FRIO  = { numero: "5522992410112", loja: "Cabo Frio", contato: "ThallesZzz", tel: "(22) 99241-0112" };
 const WA_ARARUAMA   = { numero: "5522333437720", loja: "Araruama",  contato: "Marcela",    tel: "(22) 3343-7720" };
@@ -53,6 +54,8 @@ const REGIOES = ["Cabo Frio", "Búzios", "Arraial do Cabo", "São Pedro da Aldei
 export default function Landing() {
   const [showMapa, setShowMapa] = useState(false);
   const { wa, ready, toggle } = useLocalizacao();
+
+  useEffect(() => { trackPageView("landing"); }, []);
 
   return (
     <div className="overflow-x-hidden">
@@ -345,6 +348,7 @@ export default function Landing() {
                 href={waLink(wa)}
                 target="_blank"
                 rel="noreferrer"
+                onClick={() => trackWhatsAppClick("landing_cta", wa.loja)}
                 className="flex items-center justify-center gap-2 bg-green-500 hover:bg-green-400 text-white font-extrabold px-6 py-4 rounded-2xl transition-all shadow-lg active:scale-95 text-base mb-3"
               >
                 <MessageCircle className="w-5 h-5" />
@@ -364,6 +368,7 @@ export default function Landing() {
         href={waLink(wa)}
         target="_blank"
         rel="noreferrer"
+        onClick={() => trackWhatsAppClick("landing_floating", wa.loja)}
         className="fixed bottom-6 right-6 z-50 flex items-center gap-2 bg-green-500 hover:bg-green-600 text-white font-bold px-4 py-3 rounded-2xl shadow-2xl shadow-green-900/40 transition-all active:scale-95 hover:scale-105"
       >
         <MessageCircle className="w-5 h-5" />

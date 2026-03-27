@@ -195,6 +195,21 @@ Database layer using Drizzle ORM with PostgreSQL.
 
 OpenAPI spec em `openapi.yaml`. Run codegen: `pnpm --filter @workspace/api-spec run codegen`
 
+## Rastreamento (GTM + GA4)
+
+- **Google Tag Manager**: carregado dinamicamente via `src/lib/gtm.ts`. Requer env var `VITE_GTM_ID` (ex: `GTM-XXXXXXX`). Se não definida, GTM não é carregado — sem impacto no app.
+- **Google Analytics 4**: configurado pelo painel do GTM, não pelo código. GA4 recebe eventos via dataLayer do GTM.
+- **Tracking functions** (`src/lib/tracking.ts`): todas usam `window.dataLayer.push()`. Se GTM não estiver carregado, os pushes são silenciosamente ignorados.
+- **Eventos rastreados**:
+  - `whatsapp_click` — clique em qualquer botão/link WhatsApp (params: origin, loja)
+  - `orcamento_gerado` — orçamento gerado com sucesso (params: total_pix, num_itens)
+  - `orcamento_salvo` — orçamento salvo no histórico (params: total_pix)
+  - `mapa_sono_completo` — quiz Mapa do Sono finalizado (params: estrutura, firmeza, confianca)
+  - `outlet_pedido` — clique "Pedir" no Outlet (params: produto)
+  - `catalogo_whatsapp` — WhatsApp via catálogo público (params: produto, loja)
+  - `page_view` — visualização de página (params: page_name). Emitido em: Landing, Catálogo, Orçamento, MapaSono, Outlet
+- **Páginas instrumentadas**: Landing, Catálogo, Orçamento, MapaSono, Outlet, PublicLayout (header/footer)
+
 ## Notas de Uso
 
 1. Ao abrir o sistema pela primeira vez, o banco está vazio

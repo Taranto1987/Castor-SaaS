@@ -3,6 +3,7 @@ import { Link, useLocation } from "wouter";
 import { cn } from "@/lib/utils";
 import { MessageCircle, Menu, X, Moon, Search, ChevronRight } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
+import { trackWhatsAppClick } from "@/lib/tracking";
 
 const WHATSAPP = "https://wa.me/5522992410112?text=Olá! Vi o site da Castor e quero saber mais sobre os colchões!";
 
@@ -59,6 +60,7 @@ export default function PublicLayout({ children }: PublicLayoutProps) {
                 href={WHATSAPP}
                 target="_blank"
                 rel="noreferrer"
+                onClick={() => trackWhatsAppClick("header_nav", "Cabo Frio")}
                 className="flex items-center gap-2 bg-green-500 hover:bg-green-600 text-white font-extrabold px-5 py-2.5 rounded-xl transition-all shadow-md shadow-green-500/30 active:scale-95 text-sm"
               >
                 <MessageCircle className="w-4 h-4" />
@@ -101,7 +103,7 @@ export default function PublicLayout({ children }: PublicLayoutProps) {
                   href={WHATSAPP}
                   target="_blank"
                   rel="noreferrer"
-                  onClick={() => setMobileOpen(false)}
+                  onClick={() => { setMobileOpen(false); trackWhatsAppClick("header_mobile", "Cabo Frio"); }}
                   className="flex items-center gap-3 px-4 py-3 rounded-xl bg-green-50 text-green-700 font-bold"
                 >
                   <MessageCircle className="w-4 h-4" />
@@ -163,6 +165,7 @@ export default function PublicLayout({ children }: PublicLayoutProps) {
                     href="https://wa.me/5522992410112?text=Olá! Vi o site da Castor Cabo Frio e quero saber mais sobre os colchões!"
                     target="_blank"
                     rel="noreferrer"
+                    onClick={() => trackWhatsAppClick("footer", "Cabo Frio")}
                     className="flex items-center gap-2 text-green-400 hover:text-green-300 font-semibold"
                   >
                     <MessageCircle className="w-4 h-4" /> (22) 99241-0112 · Cabo Frio
@@ -171,6 +174,7 @@ export default function PublicLayout({ children }: PublicLayoutProps) {
                     href="https://wa.me/5522333437720?text=Olá! Vi o site da Castor Araruama e quero saber mais sobre os colchões!"
                     target="_blank"
                     rel="noreferrer"
+                    onClick={() => trackWhatsAppClick("footer", "Araruama")}
                     className="flex items-center gap-2 text-green-400 hover:text-green-300 font-semibold"
                   >
                     <MessageCircle className="w-4 h-4" /> (22) 3343-7720 · Araruama

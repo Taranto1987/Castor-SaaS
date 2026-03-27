@@ -11,6 +11,7 @@ import {
 } from "@workspace/api-client-react";
 import { cn } from "@/lib/utils";
 import type { Produto } from "@workspace/api-client-react/src/generated/api.schemas";
+import { trackPageView, trackCatalogoWhatsApp } from "@/lib/tracking";
 
 const WA_CF  = { numero: "5522992410112", loja: "Cabo Frio", contato: "ThallesZzz" };
 const WA_ARU = { numero: "5522333437720", loja: "Araruama",  contato: "Marcela" };
@@ -35,6 +36,8 @@ export default function Catalogo() {
   const [activeCategory, setActiveCategory] = useState<string>("Todas");
   const [selectedProduct, setSelectedProduct] = useState<Produto | null>(null);
   const [waInfo, setWaInfo] = useState(WA_CF);
+
+  useEffect(() => { trackPageView("catalogo"); }, []);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -243,6 +246,7 @@ export default function Catalogo() {
                     href={`https://wa.me/${waInfo.numero}?text=${encodeURIComponent(gerarMsgWA(selectedProduct, waInfo.contato, waInfo.loja))}`}
                     target="_blank"
                     rel="noreferrer"
+                    onClick={() => trackCatalogoWhatsApp(selectedProduct.nome, waInfo.loja)}
                     className="flex-1 flex items-center justify-center gap-2 bg-green-500 hover:bg-green-600 text-white font-extrabold py-3.5 px-4 rounded-xl shadow-lg shadow-green-500/25 transition-all active:scale-95"
                   >
                     <MessageCircle className="w-5 h-5" />
@@ -270,6 +274,7 @@ export default function Catalogo() {
         href={`https://wa.me/${waInfo.numero}?text=${encodeURIComponent(`Olá! Estou vendo o catálogo da Castor ${waInfo.loja} e quero mais informações!`)}`}
         target="_blank"
         rel="noreferrer"
+        onClick={() => trackCatalogoWhatsApp("catalogo_geral", waInfo.loja)}
         className="fixed bottom-6 right-6 z-50 flex items-center gap-2 bg-green-500 hover:bg-green-600 text-white font-bold px-4 py-3 rounded-2xl shadow-2xl shadow-green-900/40 transition-all active:scale-95 hover:scale-105"
       >
         <MessageCircle className="w-5 h-5" />

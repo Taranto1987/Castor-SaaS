@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   ShoppingCart, Clock, Plus, X, Package, MessageCircle,
@@ -8,6 +8,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
 import { cn } from "@/lib/utils";
+import { trackOutletPedido, trackWhatsAppClick, trackPageView } from "@/lib/tracking";
 
 interface ProdutoOutlet {
   id: number;
@@ -181,6 +182,8 @@ function ProdutoCard({ produto, isDono, onDelete }: {
 
   const handlePedir = () => {
     registrarInteresse(produto.id);
+    trackOutletPedido(produto.nome);
+    trackWhatsAppClick("outlet_pedir", "Cabo Frio");
     window.open(waUrl, "_blank");
   };
 
@@ -250,6 +253,8 @@ export default function Outlet() {
   const { user } = useAuth();
   const isDono = user?.papel === "dono";
   const [showModal, setShowModal] = useState(false);
+
+  useEffect(() => { trackPageView("outlet"); }, []);
 
   const { data: produtos = [], isLoading, refetch } = useQuery<ProdutoOutlet[]>({
     queryKey: ["outlet-produtos"],

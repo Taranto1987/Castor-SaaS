@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   Copy, CheckCircle2, MessageCircle, RefreshCw, FileText,
@@ -15,6 +15,7 @@ import type { Produto } from "@workspace/api-client-react/src/generated/api.sche
 import ProductPicker from "@/components/ProductPicker";
 import { useAuth } from "@/contexts/AuthContext";
 import { personalizarTexto } from "@/lib/personalizarTexto";
+import { trackOrcamentoGerado, trackOrcamentoSalvo, trackWhatsAppClick, trackPageView } from "@/lib/tracking";
 
 const OPERACAO_LABEL: Record<string, string> = {
   cabo_frio: "Cabo Frio + Região",
@@ -24,6 +25,8 @@ const OPERACAO_LABEL: Record<string, string> = {
 export default function Orcamento() {
   const { toast } = useToast();
   const { user } = useAuth();
+
+  useEffect(() => { trackPageView("orcamento"); }, []);
 
   const [cliente, setCliente] = useState("");
   const [whatsapp, setWhatsapp] = useState("");
@@ -69,6 +72,10 @@ export default function Orcamento() {
         observacoes: observacoes.trim() || undefined,
         descontoPix: descontoPix > 0 ? descontoPix : undefined,
       }
+    }, {
+      onSuccess: (data) => {
+        trackOrcamentoGerado(data?.totalPix ?? "", carrinho.length);
+      },
     });
   };
 
@@ -87,13 +94,17 @@ export default function Orcamento() {
         vendedor: user?.nome ?? undefined,
       }
     }, {
-      onSuccess: () => toast({ title: "Salvo!", description: "Orçamento salvo no histórico." }),
+      onSuccess: () => {
+        toast({ title: "Salvo!", description: "Orçamento salvo no histórico." });
+        trackOrcamentoSalvo(quoteResult?.totalPix ?? "");
+      },
       onError:   () => toast({ title: "Erro", description: "Não foi possível salvar.", variant: "destructive" }),
     });
   };
 
   const handleOpenWhatsApp = () => {
     if (!textoPersonalizado) return;
+    trackWhatsAppClick("orcamento", user?.operacao === "araruama" ? "Araruama" : "Cabo Frio");
     const numero = whatsapp.replace(/\D/g, "");
     const texto  = encodeURIComponent(textoPersonalizado);
     const url    = numero

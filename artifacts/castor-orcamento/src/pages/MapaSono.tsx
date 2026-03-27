@@ -6,6 +6,7 @@ import {
   Scale, Ruler, Calendar, Wind, Clock, History, MapPin, Moon, ShoppingCart
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { trackMapaSonoCompleto, trackWhatsAppClick, trackPageView } from "@/lib/tracking";
 
 const WA_CABO_FRIO = { numero: "5522992410112", contato: "ThallesZzz", loja: "Cabo Frio" };
 const WA_ARARUAMA  = { numero: "5522333437720", contato: "Marcela",    loja: "Araruama" };
@@ -364,6 +365,8 @@ function OpcaoCard({ opcao, selected, onClick }: {
 export default function MapaSono() {
   const [stepIndex, setStepIndex] = useState(-1);
   const [profile, setProfile]     = useState<UserProfile>({});
+
+  useEffect(() => { trackPageView("mapa_sono"); }, []);
   const [multiSelect, setMultiSelect] = useState<string[]>([]);
   const [pendingValue, setPendingValue] = useState<string | null>(null);
   const [resultado, setResultado]   = useState<Resultado | null>(null);
@@ -438,6 +441,7 @@ export default function MapaSono() {
       const res = calcularResultado(newProfile);
       setResultado(res);
       setShowResult(true);
+      trackMapaSonoCompleto(res.estrutura, res.firmeza, res.confianca);
     } else {
       setStepIndex(i => i + 1);
     }
@@ -688,6 +692,7 @@ export default function MapaSono() {
                         href={`https://wa.me/${waDestino.numero}?text=${msgProduto}`}
                         target="_blank"
                         rel="noreferrer"
+                        onClick={() => trackWhatsAppClick("mapa_sono_produto", waDestino.loja)}
                         className="flex items-center gap-1 bg-green-500 hover:bg-green-600 text-white text-[10px] font-extrabold px-2.5 py-1.5 rounded-lg transition-all shrink-0 active:scale-95"
                       >
                         <MessageCircle className="w-3 h-3" /> Quero esse
@@ -750,6 +755,7 @@ export default function MapaSono() {
               href={wa}
               target="_blank"
               rel="noreferrer"
+              onClick={() => trackWhatsAppClick("mapa_sono_resultado", waDestino.loja)}
               className="flex items-center justify-center gap-2 w-full bg-green-500 hover:bg-green-400 text-white font-extrabold px-5 py-4 rounded-2xl shadow-lg transition-all active:scale-95 text-base"
             >
               <MessageCircle className="w-5 h-5" />
