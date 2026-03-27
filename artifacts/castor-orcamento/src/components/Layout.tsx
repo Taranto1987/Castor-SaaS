@@ -1,7 +1,7 @@
 import { ReactNode } from "react";
 import { Link, useLocation } from "wouter";
 import { cn } from "@/lib/utils";
-import { FileText, Settings, Search, Clock, BarChart2, Truck, Moon, LogOut, User, Users, ShoppingCart, Package, DollarSign, TrendingUp } from "lucide-react";
+import { FileText, Settings, Search, Clock, BarChart2, Truck, Moon, LogOut, User, Users, ShoppingCart, Package, DollarSign, TrendingUp, ClipboardPlus } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useAuth } from "@/contexts/AuthContext";
 
@@ -28,6 +28,7 @@ export default function Layout({ children }: LayoutProps) {
     ...(isDono ? [
       { path: "/estoque", label: "Estoque", icon: Package },
       { path: "/ranking-outlet", label: "Ranking", icon: TrendingUp },
+      { path: "/entrada-estoque", label: "Entrada", icon: ClipboardPlus },
     ] : []),
     { path: "/crawler",         label: "Atualizar",  icon: Settings },
   ];

@@ -7,6 +7,7 @@ import entregasRouter from "./entregas";
 import dashboardRouter from "./dashboard";
 import financeiroRouter from "./financeiro";
 import authRouter from "./auth";
+import entradaEstoqueRouter from "./entrada-estoque";
 
 const router: IRouter = Router();
 
@@ -18,5 +19,6 @@ router.use("/crawler", crawlerRouter);
 router.use("/entregas", entregasRouter);
 router.use("/dashboard", dashboardRouter);
 router.use("/financeiro", financeiroRouter);
+router.use("/entrada-estoque", entradaEstoqueRouter);
 
 export default router;

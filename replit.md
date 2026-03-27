@@ -37,6 +37,7 @@ pnpm workspace monorepo usando TypeScript. Cada pacote gerencia suas próprias d
 - `/outlet` — **Outlet por Encomenda**: produtos da fábrica sem estoque, margem 60% automática, badge "Encomenda X dias", fluxo de pedido por WA; admins podem adicionar/remover produtos
 - `/estoque` — **Controle de Estoque**: lista todos os produtos não-encomenda, badges (esgotado/baixo/OK), filtros, busca. Dono pode ajustar quantidade com +/-. **Baixa automática** ao fechar venda (`/orcamento/:id/fechar`). Catálogo público esconde produtos com estoque=0.
 - `/ranking-outlet` — **Ranking Outlet** (apenas dono): ranking dos produtos mais pedidos por encomenda, com total de interesses e data do último pedido. Custo, preço outlet (60%) e sugestão pronta-entrega (100%). Botão "Promover para estoque" converte encomenda → catálogo regular com quantidade e preço ajustável.
+- `/entrada-estoque` — **Entrada de Estoque via Foto**: tira foto da nota fiscal → Gemini Vision extrai itens (nome, qtd, SKU, preço custo) → matching automático com catálogo → revisão e confirmação → estoque atualizado. Histórico de entradas registrado. Apenas dono.
 - `/crawler` — Atualização do banco de dados via crawler
 
 ### MapaSono — Mapa do Sono (público)
@@ -112,6 +113,11 @@ pnpm workspace monorepo usando TypeScript. Cada pacote gerencia suas próprias d
 - `GET /api/financeiro/categorias-despesa` — lista categorias pré-definidas
 - `GET /api/financeiro/evolucao` — evolução mensal de faturamento, despesas e lucro (params: meses)
 - `POST /api/financeiro/despesas/:id/comprovante` — upload de comprovante (imagem) para uma despesa
+- `POST /api/entrada-estoque/extrair` — upload imagem nota fiscal → Gemini Vision extrai itens (auth: dono)
+- `POST /api/entrada-estoque/match` — matching automático dos itens extraídos com catálogo (auth: dono)
+- `POST /api/entrada-estoque/confirmar` — confirma entrada, atualiza estoque e preço de custo (auth: dono)
+- `GET /api/entrada-estoque/historico` — histórico de entradas (auth: dono)
+- `GET /api/entrada-estoque/produtos/buscar?q=` — busca produtos para vinculação manual (auth: dono)
 - `POST /api/crawler/iniciar` — inicia coleta do site Castor
 - `GET /api/crawler/status` — status da coleta
 
@@ -124,6 +130,8 @@ pnpm workspace monorepo usando TypeScript. Cada pacote gerencia suas próprias d
 - `despesas`: id, valor (numeric), categoria, descricao, comprovante, recorrente, recorrenteId, confirmada, data, criadoEm
 - `despesas_recorrentes`: id, valor, categoria, descricao, ativo, diaVencimento, criadoEm
 - `comissoes_config`: id, vendedor (unique), percentual (default 2%), criadoEm
+- `entradas_estoque`: id, fornecedor, imagemNota, totalItens, criadoEm
+- `itens_entrada_estoque`: id, entradaId (FK), produtoId (FK nullable), nomeExtraido, skuExtraido, quantidade, precoCusto, criadoEm
 - `metas`: id, mes, ano, valor (numeric), operacao, criadoEm
 
 ## Structure
@@ -137,6 +145,7 @@ artifacts-monorepo/
 │   ├── api-spec/           # OpenAPI spec + Orval codegen config
 │   ├── api-client-react/   # Generated React Query hooks
 │   ├── api-zod/            # Generated Zod schemas from OpenAPI
+│   ├── integrations-gemini-ai/  # Gemini AI SDK client (Replit AI Integrations)
 │   └── db/                 # Drizzle ORM schema + DB connection
 │       └── src/schema/produtos.ts  # Tabelas: produtos, crawler_status
 ├── scripts/                # Utility scripts

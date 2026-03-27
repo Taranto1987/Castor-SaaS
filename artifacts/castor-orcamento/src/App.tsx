@@ -24,6 +24,7 @@ import Clientes from "@/pages/Clientes";
 import Outlet from "@/pages/Outlet";
 import Estoque from "@/pages/Estoque";
 import RankingOutlet from "@/pages/RankingOutlet";
+import EntradaEstoque from "@/pages/EntradaEstoque";
 import Financeiro from "@/pages/Financeiro";
 import NotFound from "@/pages/not-found";
 
@@ -84,6 +85,7 @@ function AppRoutes() {
       <Route path="/outlet"             component={() => <PrivateRoute component={Outlet} />} />
       <Route path="/estoque"            component={() => <DonoRoute component={Estoque} />} />
       <Route path="/ranking-outlet"     component={() => <DonoRoute component={RankingOutlet} />} />
+      <Route path="/entrada-estoque"   component={() => <DonoRoute component={EntradaEstoque} />} />
       <Route path="/financeiro"         component={() => <PrivateRoute component={Financeiro} />} />
 
       <Route component={NotFound} />
