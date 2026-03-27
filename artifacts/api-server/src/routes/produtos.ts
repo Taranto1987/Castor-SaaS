@@ -1,7 +1,17 @@
-import { Router, type IRouter } from "express";
+import { Router, type IRouter, type Request, type Response, type NextFunction } from "express";
 import { db } from "@workspace/db";
-import { produtosTable } from "@workspace/db/schema";
-import { ilike, or, eq, and, isNull, gt } from "drizzle-orm";
+import { produtosTable, outletInteressesTable } from "@workspace/db/schema";
+import { ilike, or, eq, and, isNull, gt, desc, count, max, inArray } from "drizzle-orm";
+import { getSession, isDono as isDonoSession } from "../lib/sessions";
+
+function requireDono(req: Request, res: Response, next: NextFunction) {
+  const token = (req.headers["x-session-token"] || "") as string;
+  if (!token) { res.status(401).json({ error: "Sessão não encontrada" }); return; }
+  const session = getSession(token);
+  if (!session) { res.status(401).json({ error: "Sessão inválida ou expirada" }); return; }
+  if (!isDonoSession(session)) { res.status(403).json({ error: "Acesso restrito ao dono" }); return; }
+  next();
+}
 
 const router: IRouter = Router();
 
@@ -181,6 +191,106 @@ router.patch("/:id/disponibilidade", async (req, res) => {
     res.json(mapProduto(updated[0]));
   } catch (error) {
     console.error("Erro ao atualizar disponibilidade:", error);
+    res.status(500).json({ error: "Erro interno" });
+  }
+});
+
+router.post("/outlet/:id/interesse", async (req, res) => {
+  try {
+    const id = parseInt(req.params.id as string);
+    if (isNaN(id)) {
+      res.status(400).json({ error: "ID inválido" });
+      return;
+    }
+    const [produto] = await db.select().from(produtosTable).where(eq(produtosTable.id, id)).limit(1);
+    if (!produto || !produto.encomenda) {
+      res.status(404).json({ error: "Produto outlet não encontrado" });
+      return;
+    }
+    await db.insert(outletInteressesTable).values({ produtoId: id });
+    res.json({ ok: true });
+  } catch (error) {
+    console.error("Erro ao registrar interesse:", error);
+    res.status(500).json({ error: "Erro interno" });
+  }
+});
+
+router.get("/outlet/ranking", requireDono, async (_req, res) => {
+  try {
+    const ranking = await db
+      .select({
+        produtoId: outletInteressesTable.produtoId,
+        total: count(outletInteressesTable.id),
+        ultimoInteresse: max(outletInteressesTable.criadoEm),
+      })
+      .from(outletInteressesTable)
+      .groupBy(outletInteressesTable.produtoId)
+      .orderBy(desc(count(outletInteressesTable.id)));
+
+    const produtoIds = ranking.map(r => r.produtoId);
+    if (produtoIds.length === 0) {
+      res.json([]);
+      return;
+    }
+
+    const produtos = await db.select().from(produtosTable).where(inArray(produtosTable.id, produtoIds));
+    const produtoMap = new Map(produtos.map(p => [p.id, p]));
+
+    const result = ranking
+      .map(r => {
+        const p = produtoMap.get(r.produtoId);
+        if (!p) return null;
+        return {
+          ...mapProduto(p),
+          totalInteresses: Number(r.total),
+          ultimoInteresse: r.ultimoInteresse,
+        };
+      })
+      .filter(Boolean);
+
+    res.json(result);
+  } catch (error) {
+    console.error("Erro ao buscar ranking outlet:", error);
+    res.status(500).json({ error: "Erro interno" });
+  }
+});
+
+router.post("/outlet/:id/promover", requireDono, async (req, res) => {
+  try {
+    const id = parseInt(req.params.id as string);
+    if (isNaN(id)) {
+      res.status(400).json({ error: "ID inválido" });
+      return;
+    }
+    const [produto] = await db.select().from(produtosTable).where(eq(produtosTable.id, id)).limit(1);
+    if (!produto) {
+      res.status(404).json({ error: "Produto não encontrado" });
+      return;
+    }
+    if (!produto.encomenda) {
+      res.status(400).json({ error: "Produto já está no catálogo regular (não é encomenda)" });
+      return;
+    }
+    const { estoque, precoPix } = req.body;
+    if (typeof estoque !== "number" || !Number.isInteger(estoque) || estoque < 1) {
+      res.status(400).json({ error: "Campo estoque (inteiro >= 1) obrigatório" });
+      return;
+    }
+    const setData: { encomenda: boolean; estoque: number; disponivel: boolean; precoPix?: string } = {
+      encomenda: false,
+      estoque,
+      disponivel: true,
+    };
+    if (precoPix && typeof precoPix === "string" && /^R\$\s?\d/.test(precoPix)) {
+      setData.precoPix = precoPix;
+    }
+    const updated = await db.update(produtosTable)
+      .set(setData)
+      .where(eq(produtosTable.id, id))
+      .returning();
+    res.json(mapProduto(updated[0]));
+  } catch (error) {
+    console.error("Erro ao promover produto:", error);
     res.status(500).json({ error: "Erro interno" });
   }
 });

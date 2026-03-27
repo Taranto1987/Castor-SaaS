@@ -162,12 +162,15 @@ function OutletModal({ onClose, onSave }: {
   );
 }
 
+function registrarInteresse(produtoId: number) {
+  fetch(`/api/produtos/outlet/${produtoId}/interesse`, { method: "POST" }).catch(() => {});
+}
+
 function ProdutoCard({ produto, isDono, onDelete }: {
   produto: ProdutoOutlet;
   isDono: boolean;
   onDelete: (id: number) => void;
 }) {
-  const [expanded, setExpanded] = useState(false);
   const precoVenda = calcularPrecoVenda(produto.custoBRL, produto.precoPix);
   const custo = parseBRL(produto.custoBRL);
 
@@ -175,6 +178,11 @@ function ProdutoCard({ produto, isDono, onDelete }: {
     `Olá, Castor! 🛏️ Tenho interesse no produto por encomenda:\n\n*${produto.nome}*${produto.medidas ? `\nMedidas: ${produto.medidas}` : ""}${precoVenda ? `\nValor: ${formatBRL(precoVenda)}` : ""}\n\nPrazo: ${produto.prazoEncomenda ?? "A combinar"}\n\nPode confirmar disponibilidade e condições de pagamento?`
   );
   const waUrl = `https://wa.me/5522992410112?text=${msg}`;
+
+  const handlePedir = () => {
+    registrarInteresse(produto.id);
+    window.open(waUrl, "_blank");
+  };
 
   return (
     <motion.div
@@ -213,15 +221,13 @@ function ProdutoCard({ produto, isDono, onDelete }: {
           </div>
 
           <div className="flex flex-col gap-1.5 items-end shrink-0">
-            <a
-              href={waUrl}
-              target="_blank"
-              rel="noreferrer"
+            <button
+              onClick={handlePedir}
               className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold bg-green-500 hover:bg-green-600 text-white transition-all"
             >
               <MessageCircle className="w-3.5 h-3.5" />
               Pedir
-            </a>
+            </button>
             {isDono && (
               <button
                 onClick={() => onDelete(produto.id)}

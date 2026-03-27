@@ -36,6 +36,7 @@ pnpm workspace monorepo usando TypeScript. Cada pacote gerencia suas próprias d
 - `/equipe/clientes` — **CRM básico**: agrupa orçamentos por cliente (WA/nome), mostra total gasto, # compras, última visita, taxa de conversão, badge recorrente/prospect
 - `/outlet` — **Outlet por Encomenda**: produtos da fábrica sem estoque, margem 60% automática, badge "Encomenda X dias", fluxo de pedido por WA; admins podem adicionar/remover produtos
 - `/estoque` — **Controle de Estoque**: lista todos os produtos não-encomenda, badges (esgotado/baixo/OK), filtros, busca. Dono pode ajustar quantidade com +/-. **Baixa automática** ao fechar venda (`/orcamento/:id/fechar`). Catálogo público esconde produtos com estoque=0.
+- `/ranking-outlet` — **Ranking Outlet** (apenas dono): ranking dos produtos mais pedidos por encomenda, com total de interesses e data do último pedido. Custo, preço outlet (60%) e sugestão pronta-entrega (100%). Botão "Promover para estoque" converte encomenda → catálogo regular com quantidade e preço ajustável.
 - `/crawler` — Atualização do banco de dados via crawler
 
 ### MapaSono — Mapa do Sono (público)
@@ -78,6 +79,9 @@ pnpm workspace monorepo usando TypeScript. Cada pacote gerencia suas próprias d
 - `PATCH /api/produtos/:id/disponibilidade` — toggle disponivel
 - `GET /api/produtos/buscar?q=texto` — busca por texto
 - `GET /api/produtos/categorias` — lista categorias
+- `POST /api/produtos/outlet/:id/interesse` — registra interesse (clique em "Pedir") num produto outlet
+- `GET /api/produtos/outlet/ranking` — ranking de produtos outlet por total de interesses
+- `POST /api/produtos/outlet/:id/promover` — converte produto de encomenda para estoque regular (body: {estoque, precoPix?})
 - `GET /api/produtos/estoque` — lista produtos não-encomenda para controle de estoque
 - `PATCH /api/produtos/:id/estoque` — atualiza estoque (body: {estoque: number})
 - `GET /api/produtos/:id` — produto por ID
@@ -115,6 +119,7 @@ pnpm workspace monorepo usando TypeScript. Cada pacote gerencia suas próprias d
 - `produtos`: id, nome, sku, preco, precoPix, parcelamento, medidas, altura, categoria, imagem, link, disponivel, **encomenda** (bool), **custoBRL**, **prazoEncomenda**, **estoque** (integer, null=sem controle, 0=esgotado), criadoEm
 - `orcamentos`: id, cliente, whatsapp, produtosJson, observacoes, descontoPix, totalPix, totalPrazo, texto, vendedor, **status** (pendente|vendido), criadoEm
 - `entregas`: id, orcamentoId, cliente, whatsapp, endereco, produtos, status, vendedor, observacoes, dataEntrega, criadoEm
+- `outlet_interesses`: id, produto_id, criado_em — rastreia cada clique "Pedir" no Outlet para ranking de demanda
 - `crawler_status`: id, status, mensagem, totalProdutos, produtosColetados, erros, iniciadoEm, finalizadoEm, atualizadoEm
 - `despesas`: id, valor (numeric), categoria, descricao, comprovante, recorrente, recorrenteId, confirmada, data, criadoEm
 - `despesas_recorrentes`: id, valor, categoria, descricao, ativo, diaVencimento, criadoEm

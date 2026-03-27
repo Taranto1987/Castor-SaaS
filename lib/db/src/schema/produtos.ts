@@ -26,6 +26,12 @@ export const insertProdutoSchema = createInsertSchema(produtosTable).omit({ id: 
 export type InsertProduto = z.infer<typeof insertProdutoSchema>;
 export type Produto = typeof produtosTable.$inferSelect;
 
+export const outletInteressesTable = pgTable("outlet_interesses", {
+  id: serial("id").primaryKey(),
+  produtoId: integer("produto_id").notNull(),
+  criadoEm: timestamp("criado_em").defaultNow(),
+});
+
 export const crawlerStatusTable = pgTable("crawler_status", {
   id: serial("id").primaryKey(),
   status: text("status").notNull().default("idle"),
