@@ -158,7 +158,7 @@ export default function PublicLayout({ children }: PublicLayoutProps) {
                   <span className="mt-0.5 shrink-0">📍</span>
                   <span>
                     <span className="font-semibold text-slate-300 group-hover:text-white block">Araruama</span>
-                    Av. dos Cearenses · Centro
+                    Av. Getúlio Vargas, 137 · Centro
                   </span>
                 </a>
                 <div className="space-y-1.5 pt-1">

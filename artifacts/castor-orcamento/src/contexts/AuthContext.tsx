@@ -26,7 +26,7 @@ const ARARUAMA_LINK       = "https://share.google/o7duCdh84jQYnPn7z";
 const CABO_FRIO_MAPS      = "https://maps.app.goo.gl/UuF6w1nAvTgXockS6";
 const ARARUAMA_MAPS       = "https://maps.app.goo.gl/cGmvFgeubawLRNGy8";
 const CABO_FRIO_ENDERECO  = "Av. Júlia Kubitschek, 64 · Jardim Flamboyant · Cabo Frio – RJ";
-const ARARUAMA_ENDERECO   = "Araruama – RJ";
+const ARARUAMA_ENDERECO   = "Av. Getúlio Vargas, 137 · Centro · Araruama – RJ";
 
 export const COLABORADORES: Record<string, ColaboradorConfig> = {
   THALLES: {

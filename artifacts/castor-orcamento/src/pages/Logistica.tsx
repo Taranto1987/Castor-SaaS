@@ -222,7 +222,7 @@ function ordenarPorRota(entregas: Entrega[]): Entrega[] {
 }
 
 const ORIGEM_CABO_FRIO = "Av. Júlia Kubitschek, 64, Cabo Frio, RJ";
-const ORIGEM_ARARUAMA  = "Av. dos Cearenses, Araruama, RJ";
+const ORIGEM_ARARUAMA  = "Av. Getúlio Vargas, 137 - Centro, Araruama, RJ";
 
 function gerarUrlMaps(paradas: Entrega[], operacao: string = "cabo_frio"): string {
   const origemStr = operacao === "araruama" ? ORIGEM_ARARUAMA : ORIGEM_CABO_FRIO;
