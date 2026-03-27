@@ -4,6 +4,7 @@ import { cn } from "@/lib/utils";
 import { MessageCircle, Menu, X, Moon, Search, ChevronRight } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { trackWhatsAppClick } from "@/lib/tracking";
+import ChatBot from "./ChatBot";
 
 const WHATSAPP = "https://wa.me/5522992410112?text=Olá! Vi o site da Castor e quero saber mais sobre os colchões!";
 
@@ -191,6 +192,8 @@ export default function PublicLayout({ children }: PublicLayoutProps) {
           </div>
         </div>
       </footer>
+
+      <ChatBot />
     </div>
   );
 }

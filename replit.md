@@ -21,6 +21,15 @@ pnpm workspace monorepo usando TypeScript. Cada pacote gerencia suas próprias d
 
 ## Funcionalidades
 
+### ThallesZzz Bot (IA Consultiva)
+- Widget flutuante em todas as páginas públicas (Landing, Catálogo, Mapa do Sono)
+- Consultor virtual com IA OpenAI (gpt-4o-mini via Replit AI Integrations)
+- Perfil: profissional, técnico-consultivo, com técnicas de fechamento e gatilhos mentais
+- Conhecimento: catálogo real de produtos (preços do banco de dados), tecnologias Castor, entrega, pagamento
+- API: `POST /api/chat` (SSE streaming) — recebe messages[], retorna stream de tokens
+- Direciona para WhatsApp quando cliente quer fechar
+- Env vars: `AI_INTEGRATIONS_OPENAI_BASE_URL`, `AI_INTEGRATIONS_OPENAI_API_KEY` (auto-provisionados)
+
 ### Público (sem login)
 - `/` — Landing page: hero "Não vendemos colchão. Resolvemos o seu sono.", 7 cidades, tecnologias Castor, depoimentos Google, categorias. **WhatsApp inteligente**: detecta cidade do visitante via IP geolocation (ipapi.co) e direciona para o número correto (Araruama → Nete, outros → Thalles)
 - `/catalogo` — Catálogo público com WhatsApp CTA
@@ -118,6 +127,7 @@ pnpm workspace monorepo usando TypeScript. Cada pacote gerencia suas próprias d
 - `POST /api/entrada-estoque/confirmar` — confirma entrada, atualiza estoque e preço de custo (auth: dono)
 - `GET /api/entrada-estoque/historico` — histórico de entradas (auth: dono)
 - `GET /api/entrada-estoque/produtos/buscar?q=` — busca produtos para vinculação manual (auth: dono)
+- `POST /api/chat` — chat IA ThallesZzz (body: {messages: [{role, content}]}, response: SSE stream)
 - `POST /api/crawler/iniciar` — inicia coleta do site Castor
 - `GET /api/crawler/status` — status da coleta
 
@@ -146,6 +156,7 @@ artifacts-monorepo/
 │   ├── api-client-react/   # Generated React Query hooks
 │   ├── api-zod/            # Generated Zod schemas from OpenAPI
 │   ├── integrations-gemini-ai/  # Gemini AI SDK client (Replit AI Integrations)
+│   ├── integrations-openai-ai-server/  # OpenAI SDK client (Replit AI Integrations)
 │   └── db/                 # Drizzle ORM schema + DB connection
 │       └── src/schema/produtos.ts  # Tabelas: produtos, crawler_status
 ├── scripts/                # Utility scripts
