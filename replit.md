@@ -200,7 +200,7 @@ OpenAPI spec em `openapi.yaml`. Run codegen: `pnpm --filter @workspace/api-spec 
 - **Google Tag Manager**: injetado no HTML via Vite plugin (`gtmPlugin` em `vite.config.ts`). Snippet padrão Google: `<script>` no `<head>` + `<noscript><iframe>` no `<body>`. Requer env var `VITE_GTM_ID` (ex: `GTM-XXXXXXX`). Se não definida, GTM não é injetado — sem impacto no app.
 - **Google Analytics 4**: configurado pelo painel do GTM (não pelo código). GA4 recebe pageviews automaticamente e eventos custom via dataLayer do GTM.
 - **Tracking functions** (`src/lib/tracking.ts`): todas usam `window.dataLayer.push()`. Se GTM não estiver carregado, os pushes são silenciosamente ignorados.
-- **Env vars**: `VITE_GTM_ID` (GTM container ID, ex: `GTM-XXXXXXX`), `VITE_GA_MEASUREMENT_ID` (GA4 measurement ID, ex: `G-XXXXXXXXXX`). Ambas opcionais e independentes. GTM pode carregar GA4 automaticamente via painel; `VITE_GA_MEASUREMENT_ID` adiciona GA4 standalone via gtag.js.
+- **Env vars**: `VITE_GTM_ID` (GTM container ID, ex: `GTM-XXXXXXX`), `VITE_GA_MEASUREMENT_ID` (GA4 measurement ID, ex: `G-XXXXXXXXXX`). Ambas opcionais e independentes. **Atenção**: se GA4 já estiver configurado dentro do GTM, NÃO defina `VITE_GA_MEASUREMENT_ID` para evitar eventos duplicados. Use `VITE_GA_MEASUREMENT_ID` apenas se quiser GA4 sem GTM.
 - **Eventos rastreados**:
   - `whatsapp_click` — clique em qualquer botão/link WhatsApp (params: origem, loja)
   - `orcamento_gerado` — orçamento gerado com sucesso (params: total_pix, num_itens)
