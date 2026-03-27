@@ -146,10 +146,14 @@ export default function Dashboard() {
     setMeta(val);
   };
 
+  const dashParams = new URLSearchParams();
+  if (user?.nome) dashParams.set("vendedor", user.nome);
+  if (user?.papel) dashParams.set("papel", user.papel);
+
   const { data, isLoading, refetch } = useQuery<DashboardData>({
-    queryKey: ["dashboard"],
+    queryKey: ["dashboard", user?.nome, user?.papel],
     queryFn: async () => {
-      const res = await fetch("/api/dashboard");
+      const res = await fetch(`/api/dashboard?${dashParams.toString()}`);
       if (!res.ok) throw new Error("Erro ao carregar dashboard");
       return res.json();
     },
@@ -168,7 +172,9 @@ export default function Dashboard() {
           <h1 className="text-3xl md:text-4xl font-display font-extrabold text-slate-900 tracking-tight">
             Dashboard
           </h1>
-          <p className="text-slate-500 mt-2 text-sm">Visão geral da operação comercial.</p>
+          <p className="text-slate-500 mt-2 text-sm">
+            {isDono ? "Visão geral da operação comercial." : `Seus números, ${user?.nome?.split(" ")[0] ?? ""}.`}
+          </p>
         </div>
         <button
           onClick={() => refetch()}

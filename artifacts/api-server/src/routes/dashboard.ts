@@ -1,7 +1,7 @@
 import { Router, type IRouter } from "express";
 import { db } from "@workspace/db";
 import { orcamentosTable, produtosTable, entregasTable } from "@workspace/db/schema";
-import { desc, sql } from "drizzle-orm";
+import { desc, eq, sql } from "drizzle-orm";
 
 const router: IRouter = Router();
 
@@ -12,12 +12,23 @@ function parseBRL(valor?: string | null): number {
   return isNaN(num) ? 0 : num;
 }
 
-router.get("/", async (_req, res) => {
+router.get("/", async (req, res) => {
   try {
+    const { vendedor, papel } = req.query as { vendedor?: string; papel?: string };
+    const filtraPorVendedor = vendedor && papel !== "dono";
+
+    const orcamentosQuery = filtraPorVendedor
+      ? db.select().from(orcamentosTable).where(eq(orcamentosTable.vendedor, vendedor!)).orderBy(desc(orcamentosTable.criadoEm)).limit(500)
+      : db.select().from(orcamentosTable).orderBy(desc(orcamentosTable.criadoEm)).limit(500);
+
+    const entregasQuery = filtraPorVendedor
+      ? db.select().from(entregasTable).where(eq(entregasTable.vendedor, vendedor!))
+      : db.select().from(entregasTable);
+
     const [orcamentos, totalProdutos, entregas] = await Promise.all([
-      db.select().from(orcamentosTable).orderBy(desc(orcamentosTable.criadoEm)).limit(500),
+      orcamentosQuery,
       db.select({ count: sql<number>`count(*)` }).from(produtosTable),
-      db.select().from(entregasTable),
+      entregasQuery,
     ]);
 
     const totalOrcamentos = orcamentos.length;

@@ -169,7 +169,18 @@ router.post("/salvar", async (req, res) => {
 
 router.get("/historico", async (req, res) => {
   try {
-    const historico = await db.select().from(orcamentosTable).orderBy(desc(orcamentosTable.criadoEm)).limit(100);
+    const { vendedor, papel } = req.query as { vendedor?: string; papel?: string };
+
+    let query = db.select().from(orcamentosTable).orderBy(desc(orcamentosTable.criadoEm)).limit(200);
+
+    if (vendedor && papel !== "dono") {
+      query = db.select().from(orcamentosTable)
+        .where(eq(orcamentosTable.vendedor, vendedor))
+        .orderBy(desc(orcamentosTable.criadoEm))
+        .limit(200);
+    }
+
+    const historico = await query;
     res.json(historico);
   } catch (error) {
     console.error("Erro ao buscar histórico:", error);

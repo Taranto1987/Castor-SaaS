@@ -445,10 +445,14 @@ export default function Logistica() {
   const [filtroStatus, setFiltroStatus] = useState<string>("todos");
   const [reviewEntrega, setReviewEntrega] = useState<Entrega | null>(null);
 
+  const entregaParams = new URLSearchParams();
+  if (user?.nome) entregaParams.set("vendedor", user.nome);
+  if (user?.papel) entregaParams.set("papel", user.papel);
+
   const { data: entregas = [], isLoading, refetch } = useQuery<Entrega[]>({
-    queryKey: ["entregas"],
+    queryKey: ["entregas", user?.nome, user?.papel],
     queryFn: async () => {
-      const res = await fetch("/api/entregas");
+      const res = await fetch(`/api/entregas?${entregaParams.toString()}`);
       if (!res.ok) throw new Error("Erro ao carregar entregas");
       return res.json();
     },

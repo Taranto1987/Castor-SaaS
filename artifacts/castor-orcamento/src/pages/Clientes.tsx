@@ -4,8 +4,9 @@ import {
   Users, Phone, ShoppingBag, Calendar, TrendingUp,
   RefreshCw, MessageCircle, CheckCircle2, Clock
 } from "lucide-react";
-import { useHistoricoOrcamentos } from "@workspace/api-client-react";
+import { useQuery } from "@tanstack/react-query";
 import { cn } from "@/lib/utils";
+import { useAuth } from "@/contexts/AuthContext";
 
 function diasDesde(iso?: string): number {
   if (!iso) return 0;
@@ -38,7 +39,19 @@ interface ClienteAgregado {
 }
 
 export default function Clientes() {
-  const { data: historico, isLoading, refetch } = useHistoricoOrcamentos();
+  const { user } = useAuth();
+  const params = new URLSearchParams();
+  if (user?.nome) params.set("vendedor", user.nome);
+  if (user?.papel) params.set("papel", user.papel);
+
+  const { data: historico, isLoading, refetch } = useQuery<any[]>({
+    queryKey: ["historico-orcamentos", user?.nome, user?.papel],
+    queryFn: async () => {
+      const res = await fetch(`/api/orcamento/historico?${params.toString()}`);
+      if (!res.ok) throw new Error("Erro ao carregar histórico");
+      return res.json();
+    },
+  });
 
   const clientes = useMemo<ClienteAgregado[]>(() => {
     if (!historico) return [];
@@ -95,7 +108,9 @@ export default function Clientes() {
             Clientes
           </h1>
           <p className="text-slate-500 mt-2 text-sm">
-            Histórico agrupado por cliente — compras, valor e frequência.
+            {user?.papel === "dono"
+              ? "Histórico agrupado por cliente — compras, valor e frequência."
+              : `Seus clientes, ${user?.nome?.split(" ")[0] ?? ""} — compras, valor e frequência.`}
           </p>
         </div>
         <button

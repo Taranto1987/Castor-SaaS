@@ -5,10 +5,16 @@ import { eq, desc } from "drizzle-orm";
 
 const router: IRouter = Router();
 
-router.get("/", async (_req, res) => {
+router.get("/", async (req, res) => {
   try {
-    const entregas = await db.select().from(entregasTable).orderBy(desc(entregasTable.criadoEm));
-    res.json(entregas);
+    const { vendedor, papel } = req.query as { vendedor?: string; papel?: string };
+    const allEntregas = await db.select().from(entregasTable).orderBy(desc(entregasTable.criadoEm));
+
+    if (vendedor && papel === "vendedor") {
+      res.json(allEntregas.filter(e => e.vendedor === vendedor));
+    } else {
+      res.json(allEntregas);
+    }
   } catch (error) {
     console.error("Erro ao listar entregas:", error);
     res.status(500).json({ error: "Erro interno" });

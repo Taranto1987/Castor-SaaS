@@ -4,11 +4,11 @@ import {
   Clock, ChevronDown, ChevronUp, Copy, CheckCircle2, Phone, Package,
   RefreshCw, FileText, ShoppingBag, MapPin, X, AlertCircle, MessageCircle
 } from "lucide-react";
-import { useHistoricoOrcamentos } from "@workspace/api-client-react";
 import type { HistoricoItem } from "@workspace/api-client-react/src/generated/api.schemas";
 import { useToast } from "@/hooks/use-toast";
-import { useQueryClient } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { cn } from "@/lib/utils";
+import { useAuth } from "@/contexts/AuthContext";
 
 function formatarData(iso?: string) {
   if (!iso) return "—";
@@ -164,7 +164,7 @@ function ItemCard({ item }: { item: HistoricoItem }) {
   const handleFecharVenda = async (endereco: string, observacoes: string, dataEntrega: string) => {
     setFechando(true);
     try {
-      const res = await fetch(`/api/orcamentos/${item.id}/fechar`, {
+      const res = await fetch(`/api/orcamento/${item.id}/fechar`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ endereco, observacoes, dataEntrega }),
@@ -339,7 +339,19 @@ function ItemCard({ item }: { item: HistoricoItem }) {
 }
 
 export default function Historico() {
-  const { data: historico, isLoading, refetch } = useHistoricoOrcamentos();
+  const { user } = useAuth();
+  const params = new URLSearchParams();
+  if (user?.nome) params.set("vendedor", user.nome);
+  if (user?.papel) params.set("papel", user.papel);
+
+  const { data: historico, isLoading, refetch } = useQuery<HistoricoItem[]>({
+    queryKey: ["historico-orcamentos", user?.nome, user?.papel],
+    queryFn: async () => {
+      const res = await fetch(`/api/orcamento/historico?${params.toString()}`);
+      if (!res.ok) throw new Error("Erro ao carregar histórico");
+      return res.json();
+    },
+  });
 
   const pendentes = historico?.filter(i => i.status !== "vendido") ?? [];
   const vendidos = historico?.filter(i => i.status === "vendido") ?? [];
@@ -354,7 +366,9 @@ export default function Historico() {
             Histórico
           </h1>
           <p className="text-slate-500 mt-2 text-sm md:text-base">
-            Todos os orçamentos gerados e salvos pela equipe.
+            {user?.papel === "dono"
+              ? "Todos os orçamentos da equipe."
+              : `Seus orçamentos, ${user?.nome?.split(" ")[0] ?? ""}.`}
           </p>
           {atrasadosCount > 0 && (
             <p className="text-xs text-amber-600 font-bold mt-1 flex items-center gap-1">

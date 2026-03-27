@@ -48,9 +48,10 @@ pnpm workspace monorepo usando TypeScript. Cada pacote gerencia suas próprias d
 - Gera URL Google Maps com todas as paradas
 - Botão WhatsApp por parada com mensagem pré-formatada para o Pedro
 
-### Auth
-- Códigos: THALLES (dono), CASTOR2 (irmã/admin), ENTREGA (Pedro/entregador)
+### Auth & Isolamento de Dados
+- Códigos: THALLES (dono/CF), MARCELA (vendedor/CF), VAGNER (vendedor/CF), NETE (vendedor/Araruama), PEDROPAULO (vendedor/Araruama), CASTOR2 (admin/CF), ENTREGA (Pedro/entrega)
 - sessionStorage, AuthContext, LoginScreen brandado
+- **Isolamento por papel**: APIs recebem `?vendedor=NOME&papel=PAPEL`. Dono vê tudo, vendedor vê só seus próprios dados (histórico, dashboard, clientes, entregas). Pedro (entrega) vê todas as entregas.
 
 ## Categorias coletadas
 
