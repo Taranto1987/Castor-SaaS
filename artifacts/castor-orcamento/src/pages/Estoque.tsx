@@ -154,7 +154,7 @@ export default function Estoque() {
   const { data: produtos = [], isLoading, refetch } = useQuery<Produto[]>({
     queryKey: ["estoque-produtos"],
     queryFn: async () => {
-      const res = await fetch(`/api/produtos?interno=1`);
+      const res = await fetch(`/api/produtos/estoque`);
       if (!res.ok) throw new Error("Erro ao carregar");
       return res.json();
     },

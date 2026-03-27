@@ -1,7 +1,7 @@
 import { Router, type IRouter } from "express";
 import { db } from "@workspace/db";
 import { produtosTable } from "@workspace/db/schema";
-import { ilike, or, eq, and, isNull, gt, ne, sql } from "drizzle-orm";
+import { ilike, or, eq, and, isNull, gt } from "drizzle-orm";
 
 const router: IRouter = Router();
 
