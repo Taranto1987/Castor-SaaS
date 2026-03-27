@@ -11,7 +11,7 @@ import {
 } from "@workspace/api-client-react";
 import { cn } from "@/lib/utils";
 import type { Produto } from "@workspace/api-client-react/src/generated/api.schemas";
-import { trackPageView, trackCatalogoWhatsApp } from "@/lib/tracking";
+import { trackPageView, trackCatalogoWhatsApp, trackCatalogoView } from "@/lib/tracking";
 
 const WA_CF  = { numero: "5522992410112", loja: "Cabo Frio", contato: "ThallesZzz" };
 const WA_ARU = { numero: "5522333437720", loja: "Araruama",  contato: "Marcela" };
@@ -37,7 +37,7 @@ export default function Catalogo() {
   const [selectedProduct, setSelectedProduct] = useState<Produto | null>(null);
   const [waInfo, setWaInfo] = useState(WA_CF);
 
-  useEffect(() => { trackPageView("catalogo"); }, []);
+  useEffect(() => { trackPageView("catalogo"); trackCatalogoView(); }, []);
 
   useEffect(() => {
     const controller = new AbortController();

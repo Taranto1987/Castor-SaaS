@@ -197,15 +197,17 @@ OpenAPI spec em `openapi.yaml`. Run codegen: `pnpm --filter @workspace/api-spec 
 
 ## Rastreamento (GTM + GA4)
 
-- **Google Tag Manager**: carregado dinamicamente via `src/lib/gtm.ts`. Requer env var `VITE_GTM_ID` (ex: `GTM-XXXXXXX`). Se não definida, GTM não é carregado — sem impacto no app.
-- **Google Analytics 4**: configurado pelo painel do GTM, não pelo código. GA4 recebe eventos via dataLayer do GTM.
-- **Tracking functions** (`src/lib/tracking.ts`): todas usam `window.dataLayer.push()`. Se GTM não estiver carregado, os pushes são silenciosamente ignorados.
+- **Google Tag Manager**: carregado dinamicamente via `src/lib/gtm.ts` → `initGTM()`. Requer env var `VITE_GTM_ID` (ex: `GTM-XXXXXXX`). Injeta script no head + iframe noscript-fallback no body. Se não definida, GTM não é carregado — sem impacto no app.
+- **Google Analytics 4 (standalone)**: carregado via `initGA4()`. Requer env var `VITE_GA_MEASUREMENT_ID` (ex: `G-XXXXXXXXXX`). Se não definida, GA4 standalone não é carregado. Pode ser usado junto com GTM ou sozinho.
+- **Tracking functions** (`src/lib/tracking.ts`): todas usam `window.dataLayer.push()`. Se GTM/GA4 não estiver carregado, os pushes são silenciosamente ignorados.
+- **Env vars**: `VITE_GTM_ID` (GTM container ID), `VITE_GA_MEASUREMENT_ID` (GA4 measurement ID). Ambas opcionais.
 - **Eventos rastreados**:
-  - `whatsapp_click` — clique em qualquer botão/link WhatsApp (params: origin, loja)
+  - `whatsapp_click` — clique em qualquer botão/link WhatsApp (params: origem, loja)
   - `orcamento_gerado` — orçamento gerado com sucesso (params: total_pix, num_itens)
   - `orcamento_salvo` — orçamento salvo no histórico (params: total_pix)
   - `mapa_sono_completo` — quiz Mapa do Sono finalizado (params: estrutura, firmeza, confianca)
   - `outlet_pedido` — clique "Pedir" no Outlet (params: produto)
+  - `catalogo_view` — acesso ao catálogo público (sem params)
   - `catalogo_whatsapp` — WhatsApp via catálogo público (params: produto, loja)
   - `page_view` — visualização de página (params: page_name). Emitido em: Landing, Catálogo, Orçamento, MapaSono, Outlet
 - **Páginas instrumentadas**: Landing, Catálogo, Orçamento, MapaSono, Outlet, PublicLayout (header/footer)
