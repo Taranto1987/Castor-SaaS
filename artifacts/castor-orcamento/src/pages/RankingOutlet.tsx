@@ -145,6 +145,7 @@ export default function RankingOutlet() {
       if (!res.ok) throw new Error("Erro ao carregar ranking");
       return res.json();
     },
+    enabled: !!token,
   });
 
   const promoverMutation = useMutation({
