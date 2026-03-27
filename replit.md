@@ -29,10 +29,17 @@ pnpm workspace monorepo usando TypeScript. Cada pacote gerencia suas próprias d
 ### Privado (código de acesso: THALLES / CASTOR2 / ENTREGA)
 - `/equipe` — Catálogo interno com gerador de orçamento
 - `/orcamento` — Gerador de orçamento formatado para WhatsApp
-- `/historico` — Histórico de orçamentos
-- `/dashboard` — Métricas e painel da equipe
-- `/logistica` — Controle de entregas + **Roteiro Otimizado do Pedro** (agrupa pendentes + em_rota por cidade, gera URL Google Maps multi-parada, botão WhatsApp por cliente)
+- `/historico` — Histórico de orçamentos com **follow-up automático**: badge "X dias em aberto" + botão "Cobrar" que gera mensagem WA pré-escrita + alerta de urgência para orçamentos ≥ 2 dias sem resposta
+- `/dashboard` — Métricas, funil de conversão, **meta do mês** com barra de progresso (localStorage por operação, editável pelo dono), top produtos, por vendedor
+- `/logistica` — Controle de entregas + **Roteiro Otimizado do Pedro** + ao marcar entregue: **modal de avaliação Google** com link correto por loja (CF vs Araruama)
+- `/equipe/clientes` — **CRM básico**: agrupa orçamentos por cliente (WA/nome), mostra total gasto, # compras, última visita, taxa de conversão, badge recorrente/prospect
+- `/outlet` — **Outlet por Encomenda**: produtos da fábrica sem estoque, margem 60% automática, badge "Encomenda X dias", fluxo de pedido por WA; admins podem adicionar/remover produtos
 - `/crawler` — Atualização do banco de dados via crawler
+
+### MapaSono — Mapa do Sono (público)
+- Quiz 13 perguntas → motor de decisão MOLA vs ESPUMA
+- **Após resultado**: busca produtos reais do catálogo que combinam com o perfil (MOLA/ESPUMA + firmeza), mostra até 3 com preço PIX + botão "Quero esse" direto no WA
+- Calculadora de custo por noite (R$/3.650 noites)
 
 ### Roteiro do Pedro
 - Cidades cobertas em ordem: Cabo Frio → Arraial do Cabo → São Pedro da Aldeia → Iguaba Grande → Araruama → Búzios → Saquarema
@@ -57,12 +64,29 @@ pnpm workspace monorepo usando TypeScript. Cada pacote gerencia suas próprias d
 ## API Endpoints
 
 - `GET /api/produtos` — lista produtos (params: categoria, limite)
+- `GET /api/produtos/outlet` — lista produtos com encomenda=true
+- `POST /api/produtos/outlet` — cria produto de encomenda (custo × 1.6 = precoPix automático)
+- `PATCH /api/produtos/:id/encomenda` — toggle encomenda (boolean)
+- `PATCH /api/produtos/:id/disponibilidade` — toggle disponivel
 - `GET /api/produtos/buscar?q=texto` — busca por texto
 - `GET /api/produtos/categorias` — lista categorias
 - `GET /api/produtos/:id` — produto por ID
-- `POST /api/orcamento` — gera orçamento (body: {cliente, produtoId, observacoes})
+- `POST /api/orcamento` — gera orçamento
+- `POST /api/orcamentos/salvar` — salva orçamento no histórico
+- `GET /api/orcamentos/historico` — lista orçamentos salvos
+- `POST /api/orcamentos/:id/fechar` — fecha venda (cria entrega automaticamente)
+- `GET /api/entregas` — lista entregas
+- `POST /api/entregas` — cria entrega
+- `PATCH /api/entregas/:id/status` — atualiza status
+- `GET /api/dashboard` — dados analíticos da operação
 - `POST /api/crawler/iniciar` — inicia coleta do site Castor
 - `GET /api/crawler/status` — status da coleta
+
+## Schema DB
+- `produtos`: id, nome, sku, preco, precoPix, parcelamento, medidas, altura, categoria, imagem, link, disponivel, **encomenda** (bool), **custoBRL**, **prazoEncomenda**, criadoEm
+- `orcamentos`: id, cliente, whatsapp, produtosJson, observacoes, descontoPix, totalPix, totalPrazo, texto, vendedor, **status** (pendente|vendido), criadoEm
+- `entregas`: id, orcamentoId, cliente, whatsapp, endereco, produtos, status, vendedor, observacoes, dataEntrega, criadoEm
+- `crawler_status`: id, status, mensagem, totalProdutos, produtosColetados, erros, iniciadoEm, finalizadoEm, atualizadoEm
 
 ## Structure
 

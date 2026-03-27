@@ -1,6 +1,9 @@
 import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Clock, ChevronDown, ChevronUp, Copy, CheckCircle2, Phone, Package, RefreshCw, FileText, ShoppingBag, MapPin, X } from "lucide-react";
+import {
+  Clock, ChevronDown, ChevronUp, Copy, CheckCircle2, Phone, Package,
+  RefreshCw, FileText, ShoppingBag, MapPin, X, AlertCircle, MessageCircle
+} from "lucide-react";
 import { useHistoricoOrcamentos } from "@workspace/api-client-react";
 import type { HistoricoItem } from "@workspace/api-client-react/src/generated/api.schemas";
 import { useToast } from "@/hooks/use-toast";
@@ -20,6 +23,20 @@ function formatarNumero(whatsapp?: string) {
   if (!whatsapp) return null;
   const digitos = whatsapp.replace(/\D/g, "");
   return `(${digitos.slice(0, 2)}) ${digitos.slice(2, 7)}-${digitos.slice(7)}`;
+}
+
+function diasDesde(iso?: string): number {
+  if (!iso) return 0;
+  const diff = Date.now() - new Date(iso).getTime();
+  return Math.floor(diff / (1000 * 60 * 60 * 24));
+}
+
+function gerarMensagemFollowUp(item: HistoricoItem): string {
+  const produtos = Array.isArray(item.produtosJson) ? item.produtosJson as any[] : [];
+  const nomeProdutos = produtos.map((p: any) => p.nome).filter(Boolean).slice(0, 2).join(" e ");
+  const valor = item.totalPix ? ` — valor PIX: *${item.totalPix}*` : "";
+  const vendedor = item.vendedor ? `\n\nAtenciosamente,\n${item.vendedor} — Castor` : "\n\nAtenciosamente,\nEquipe Castor";
+  return `Olá, *${item.cliente}*! 😊\n\nAqui é da *Castor Cabo Frio*. Vi que preparamos um orçamento para você${nomeProdutos ? ` com *${nomeProdutos}*` : ""}${valor} e gostaríamos de saber se surgiu alguma dúvida ou se posso ajudar em algo.\n\nEstou à disposição! 🛏️✨${vendedor}`;
 }
 
 function FecharVendaModal({
@@ -68,7 +85,6 @@ function FecharVendaModal({
               autoFocus
             />
           </div>
-
           <div>
             <label className="text-xs font-bold text-slate-600 mb-1 block">Data de entrega (opcional)</label>
             <input
@@ -78,7 +94,6 @@ function FecharVendaModal({
               onChange={e => setDataEntrega(e.target.value)}
             />
           </div>
-
           <div>
             <label className="text-xs font-bold text-slate-600 mb-1 block">Observações (opcional)</label>
             <textarea
@@ -92,10 +107,7 @@ function FecharVendaModal({
         </div>
 
         <div className="flex gap-2 pt-1">
-          <button
-            onClick={onClose}
-            className="flex-1 py-2.5 rounded-xl border border-slate-200 text-sm font-bold text-slate-600 hover:bg-slate-50 transition-all"
-          >
+          <button onClick={onClose} className="flex-1 py-2.5 rounded-xl border border-slate-200 text-sm font-bold text-slate-600 hover:bg-slate-50 transition-all">
             Cancelar
           </button>
           <button
@@ -121,6 +133,8 @@ function ItemCard({ item }: { item: HistoricoItem }) {
 
   const produtos = Array.isArray(item.produtosJson) ? item.produtosJson as any[] : [];
   const vendido = item.status === "vendido";
+  const dias = diasDesde(item.criadoEm);
+  const atrasado = !vendido && dias >= 2;
 
   const handleCopy = async () => {
     try {
@@ -136,9 +150,14 @@ function ItemCard({ item }: { item: HistoricoItem }) {
   const handleWhatsApp = () => {
     const numero = (item.whatsapp || "").replace(/\D/g, "");
     const texto = encodeURIComponent(item.texto);
-    const url = numero
-      ? `https://wa.me/55${numero}?text=${texto}`
-      : `https://wa.me/?text=${texto}`;
+    const url = numero ? `https://wa.me/55${numero}?text=${texto}` : `https://wa.me/?text=${texto}`;
+    window.open(url, "_blank");
+  };
+
+  const handleFollowUp = () => {
+    const numero = (item.whatsapp || "").replace(/\D/g, "");
+    const msg = encodeURIComponent(gerarMensagemFollowUp(item));
+    const url = numero ? `https://wa.me/55${numero}?text=${msg}` : `https://wa.me/?text=${msg}`;
     window.open(url, "_blank");
   };
 
@@ -151,7 +170,6 @@ function ItemCard({ item }: { item: HistoricoItem }) {
         body: JSON.stringify({ endereco, observacoes, dataEntrega }),
       });
       if (!res.ok) throw new Error("Erro");
-      const data = await res.json();
       toast({ title: "Venda fechada!", description: "Entrega criada no roteiro automaticamente." });
       setShowFechar(false);
       queryClient.invalidateQueries({ queryKey: ["historico-orcamentos"] });
@@ -171,7 +189,7 @@ function ItemCard({ item }: { item: HistoricoItem }) {
         animate={{ opacity: 1, y: 0 }}
         className={cn(
           "bg-white border rounded-2xl overflow-hidden shadow-sm",
-          vendido ? "border-emerald-200 bg-emerald-50/30" : "border-slate-200"
+          vendido ? "border-emerald-200 bg-emerald-50/30" : atrasado ? "border-amber-200" : "border-slate-200"
         )}
       >
         <div className="p-4 flex items-start justify-between gap-3">
@@ -181,6 +199,12 @@ function ItemCard({ item }: { item: HistoricoItem }) {
               {vendido && (
                 <span className="text-xs bg-emerald-100 text-emerald-700 border border-emerald-200 px-2 py-0.5 rounded-full font-bold flex items-center gap-1">
                   <CheckCircle2 className="w-3 h-3" /> Vendido
+                </span>
+              )}
+              {atrasado && (
+                <span className="text-xs bg-amber-100 text-amber-700 border border-amber-200 px-2 py-0.5 rounded-full font-bold flex items-center gap-1">
+                  <AlertCircle className="w-3 h-3" />
+                  {dias === 1 ? "1 dia" : `${dias} dias`} em aberto
                 </span>
               )}
               {item.whatsapp && (
@@ -196,35 +220,25 @@ function ItemCard({ item }: { item: HistoricoItem }) {
               <span className="flex items-center gap-1">
                 <Package className="w-3 h-3" />{produtos.length} {produtos.length === 1 ? "produto" : "produtos"}
               </span>
-              {item.totalPix && (
-                <span className="text-emerald-600 font-bold">PIX {item.totalPix}</span>
-              )}
-              {item.totalPrazo && (
-                <span className="text-blue-600 font-bold">Prazo {item.totalPrazo}</span>
-              )}
+              {item.totalPix && <span className="text-emerald-600 font-bold">PIX {item.totalPix}</span>}
+              {item.totalPrazo && <span className="text-blue-600 font-bold">Prazo {item.totalPrazo}</span>}
               {item.descontoPix && item.descontoPix > 0 ? (
-                <span className="bg-emerald-100 text-emerald-700 px-1.5 py-0.5 rounded-md font-bold">
-                  -{item.descontoPix}% PIX
-                </span>
+                <span className="bg-emerald-100 text-emerald-700 px-1.5 py-0.5 rounded-md font-bold">-{item.descontoPix}% PIX</span>
               ) : null}
             </div>
             {produtos.length > 0 && (
               <div className="flex flex-wrap gap-1 mt-2">
                 {produtos.slice(0, 3).map((p: any, i: number) => (
-                  <span key={i} className="text-xs bg-slate-100 text-slate-600 px-2 py-0.5 rounded-full">
-                    {p.nome}
-                  </span>
+                  <span key={i} className="text-xs bg-slate-100 text-slate-600 px-2 py-0.5 rounded-full">{p.nome}</span>
                 ))}
                 {produtos.length > 3 && (
-                  <span className="text-xs bg-slate-100 text-slate-500 px-2 py-0.5 rounded-full">
-                    +{produtos.length - 3}
-                  </span>
+                  <span className="text-xs bg-slate-100 text-slate-500 px-2 py-0.5 rounded-full">+{produtos.length - 3}</span>
                 )}
               </div>
             )}
           </div>
 
-          <div className="flex items-center gap-2 flex-shrink-0 flex-wrap justify-end">
+          <div className="flex items-center gap-1.5 flex-shrink-0 flex-wrap justify-end">
             {!vendido && (
               <button
                 onClick={() => setShowFechar(true)}
@@ -235,13 +249,26 @@ function ItemCard({ item }: { item: HistoricoItem }) {
                 Fechar venda
               </button>
             )}
+            {!vendido && item.whatsapp && (
+              <button
+                onClick={handleFollowUp}
+                title="Enviar follow-up no WhatsApp"
+                className={cn(
+                  "flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all",
+                  atrasado
+                    ? "bg-amber-100 text-amber-700 hover:bg-amber-200 border border-amber-200"
+                    : "bg-white text-slate-500 border border-slate-200 hover:bg-slate-50"
+                )}
+              >
+                <MessageCircle className="w-3.5 h-3.5" />
+                {atrasado ? "Cobrar" : "Follow-up"}
+              </button>
+            )}
             <button
               onClick={handleCopy}
               className={cn(
                 "flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all",
-                copied
-                  ? "bg-green-100 text-green-700"
-                  : "bg-white text-slate-600 border border-slate-200 hover:bg-slate-50"
+                copied ? "bg-green-100 text-green-700" : "bg-white text-slate-600 border border-slate-200 hover:bg-slate-50"
               )}
             >
               {copied ? <CheckCircle2 className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5" />}
@@ -262,6 +289,22 @@ function ItemCard({ item }: { item: HistoricoItem }) {
             </button>
           </div>
         </div>
+
+        {/* Alert de follow-up */}
+        {atrasado && item.whatsapp && !vendido && (
+          <div className="mx-4 mb-3 bg-amber-50 border border-amber-200 rounded-xl px-3 py-2 flex items-center gap-2">
+            <AlertCircle className="w-3.5 h-3.5 text-amber-600 shrink-0" />
+            <p className="text-xs text-amber-700 font-semibold flex-1">
+              {dias >= 7 ? "Urgente:" : "Sugestão:"} fazer follow-up — {dias} dia{dias !== 1 ? "s" : ""} sem resposta
+            </p>
+            <button
+              onClick={handleFollowUp}
+              className="text-xs font-bold text-amber-700 bg-amber-100 hover:bg-amber-200 px-2.5 py-1 rounded-lg transition-all"
+            >
+              Cobrar agora
+            </button>
+          </div>
+        )}
 
         <AnimatePresence>
           {expanded && (
@@ -301,6 +344,8 @@ export default function Historico() {
   const pendentes = historico?.filter(i => i.status !== "vendido") ?? [];
   const vendidos = historico?.filter(i => i.status === "vendido") ?? [];
 
+  const atrasadosCount = pendentes.filter(i => diasDesde(i.criadoEm) >= 2).length;
+
   return (
     <div className="max-w-4xl mx-auto space-y-8 pb-20">
       <div className="flex items-start justify-between">
@@ -311,6 +356,12 @@ export default function Historico() {
           <p className="text-slate-500 mt-2 text-sm md:text-base">
             Todos os orçamentos gerados e salvos pela equipe.
           </p>
+          {atrasadosCount > 0 && (
+            <p className="text-xs text-amber-600 font-bold mt-1 flex items-center gap-1">
+              <AlertCircle className="w-3.5 h-3.5" />
+              {atrasadosCount} orçamento{atrasadosCount !== 1 ? "s" : ""} sem resposta — considere fazer follow-up
+            </p>
+          )}
         </div>
         <button
           onClick={() => refetch()}

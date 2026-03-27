@@ -1,7 +1,7 @@
 import { ReactNode } from "react";
 import { Link, useLocation } from "wouter";
 import { cn } from "@/lib/utils";
-import { FileText, Settings, Search, Clock, BarChart2, Truck, Moon, LogOut, User } from "lucide-react";
+import { FileText, Settings, Search, Clock, BarChart2, Truck, Moon, LogOut, User, Users, ShoppingCart } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useAuth } from "@/contexts/AuthContext";
 
@@ -14,12 +14,14 @@ export default function Layout({ children }: LayoutProps) {
   const { user, logout } = useAuth();
 
   const navItems = [
-    { path: "/equipe", label: "Catálogo", icon: Search },
-    { path: "/orcamento", label: "Orçamento", icon: FileText },
-    { path: "/historico", label: "Histórico", icon: Clock },
-    { path: "/logistica", label: "Logística", icon: Truck },
-    { path: "/dashboard", label: "Dashboard", icon: BarChart2 },
-    { path: "/crawler", label: "Atualizar BD", icon: Settings },
+    { path: "/equipe",          label: "Catálogo",   icon: Search },
+    { path: "/orcamento",       label: "Orçamento",  icon: FileText },
+    { path: "/historico",       label: "Histórico",  icon: Clock },
+    { path: "/logistica",       label: "Logística",  icon: Truck },
+    { path: "/dashboard",       label: "Dashboard",  icon: BarChart2 },
+    { path: "/equipe/clientes", label: "Clientes",   icon: Users },
+    { path: "/outlet",          label: "Outlet",     icon: ShoppingCart },
+    { path: "/crawler",         label: "Atualizar",  icon: Settings },
   ];
 
   return (

@@ -15,6 +15,9 @@ export const produtosTable = pgTable("produtos", {
   imagem: text("imagem"),
   link: text("link"),
   disponivel: boolean("disponivel").notNull().default(true),
+  encomenda: boolean("encomenda").notNull().default(false),
+  custoBRL: text("custo_brl"),
+  prazoEncomenda: text("prazo_encomenda"),
   criadoEm: timestamp("criado_em").defaultNow(),
 });
 

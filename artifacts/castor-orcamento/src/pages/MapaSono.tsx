@@ -3,9 +3,18 @@ import { motion, AnimatePresence } from "framer-motion";
 import {
   ChevronLeft, ChevronRight, CheckCircle2, MessageCircle, RotateCcw,
   Package, User, BedDouble, Activity, Thermometer, Users, Layers,
-  Scale, Ruler, Calendar, Wind, Clock, History, MapPin, Moon
+  Scale, Ruler, Calendar, Wind, Clock, History, MapPin, Moon, ShoppingCart
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+
+interface ProdutoCatalogo {
+  id: number;
+  nome: string;
+  categoria: string;
+  precoPix?: string | null;
+  precoPrazo?: string | null;
+  descricao?: string | null;
+}
 
 // ─── TYPES ──────────────────────────────────────────────────────────────────
 
@@ -356,6 +365,7 @@ export default function MapaSono() {
   const [resultado, setResultado]   = useState<Resultado | null>(null);
   const [showResult, setShowResult] = useState(false);
   const [precoCalc, setPrecoCalc]   = useState("");
+  const [produtosRec, setProdutosRec] = useState<ProdutoCatalogo[]>([]);
   const scrollRef = useRef<HTMLDivElement>(null);
 
   const currentStep = stepIndex >= 0 && stepIndex < STEPS.length ? STEPS[stepIndex] : null;
@@ -365,6 +375,26 @@ export default function MapaSono() {
   useEffect(() => {
     scrollRef.current?.scrollTo({ top: 0, behavior: "smooth" });
   }, [stepIndex, showResult]);
+
+  useEffect(() => {
+    if (!showResult || !resultado) return;
+    fetch("/api/produtos")
+      .then(r => r.ok ? r.json() : [])
+      .then((produtos: ProdutoCatalogo[]) => {
+        const estrutura = resultado.estrutura;
+        const keywords = estrutura === "MOLA"
+          ? ["mola", "pocket", "molas", "ensacada"]
+          : ["espuma", "visco", "viscoelástico", "viscoelastico", "gel", "latex"];
+        const colchoes = produtos.filter((p: ProdutoCatalogo) => {
+          const cat = (p.categoria ?? "").toLowerCase();
+          const nome = (p.nome ?? "").toLowerCase();
+          if (!cat.includes("colch") && !nome.includes("colch")) return false;
+          return keywords.some(kw => nome.includes(kw) || cat.includes(kw));
+        });
+        setProdutosRec(colchoes.slice(0, 3));
+      })
+      .catch(() => {});
+  }, [showResult, resultado]);
 
   // ── Navigation ─────────────────────────────────────────────────────────────
 
@@ -592,6 +622,52 @@ export default function MapaSono() {
             </div>
             <p className="text-[10px] text-slate-400 mt-1.5">Base: 10 anos de vida útil (3.650 noites) — durabilidade Castor.</p>
           </motion.div>
+
+          {/* Produtos recomendados */}
+          {produtosRec.length > 0 && (
+            <motion.div
+              initial={{ opacity: 0, y: 8 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.25 }}
+              className="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden"
+            >
+              <div className="px-4 pt-4 pb-2 border-b border-slate-100">
+                <p className="text-xs font-extrabold text-slate-700 flex items-center gap-1.5">
+                  <ShoppingCart className="w-3.5 h-3.5 text-red-500" />
+                  Colchões que combinam com você
+                </p>
+                <p className="text-[10px] text-slate-400 mt-0.5">Disponíveis agora na Castor • Pronta entrega</p>
+              </div>
+              <div className="divide-y divide-slate-50">
+                {produtosRec.map(p => {
+                  const msgProduto = encodeURIComponent(
+                    `Olá, ThallesZzz! 👋 Pelo Mapa do Sono recebi a recomendação *${resultado?.estrutura === "MOLA" ? "Mola Ensacada" : "Espuma/Viscoelástico"}* e gostei do colchão *${p.nome}*. Pode me dar mais detalhes e melhores condições? 🛏️`
+                  );
+                  return (
+                    <div key={p.id} className="flex items-center justify-between px-4 py-3 gap-3">
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-bold text-slate-800 leading-tight truncate">{p.nome}</p>
+                        {p.precoPix && (
+                          <p className="text-xs text-emerald-600 font-bold mt-0.5">PIX {p.precoPix}</p>
+                        )}
+                        {p.precoPrazo && !p.precoPix && (
+                          <p className="text-xs text-blue-600 font-bold mt-0.5">{p.precoPrazo}</p>
+                        )}
+                      </div>
+                      <a
+                        href={`https://wa.me/5522992410112?text=${msgProduto}`}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="flex items-center gap-1 bg-green-500 hover:bg-green-600 text-white text-[10px] font-extrabold px-2.5 py-1.5 rounded-lg transition-all shrink-0 active:scale-95"
+                      >
+                        <MessageCircle className="w-3 h-3" /> Quero esse
+                      </a>
+                    </div>
+                  );
+                })}
+              </div>
+            </motion.div>
+          )}
 
           {/* Gatilhos */}
           <motion.div

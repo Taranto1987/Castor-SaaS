@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Truck, Plus, RefreshCw, CheckCircle2, Clock, Navigation, XCircle, ChevronDown, ChevronUp, Phone, MapPin, Route, ExternalLink } from "lucide-react";
+import { Truck, Plus, RefreshCw, CheckCircle2, Clock, Navigation, XCircle, ChevronDown, ChevronUp, Phone, MapPin, Route, ExternalLink, Star } from "lucide-react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 
 import { useToast } from "@/hooks/use-toast";
@@ -238,8 +238,8 @@ function gerarUrlMaps(paradas: Entrega[], operacao: string = "cabo_frio"): strin
 }
 
 function RoteiroPedro({ entregas }: { entregas: Entrega[] }) {
-  const { colaborador } = useAuth();
-  const operacao = colaborador?.operacao ?? "cabo_frio";
+  const { user } = useAuth();
+  const operacao = user?.operacao ?? "cabo_frio";
   const ativas = entregas.filter(e => e.status === "pendente" || e.status === "em_rota");
   const ordenadas = ordenarPorRota(ativas);
   const mapsUrl = gerarUrlMaps(ordenadas, operacao);
@@ -385,11 +385,65 @@ function RoteiroPedro({ entregas }: { entregas: Entrega[] }) {
   );
 }
 
+const REVIEW_LINKS: Record<string, string> = {
+  cabo_frio: "https://share.google/bDIGyrtnaNFOMfWEd",
+  araruama:  "https://share.google/o7duCdh84jQYnPn7z",
+};
+
+function ReviewModal({ entrega, operacao, onClose }: { entrega: Entrega; operacao: string; onClose: () => void }) {
+  const link = REVIEW_LINKS[operacao] ?? REVIEW_LINKS.cabo_frio;
+  const msg = encodeURIComponent(
+    `Olá, *${entrega.cliente}*! 🎉\n\nTudo chegou certinho? Esperamos que esteja adorando o seu novo colchão!\n\nSe puder, sua avaliação no Google significa MUITO para a gente e ajuda outras pessoas a encontrarem o colchão ideal. Leva só 30 segundos! ⭐⭐⭐⭐⭐\n\n${link}\n\nMuito obrigado! Equipe Castor 🛏️`
+  );
+  const waUrl = entrega.whatsapp
+    ? `https://wa.me/55${entrega.whatsapp.replace(/\D/g, "")}?text=${msg}`
+    : `https://wa.me/?text=${msg}`;
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-end md:items-center justify-center bg-black/40 backdrop-blur-sm p-4">
+      <motion.div
+        initial={{ opacity: 0, y: 40 }}
+        animate={{ opacity: 1, y: 0 }}
+        exit={{ opacity: 0, y: 40 }}
+        className="bg-white rounded-2xl w-full max-w-sm shadow-2xl p-6 text-center space-y-4"
+      >
+        <div className="w-14 h-14 bg-amber-100 rounded-2xl flex items-center justify-center mx-auto text-2xl">⭐</div>
+        <div>
+          <h2 className="text-lg font-extrabold text-slate-900">Pedir avaliação?</h2>
+          <p className="text-sm text-slate-500 mt-1">
+            <span className="font-semibold">{entrega.cliente}</span> acabou de receber. Quer enviar o link do Google?
+          </p>
+        </div>
+        <div className="flex flex-col gap-2">
+          <a
+            href={waUrl}
+            target="_blank"
+            rel="noreferrer"
+            onClick={onClose}
+            className="flex items-center justify-center gap-2 bg-green-500 hover:bg-green-600 text-white font-extrabold px-5 py-3 rounded-xl transition-all text-sm"
+          >
+            <Star className="w-4 h-4" /> Enviar pedido de avaliação
+          </a>
+          <button
+            onClick={onClose}
+            className="py-2.5 rounded-xl border border-slate-200 text-sm font-bold text-slate-500 hover:bg-slate-50 transition-all"
+          >
+            Pular por agora
+          </button>
+        </div>
+      </motion.div>
+    </div>
+  );
+}
+
 export default function Logistica() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const { user } = useAuth();
+  const operacao = user?.operacao ?? "cabo_frio";
   const [showModal, setShowModal] = useState(false);
   const [filtroStatus, setFiltroStatus] = useState<string>("todos");
+  const [reviewEntrega, setReviewEntrega] = useState<Entrega | null>(null);
 
   const { data: entregas = [], isLoading, refetch } = useQuery<Entrega[]>({
     queryKey: ["entregas"],
@@ -411,9 +465,13 @@ export default function Logistica() {
       if (!res.ok) throw new Error("Erro ao atualizar status");
       return res.json();
     },
-    onSuccess: () => {
+    onSuccess: (_data, variables) => {
       queryClient.invalidateQueries({ queryKey: ["entregas"] });
       toast({ title: "Status atualizado!" });
+      if (variables.status === "entregue") {
+        const entrega = entregas.find(e => e.id === variables.id);
+        if (entrega?.whatsapp) setReviewEntrega(entrega);
+      }
     },
     onError: () => toast({ title: "Erro", variant: "destructive" }),
   });
@@ -529,6 +587,13 @@ export default function Logistica() {
           <NovaEntregaModal
             onClose={() => setShowModal(false)}
             onSave={(data) => criarEntrega.mutate(data)}
+          />
+        )}
+        {reviewEntrega && (
+          <ReviewModal
+            entrega={reviewEntrega}
+            operacao={operacao}
+            onClose={() => setReviewEntrega(null)}
           />
         )}
       </AnimatePresence>

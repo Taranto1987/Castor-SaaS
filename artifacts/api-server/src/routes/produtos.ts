@@ -1,7 +1,7 @@
 import { Router, type IRouter } from "express";
 import { db } from "@workspace/db";
 import { produtosTable } from "@workspace/db/schema";
-import { ilike, or, eq } from "drizzle-orm";
+import { ilike, or, eq, and } from "drizzle-orm";
 
 const router: IRouter = Router();
 
@@ -19,6 +19,9 @@ function mapProduto(p: typeof produtosTable.$inferSelect) {
     imagem: p.imagem,
     link: p.link,
     disponivel: p.disponivel,
+    encomenda: p.encomenda,
+    custoBRL: p.custoBRL,
+    prazoEncomenda: p.prazoEncomenda,
     criadoEm: p.criadoEm,
   };
 }
@@ -34,6 +37,69 @@ router.get("/", async (req, res) => {
     res.json(results.map(mapProduto));
   } catch (error) {
     console.error("Erro ao listar produtos:", error);
+    res.status(500).json({ error: "Erro interno" });
+  }
+});
+
+router.get("/outlet", async (_req, res) => {
+  try {
+    const results = await db
+      .select()
+      .from(produtosTable)
+      .where(eq(produtosTable.encomenda, true))
+      .orderBy(produtosTable.nome);
+    res.json(results.map(mapProduto));
+  } catch (error) {
+    console.error("Erro ao listar outlet:", error);
+    res.status(500).json({ error: "Erro interno" });
+  }
+});
+
+router.post("/outlet", async (req, res) => {
+  try {
+    const { nome, categoria, medidas, custoBRL, prazoEncomenda } = req.body;
+    if (!nome || !categoria) {
+      res.status(400).json({ error: "Nome e categoria são obrigatórios" });
+      return;
+    }
+    const custoNum = parseFloat(String(custoBRL || "0")) || 0;
+    const precoVenda = custoNum > 0 ? Math.ceil(custoNum * 1.6) : undefined;
+    const inserted = await db.insert(produtosTable).values({
+      nome,
+      categoria,
+      medidas: medidas ?? null,
+      custoBRL: custoBRL ? String(custoBRL) : null,
+      prazoEncomenda: prazoEncomenda ?? "A combinar",
+      precoPix: precoVenda ? precoVenda.toLocaleString("pt-BR", { style: "currency", currency: "BRL" }) : null,
+      encomenda: true,
+      disponivel: true,
+    }).returning();
+    res.json(mapProduto(inserted[0]));
+  } catch (error) {
+    console.error("Erro ao criar produto outlet:", error);
+    res.status(500).json({ error: "Erro interno" });
+  }
+});
+
+router.patch("/:id/encomenda", async (req, res) => {
+  try {
+    const id = parseInt(req.params.id);
+    const { encomenda } = req.body;
+    if (typeof encomenda !== "boolean") {
+      res.status(400).json({ error: "Campo encomenda (boolean) obrigatório" });
+      return;
+    }
+    const updated = await db.update(produtosTable)
+      .set({ encomenda })
+      .where(eq(produtosTable.id, id))
+      .returning();
+    if (updated.length === 0) {
+      res.status(404).json({ error: "Produto não encontrado" });
+      return;
+    }
+    res.json(mapProduto(updated[0]));
+  } catch (error) {
+    console.error("Erro ao atualizar encomenda:", error);
     res.status(500).json({ error: "Erro interno" });
   }
 });

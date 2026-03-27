@@ -20,6 +20,8 @@ import Historico from "@/pages/Historico";
 import Crawler from "@/pages/Crawler";
 import Dashboard from "@/pages/Dashboard";
 import Logistica from "@/pages/Logistica";
+import Clientes from "@/pages/Clientes";
+import Outlet from "@/pages/Outlet";
 import NotFound from "@/pages/not-found";
 
 const queryClient = new QueryClient({
@@ -54,12 +56,14 @@ function AppRoutes() {
       </Route>
 
       {/* ── PRIVATE ────────────────────────────────────────────────────── */}
-      <Route path="/equipe"      component={() => <PrivateRoute component={Home} />} />
-      <Route path="/orcamento"   component={() => <PrivateRoute component={Orcamento} />} />
-      <Route path="/historico"   component={() => <PrivateRoute component={Historico} />} />
-      <Route path="/dashboard"   component={() => <PrivateRoute component={Dashboard} />} />
-      <Route path="/logistica"   component={() => <PrivateRoute component={Logistica} />} />
-      <Route path="/crawler"     component={() => <PrivateRoute component={Crawler} />} />
+      <Route path="/equipe"             component={() => <PrivateRoute component={Home} />} />
+      <Route path="/orcamento"          component={() => <PrivateRoute component={Orcamento} />} />
+      <Route path="/historico"          component={() => <PrivateRoute component={Historico} />} />
+      <Route path="/dashboard"          component={() => <PrivateRoute component={Dashboard} />} />
+      <Route path="/logistica"          component={() => <PrivateRoute component={Logistica} />} />
+      <Route path="/crawler"            component={() => <PrivateRoute component={Crawler} />} />
+      <Route path="/equipe/clientes"    component={() => <PrivateRoute component={Clientes} />} />
+      <Route path="/outlet"             component={() => <PrivateRoute component={Outlet} />} />
 
       <Route component={NotFound} />
     </Switch>

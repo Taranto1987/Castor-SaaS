@@ -1,7 +1,12 @@
-import { motion } from "framer-motion";
-import { BarChart2, TrendingUp, Package, Truck, Users, RefreshCw, ShoppingBag, CheckCircle2, Percent } from "lucide-react";
+import { useState, useEffect } from "react";
+import { motion, AnimatePresence } from "framer-motion";
+import {
+  BarChart2, TrendingUp, Package, Truck, Users, RefreshCw,
+  ShoppingBag, CheckCircle2, Percent, Target, Edit3, X
+} from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { cn } from "@/lib/utils";
+import { useAuth } from "@/contexts/AuthContext";
 
 interface DashboardData {
   totalOrcamentos: number;
@@ -16,6 +21,25 @@ interface DashboardData {
   orcamentosPorDia: { dia: string; count: number }[];
   totalEntregas: number;
   entregasPorStatus: { pendente: number; em_rota: number; entregue: number; cancelado: number };
+}
+
+function parseBRL(str?: string): number {
+  if (!str) return 0;
+  return parseFloat(str.replace(/[R$\s]/g, "").replace(/\./g, "").replace(",", ".")) || 0;
+}
+
+function formatBRL(val: number) {
+  return val.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
+}
+
+function getMetaKey(operacao: string) {
+  const now = new Date();
+  return `castor_meta_${operacao}_${now.getFullYear()}_${now.getMonth() + 1}`;
+}
+
+function getMesAtual() {
+  const now = new Date();
+  return now.toLocaleString("pt-BR", { month: "long", year: "numeric" });
 }
 
 function StatCard({ icon: Icon, label, value, color, sub }: {
@@ -37,7 +61,91 @@ function StatCard({ icon: Icon, label, value, color, sub }: {
   );
 }
 
+function MetaModal({ onClose, onSave, currentMeta }: {
+  onClose: () => void;
+  onSave: (val: number) => void;
+  currentMeta: number;
+}) {
+  const [inputVal, setInputVal] = useState(currentMeta > 0 ? String(currentMeta) : "");
+
+  const handleSave = () => {
+    const val = parseFloat(inputVal.replace(/\./g, "").replace(",", "."));
+    if (val > 0) { onSave(val); onClose(); }
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-end md:items-center justify-center bg-black/40 backdrop-blur-sm p-4">
+      <motion.div
+        initial={{ opacity: 0, y: 40 }}
+        animate={{ opacity: 1, y: 0 }}
+        exit={{ opacity: 0, y: 40 }}
+        className="bg-white rounded-2xl w-full max-w-sm shadow-2xl p-6 space-y-4"
+      >
+        <div className="flex items-center justify-between">
+          <div>
+            <h2 className="text-lg font-extrabold text-slate-900">Meta do mês</h2>
+            <p className="text-xs text-slate-500 mt-0.5 capitalize">{getMesAtual()}</p>
+          </div>
+          <button onClick={onClose} className="w-8 h-8 rounded-lg bg-slate-100 hover:bg-slate-200 flex items-center justify-center">
+            <X className="w-4 h-4 text-slate-500" />
+          </button>
+        </div>
+        <div>
+          <label className="text-xs font-bold text-slate-600 block mb-1.5">Valor alvo (R$)</label>
+          <div className="flex items-center gap-2">
+            <span className="text-sm font-bold text-slate-400">R$</span>
+            <input
+              type="number"
+              className="flex-1 border border-slate-200 rounded-xl px-3 py-2.5 text-sm font-bold focus:outline-none focus:ring-2 focus:ring-emerald-500/30"
+              placeholder="Ex: 80000"
+              value={inputVal}
+              onChange={e => setInputVal(e.target.value)}
+              autoFocus
+              onKeyDown={e => e.key === "Enter" && handleSave()}
+            />
+          </div>
+          <p className="text-xs text-slate-400 mt-1">
+            {inputVal && parseFloat(inputVal) > 0
+              ? `= ${formatBRL(parseFloat(inputVal.replace(/\./g, "").replace(",", ".")))}`
+              : "Digite o valor em reais"}
+          </p>
+        </div>
+        <div className="flex gap-2">
+          <button onClick={onClose} className="flex-1 py-2.5 rounded-xl border border-slate-200 text-sm font-bold text-slate-500 hover:bg-slate-50">
+            Cancelar
+          </button>
+          <button
+            onClick={handleSave}
+            className="flex-1 py-2.5 rounded-xl bg-emerald-600 text-white text-sm font-bold hover:bg-emerald-700 transition-all"
+          >
+            Salvar meta
+          </button>
+        </div>
+      </motion.div>
+    </div>
+  );
+}
+
 export default function Dashboard() {
+  const { user } = useAuth();
+  const operacao = user?.operacao ?? "cabo_frio";
+  const isDono = user?.papel === "dono";
+
+  const [meta, setMeta] = useState<number>(0);
+  const [showMetaModal, setShowMetaModal] = useState(false);
+
+  useEffect(() => {
+    const key = getMetaKey(operacao);
+    const stored = localStorage.getItem(key);
+    if (stored) setMeta(parseFloat(stored));
+  }, [operacao]);
+
+  const handleSaveMeta = (val: number) => {
+    const key = getMetaKey(operacao);
+    localStorage.setItem(key, String(val));
+    setMeta(val);
+  };
+
   const { data, isLoading, refetch } = useQuery<DashboardData>({
     queryKey: ["dashboard"],
     queryFn: async () => {
@@ -49,6 +157,9 @@ export default function Dashboard() {
   });
 
   const maxBar = Math.max(...(data?.orcamentosPorDia.map(d => d.count) ?? [1]), 1);
+  const valorVendido = parseBRL(data?.somaPixVendido);
+  const pctMeta = meta > 0 ? Math.min(Math.round((valorVendido / meta) * 100), 100) : 0;
+  const faltaMeta = meta > 0 ? Math.max(meta - valorVendido, 0) : 0;
 
   return (
     <div className="max-w-4xl mx-auto space-y-8 pb-20">
@@ -67,6 +178,77 @@ export default function Dashboard() {
           Atualizar
         </button>
       </div>
+
+      {/* Meta do mês */}
+      <motion.div
+        initial={{ opacity: 0, y: 12 }}
+        animate={{ opacity: 1, y: 0 }}
+        className="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm"
+      >
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="font-bold text-slate-800 flex items-center gap-2">
+            <Target className="w-4 h-4 text-emerald-500" />
+            Meta do mês —{" "}
+            <span className="capitalize font-normal text-slate-500 text-sm">{getMesAtual()}</span>
+          </h2>
+          {isDono && (
+            <button
+              onClick={() => setShowMetaModal(true)}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold bg-slate-100 hover:bg-slate-200 text-slate-600 transition-all"
+            >
+              <Edit3 className="w-3.5 h-3.5" />
+              {meta > 0 ? "Editar" : "Definir meta"}
+            </button>
+          )}
+        </div>
+
+        {meta === 0 ? (
+          <div className="text-center py-4">
+            <p className="text-sm text-slate-400">
+              {isDono
+                ? "Nenhuma meta definida. Clique em \"Definir meta\" para começar."
+                : "Meta do mês ainda não foi definida pelo dono."}
+            </p>
+          </div>
+        ) : (
+          <div className="space-y-3">
+            <div className="flex items-end justify-between">
+              <div>
+                <p className="text-xs text-slate-500 font-semibold">Vendido (PIX)</p>
+                <p className="text-2xl font-extrabold text-emerald-700">{formatBRL(valorVendido)}</p>
+              </div>
+              <div className="text-right">
+                <p className="text-xs text-slate-500 font-semibold">Meta</p>
+                <p className="text-2xl font-extrabold text-slate-900">{formatBRL(meta)}</p>
+              </div>
+            </div>
+            <div className="w-full h-4 bg-slate-100 rounded-full overflow-hidden">
+              <motion.div
+                className={cn(
+                  "h-full rounded-full transition-all",
+                  pctMeta >= 100 ? "bg-emerald-500" : pctMeta >= 75 ? "bg-blue-500" : pctMeta >= 50 ? "bg-amber-500" : "bg-red-400"
+                )}
+                initial={{ width: 0 }}
+                animate={{ width: `${pctMeta}%` }}
+                transition={{ delay: 0.3, duration: 0.8 }}
+              />
+            </div>
+            <div className="flex items-center justify-between">
+              <p className="text-sm font-bold text-slate-600">
+                {pctMeta >= 100
+                  ? "🎉 Meta atingida!"
+                  : `Faltam ${formatBRL(faltaMeta)}`}
+              </p>
+              <p className={cn(
+                "text-2xl font-black",
+                pctMeta >= 100 ? "text-emerald-600" : pctMeta >= 75 ? "text-blue-600" : pctMeta >= 50 ? "text-amber-600" : "text-red-500"
+              )}>
+                {pctMeta}%
+              </p>
+            </div>
+          </div>
+        )}
+      </motion.div>
 
       {isLoading ? (
         <div className="flex items-center justify-center py-20 text-slate-400 gap-3">
@@ -244,6 +426,16 @@ export default function Dashboard() {
           </div>
         </>
       )}
+
+      <AnimatePresence>
+        {showMetaModal && (
+          <MetaModal
+            onClose={() => setShowMetaModal(false)}
+            onSave={handleSaveMeta}
+            currentMeta={meta}
+          />
+        )}
+      </AnimatePresence>
     </div>
   );
 }
