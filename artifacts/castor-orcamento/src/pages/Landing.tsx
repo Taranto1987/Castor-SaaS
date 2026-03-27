@@ -95,13 +95,32 @@ export default function Landing() {
               </motion.div>
 
               {ready && (
-                <motion.div {...fade(0.28)} className="flex items-center gap-2 justify-center md:justify-start mb-8">
-                  <span className="text-white/50 text-xs">Atendimento via</span>
-                  <span className="text-white font-bold text-xs">{wa.loja}</span>
-                  <button onClick={toggle} className="inline-flex items-center gap-1 text-red-300 hover:text-white text-xs bg-white/10 hover:bg-white/15 px-2.5 py-0.5 rounded-full transition-all">
-                    <MapPin className="w-3 h-3" />
-                    Trocar para {wa.numero === WA_CABO_FRIO.numero ? "Araruama" : "Cabo Frio"}
-                  </button>
+                <motion.div {...fade(0.28)} className="mb-8">
+                  <p className="text-white/60 text-xs font-semibold uppercase tracking-widest mb-2 text-center md:text-left">📍 Qual loja mais perto de você?</p>
+                  <div className="inline-flex bg-white/10 backdrop-blur-sm rounded-xl p-1 border border-white/15">
+                    <button
+                      onClick={() => wa.numero !== WA_CABO_FRIO.numero && toggle()}
+                      className={`flex items-center gap-2 px-5 py-2.5 rounded-lg text-sm font-bold transition-all ${
+                        wa.numero === WA_CABO_FRIO.numero
+                          ? "bg-red-600 text-white shadow-lg shadow-red-900/40"
+                          : "text-white/60 hover:text-white hover:bg-white/10"
+                      }`}
+                    >
+                      <MapPin className="w-4 h-4" />
+                      Cabo Frio
+                    </button>
+                    <button
+                      onClick={() => wa.numero === WA_CABO_FRIO.numero && toggle()}
+                      className={`flex items-center gap-2 px-5 py-2.5 rounded-lg text-sm font-bold transition-all ${
+                        wa.numero !== WA_CABO_FRIO.numero
+                          ? "bg-red-600 text-white shadow-lg shadow-red-900/40"
+                          : "text-white/60 hover:text-white hover:bg-white/10"
+                      }`}
+                    >
+                      <MapPin className="w-4 h-4" />
+                      Araruama
+                    </button>
+                  </div>
                 </motion.div>
               )}
 
