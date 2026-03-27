@@ -197,10 +197,10 @@ OpenAPI spec em `openapi.yaml`. Run codegen: `pnpm --filter @workspace/api-spec 
 
 ## Rastreamento (GTM + GA4)
 
-- **Google Tag Manager**: carregado dinamicamente via `src/lib/gtm.ts` → `initGTM()`. Requer env var `VITE_GTM_ID` (ex: `GTM-XXXXXXX`). Injeta script no head + iframe noscript-fallback no body. Se não definida, GTM não é carregado — sem impacto no app.
-- **Google Analytics 4 (standalone)**: carregado via `initGA4()`. Requer env var `VITE_GA_MEASUREMENT_ID` (ex: `G-XXXXXXXXXX`). Se não definida, GA4 standalone não é carregado. Pode ser usado junto com GTM ou sozinho.
-- **Tracking functions** (`src/lib/tracking.ts`): todas usam `window.dataLayer.push()`. Se GTM/GA4 não estiver carregado, os pushes são silenciosamente ignorados.
-- **Env vars**: `VITE_GTM_ID` (GTM container ID), `VITE_GA_MEASUREMENT_ID` (GA4 measurement ID). Ambas opcionais.
+- **Google Tag Manager**: injetado no HTML via Vite plugin (`gtmPlugin` em `vite.config.ts`). Snippet padrão Google: `<script>` no `<head>` + `<noscript><iframe>` no `<body>`. Requer env var `VITE_GTM_ID` (ex: `GTM-XXXXXXX`). Se não definida, GTM não é injetado — sem impacto no app.
+- **Google Analytics 4**: configurado pelo painel do GTM (não pelo código). GA4 recebe pageviews automaticamente e eventos custom via dataLayer do GTM.
+- **Tracking functions** (`src/lib/tracking.ts`): todas usam `window.dataLayer.push()`. Se GTM não estiver carregado, os pushes são silenciosamente ignorados.
+- **Env vars**: `VITE_GTM_ID` (GTM container ID). GA4 Measurement ID é configurado dentro do GTM.
 - **Eventos rastreados**:
   - `whatsapp_click` — clique em qualquer botão/link WhatsApp (params: origem, loja)
   - `orcamento_gerado` — orçamento gerado com sucesso (params: total_pix, num_itens)
