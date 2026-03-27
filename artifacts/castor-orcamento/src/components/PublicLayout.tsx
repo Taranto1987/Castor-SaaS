@@ -172,7 +172,7 @@ export default function PublicLayout({ children }: PublicLayoutProps) {
                     <MessageCircle className="w-4 h-4" /> (22) 99241-0112 · Cabo Frio
                   </a>
                   <a
-                    href="https://wa.me/5522333437720?text=Olá! Vi o site da Castor Araruama e quero saber mais sobre os colchões!"
+                    href="https://wa.me/5522988447240?text=Olá! Vi o site da Castor Araruama e quero saber mais sobre os colchões!"
                     target="_blank"
                     rel="noreferrer"
                     onClick={() => trackWhatsAppClick("footer", "Araruama")}

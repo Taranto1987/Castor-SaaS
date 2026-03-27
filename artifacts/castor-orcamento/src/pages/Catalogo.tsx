@@ -14,7 +14,7 @@ import type { Produto } from "@workspace/api-client-react/src/generated/api.sche
 import { trackPageView, trackCatalogoWhatsApp, trackCatalogoView } from "@/lib/tracking";
 
 const WA_CF  = { numero: "5522992410112", loja: "Cabo Frio", contato: "ThallesZzz" };
-const WA_ARU = { numero: "5522333437720", loja: "Araruama",  contato: "Marcela" };
+const WA_ARU = { numero: "5522988447240", loja: "Araruama",  contato: "Marcela" };
 const CIDADES_ARU = ["araruama", "saquarema", "iguaba grande", "maricá", "silva jardim"];
 
 function gerarMsgWA(produto: Produto, contato: string, loja: string): string {

@@ -9,7 +9,7 @@ import { cn } from "@/lib/utils";
 import { trackMapaSonoCompleto, trackWhatsAppClick, trackPageView } from "@/lib/tracking";
 
 const WA_CABO_FRIO = { numero: "5522992410112", contato: "ThallesZzz", loja: "Cabo Frio" };
-const WA_ARARUAMA  = { numero: "5522333437720", contato: "Marcela",    loja: "Araruama" };
+const WA_ARARUAMA  = { numero: "5522988447240", contato: "Marcela",    loja: "Araruama" };
 const CIDADES_ARARUAMA = ["araruama", "saquarema", "iguaba grande", "maricá", "silva jardim"];
 
 interface ProdutoCatalogo {

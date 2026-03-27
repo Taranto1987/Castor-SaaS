@@ -6,7 +6,7 @@ import MapaSonoModal from "@/components/MapaSonoModal";
 import { trackWhatsAppClick, trackPageView } from "@/lib/tracking";
 
 const WA_CABO_FRIO  = { numero: "5522992410112", loja: "Cabo Frio", contato: "ThallesZzz", tel: "(22) 99241-0112" };
-const WA_ARARUAMA   = { numero: "5522333437720", loja: "Araruama",  contato: "Marcela",    tel: "(22) 3343-7720" };
+const WA_ARARUAMA   = { numero: "5522988447240", loja: "Araruama",  contato: "Marcela",    tel: "(22) 98844-7240" };
 
 const MAPS_CABO_FRIO = "https://maps.app.goo.gl/UuF6w1nAvTgXockS6";
 const MAPS_ARARUAMA  = "https://maps.app.goo.gl/cGmvFgeubawLRNGy8";
@@ -123,18 +123,25 @@ export default function Landing() {
               transition={{ duration: 0.7, delay: 0.2 }}
               className="flex-shrink-0"
             >
-              <div className="relative w-64 h-64 md:w-80 md:h-80">
-                <div className="absolute inset-0 bg-gradient-to-br from-red-500/30 to-red-900/30 rounded-[2rem] backdrop-blur-sm border border-white/10 shadow-2xl" />
-                <img
-                  src="/thalles-avatar.jpg"
-                  alt={`Especialista ${wa.contato}`}
-                  className="absolute inset-0 w-full h-full object-cover object-top rounded-[2rem]"
-                />
-                <div className="absolute bottom-4 left-4 right-4 bg-black/60 backdrop-blur-md rounded-xl px-3 py-2">
-                  <p className="text-white font-extrabold text-sm">Especialista {wa.contato}</p>
-                  <p className="text-green-400 text-xs font-semibold">● Online agora · Mapa do Sono</p>
+              <a
+                href={waLink(wa, `Oi ${wa.contato}! Vi vocês no site e quero saber mais sobre os colchões Castor.`)}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="block cursor-pointer group"
+              >
+                <div className="relative w-64 h-64 md:w-80 md:h-80 group-hover:scale-[1.02] transition-transform">
+                  <div className="absolute inset-0 bg-gradient-to-br from-red-500/30 to-red-900/30 rounded-[2rem] backdrop-blur-sm border border-white/10 shadow-2xl" />
+                  <img
+                    src={wa.numero === WA_CABO_FRIO.numero ? "/thalles-avatar.jpg" : "/marcela-avatar.jpg"}
+                    alt={`Especialista ${wa.contato}`}
+                    className="absolute inset-0 w-full h-full object-cover object-top rounded-[2rem]"
+                  />
+                  <div className="absolute bottom-4 left-4 right-4 bg-black/60 backdrop-blur-md rounded-xl px-3 py-2">
+                    <p className="text-white font-extrabold text-sm">Especialista {wa.contato}</p>
+                    <p className="text-green-400 text-xs font-semibold">● Online agora · Mapa do Sono</p>
+                  </div>
                 </div>
-              </div>
+              </a>
             </motion.div>
           </div>
 
@@ -164,7 +171,7 @@ export default function Landing() {
           <div className="flex flex-col md:flex-row items-center gap-8">
             <div className="flex-shrink-0">
               <div className="w-20 h-20 rounded-2xl overflow-hidden border-2 border-white/20 shadow-xl">
-                <img src="/thalles-avatar.jpg" alt="ThallesZzz" className="w-full h-full object-cover object-top" />
+                <img src={wa.numero === WA_CABO_FRIO.numero ? "/thalles-avatar.jpg" : "/marcela-avatar.jpg"} alt={wa.contato} className="w-full h-full object-cover object-top" />
               </div>
             </div>
             <div className="flex-1 text-center md:text-left">
