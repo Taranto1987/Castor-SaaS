@@ -135,7 +135,7 @@ export default function PublicLayout({ children }: PublicLayoutProps) {
             <div>
               <img src="/logo-exclusiva.png" alt="Castor" className="h-10 w-auto mb-3" />
               <p className="text-slate-400 text-sm leading-relaxed">
-                Especialistas em engenharia do sono em Cabo Frio. Não vendemos colchão — resolvemos o seu sono.
+                Especialistas em engenharia do sono na Região dos Lagos. Não vendemos colchão — resolvemos o seu sono.
               </p>
             </div>
             <div>
@@ -143,7 +143,7 @@ export default function PublicLayout({ children }: PublicLayoutProps) {
               <div className="space-y-2">
                 {[
                   { href: "/catalogo", label: "Catálogo de Produtos" },
-                  { href: "/mapa-sono", label: "Mapa do Sono — ThallesZzz" },
+                  { href: "/mapa-sono", label: "Mapa do Sono" },
                 ].map(l => (
                   <Link key={l.href} href={l.href} className="flex items-center gap-2 text-slate-400 hover:text-white text-sm transition-colors">
                     <ChevronRight className="w-3 h-3 text-red-500" /> {l.label}
@@ -165,22 +165,32 @@ export default function PublicLayout({ children }: PublicLayoutProps) {
                   <span className="mt-0.5 shrink-0">📍</span>
                   <span>
                     <span className="font-semibold text-slate-300 group-hover:text-white block">Araruama</span>
-                    Araruama – RJ
+                    Av. dos Cearenses · Centro
                   </span>
                 </a>
-                <a
-                  href={WHATSAPP}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="flex items-center gap-2 text-green-400 hover:text-green-300 font-semibold"
-                >
-                  <MessageCircle className="w-4 h-4" /> (22) 99241-0112
-                </a>
+                <div className="space-y-1.5 pt-1">
+                  <a
+                    href="https://wa.me/5522992410112?text=Olá! Vi o site da Castor Cabo Frio e quero saber mais sobre os colchões!"
+                    target="_blank"
+                    rel="noreferrer"
+                    className="flex items-center gap-2 text-green-400 hover:text-green-300 font-semibold"
+                  >
+                    <MessageCircle className="w-4 h-4" /> (22) 99241-0112 · Cabo Frio
+                  </a>
+                  <a
+                    href="https://wa.me/5522333437720?text=Olá! Vi o site da Castor Araruama e quero saber mais sobre os colchões!"
+                    target="_blank"
+                    rel="noreferrer"
+                    className="flex items-center gap-2 text-green-400 hover:text-green-300 font-semibold"
+                  >
+                    <MessageCircle className="w-4 h-4" /> (22) 3343-7720 · Araruama
+                  </a>
+                </div>
               </div>
             </div>
           </div>
           <div className="border-t border-slate-800 pt-5 flex flex-col md:flex-row items-center justify-between gap-3">
-            <p className="text-slate-500 text-xs">© 2025 Castor Cabo Frio · Todos os direitos reservados</p>
+            <p className="text-slate-500 text-xs">© {new Date().getFullYear()} Castor Cabo Frio & Araruama · Todos os direitos reservados</p>
             <Link href="/equipe" className="text-slate-700 text-xs hover:text-slate-500 transition-colors">
               Área da Equipe
             </Link>
