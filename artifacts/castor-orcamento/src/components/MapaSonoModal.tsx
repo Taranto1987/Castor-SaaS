@@ -61,13 +61,13 @@ export default function MapaSonoModal({ open, onClose }: Props) {
                 <div className="relative shrink-0">
                   <img
                     src="/thalles-avatar.jpg"
-                    alt="ThallesZzz"
+                    alt="Especialista"
                     className="w-9 h-9 rounded-full object-cover object-top border-2 border-red-100"
                   />
                   <span className="absolute bottom-0 right-0 w-2.5 h-2.5 bg-green-500 border-2 border-white rounded-full" />
                 </div>
                 <div>
-                  <p className="text-sm font-extrabold text-slate-900 leading-tight">Mapa do Sono · ThallesZzz</p>
+                  <p className="text-sm font-extrabold text-slate-900 leading-tight">Mapa do Sono · Castor</p>
                   <p className="text-[10px] text-green-600 font-bold">● Online agora · Diagnóstico gratuito</p>
                 </div>
               </div>

@@ -12,10 +12,12 @@ import {
 import { cn } from "@/lib/utils";
 import type { Produto } from "@workspace/api-client-react/src/generated/api.schemas";
 
-const WHATSAPP_BASE = "5522992410112";
+const WA_CF  = { numero: "5522992410112", loja: "Cabo Frio", contato: "ThallesZzz" };
+const WA_ARU = { numero: "5522333437720", loja: "Araruama",  contato: "Marcela" };
+const CIDADES_ARU = ["araruama", "saquarema", "iguaba grande", "maricá", "silva jardim"];
 
-function gerarMsgWA(produto: Produto): string {
-  return `Olá, ThallesZzz! 👋 Vi o site da Castor Cabo Frio e tenho interesse no produto:\n\n*${produto.nome}*\n${produto.medidas ? `📐 Medidas: ${produto.medidas}\n` : ""}${produto.precoPix ? `💰 Pix: ${produto.precoPix}\n` : ""}\nGostaria de mais informações e disponibilidade!`;
+function gerarMsgWA(produto: Produto, contato: string, loja: string): string {
+  return `Olá, ${contato}! 👋 Vi o site da Castor ${loja} e tenho interesse no produto:\n\n*${produto.nome}*\n${produto.medidas ? `📐 Medidas: ${produto.medidas}\n` : ""}${produto.precoPix ? `💰 Pix: ${produto.precoPix}\n` : ""}\nGostaria de mais informações e disponibilidade!`;
 }
 
 const CATEGORY_LABELS: Record<string, string> = {
@@ -32,6 +34,19 @@ export default function Catalogo() {
   const [searchTerm, setSearchTerm] = useState("");
   const [activeCategory, setActiveCategory] = useState<string>("Todas");
   const [selectedProduct, setSelectedProduct] = useState<Produto | null>(null);
+  const [waInfo, setWaInfo] = useState(WA_CF);
+
+  useEffect(() => {
+    const controller = new AbortController();
+    fetch("https://ipapi.co/json/", { signal: controller.signal })
+      .then(r => r.json())
+      .then((data: { city?: string }) => {
+        const cidade = (data.city ?? "").toLowerCase();
+        if (CIDADES_ARU.some(c => cidade.includes(c))) setWaInfo(WA_ARU);
+      })
+      .catch(() => {});
+    return () => controller.abort();
+  }, []);
 
   // Pick up ?categoria= from URL on mount
   useEffect(() => {
@@ -90,10 +105,10 @@ export default function Catalogo() {
         animate={{ opacity: 1, y: 0 }}
         className="bg-gradient-to-r from-red-600 to-red-800 rounded-2xl p-5 flex items-center gap-4 text-white shadow-lg"
       >
-        <img src="/thalles-avatar.jpg" alt="ThallesZzz" className="w-12 h-12 rounded-xl object-cover object-top border-2 border-white/20 shrink-0" />
+        <img src="/thalles-avatar.jpg" alt="Especialista" className="w-12 h-12 rounded-xl object-cover object-top border-2 border-white/20 shrink-0" />
         <div className="flex-1 min-w-0">
           <p className="font-extrabold text-sm leading-tight">Não sabe qual colchão escolher?</p>
-          <p className="text-red-100 text-xs mt-0.5">Faça o Mapa do Sono com o Especialista ThallesZzz — 13 cliques e descubra o ideal para o seu corpo.</p>
+          <p className="text-red-100 text-xs mt-0.5">Faça o Mapa do Sono com o Especialista {waInfo.contato} — 13 cliques e descubra o ideal para o seu corpo.</p>
         </div>
         <a href="/mapa-sono" className="shrink-0 flex items-center gap-2 bg-white text-red-700 font-extrabold px-4 py-2.5 rounded-xl text-xs hover:bg-red-50 transition-all active:scale-95 whitespace-nowrap">
           <Moon className="w-4 h-4" /> Fazer o Mapa
@@ -225,7 +240,7 @@ export default function Catalogo() {
 
                 <div className="flex gap-3 mt-auto">
                   <a
-                    href={`https://wa.me/${WHATSAPP_BASE}?text=${encodeURIComponent(gerarMsgWA(selectedProduct))}`}
+                    href={`https://wa.me/${waInfo.numero}?text=${encodeURIComponent(gerarMsgWA(selectedProduct, waInfo.contato, waInfo.loja))}`}
                     target="_blank"
                     rel="noreferrer"
                     className="flex-1 flex items-center justify-center gap-2 bg-green-500 hover:bg-green-600 text-white font-extrabold py-3.5 px-4 rounded-xl shadow-lg shadow-green-500/25 transition-all active:scale-95"
@@ -252,7 +267,7 @@ export default function Catalogo() {
 
       {/* Floating WhatsApp */}
       <a
-        href={`https://wa.me/${WHATSAPP_BASE}?text=Olá! Estou vendo o catálogo da Castor Cabo Frio e quero mais informações!`}
+        href={`https://wa.me/${waInfo.numero}?text=${encodeURIComponent(`Olá! Estou vendo o catálogo da Castor ${waInfo.loja} e quero mais informações!`)}`}
         target="_blank"
         rel="noreferrer"
         className="fixed bottom-6 right-6 z-50 flex items-center gap-2 bg-green-500 hover:bg-green-600 text-white font-bold px-4 py-3 rounded-2xl shadow-2xl shadow-green-900/40 transition-all active:scale-95 hover:scale-105"

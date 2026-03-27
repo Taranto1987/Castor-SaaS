@@ -19,6 +19,7 @@ function waLink(wa: typeof WA_CABO_FRIO, texto?: string) {
 
 function useLocalizacao() {
   const [wa, setWa] = useState(WA_CABO_FRIO);
+  const [ready, setReady] = useState(false);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -29,12 +30,15 @@ function useLocalizacao() {
         if (CIDADES_ARARUAMA.some(c => cidade.includes(c))) {
           setWa(WA_ARARUAMA);
         }
+        setReady(true);
       })
-      .catch(() => {});
+      .catch(() => { setReady(true); });
     return () => controller.abort();
   }, []);
 
-  return wa;
+  const toggle = () => setWa(prev => prev.numero === WA_CABO_FRIO.numero ? WA_ARARUAMA : WA_CABO_FRIO);
+
+  return { wa, ready, toggle };
 }
 
 const fade = (delay = 0) => ({
@@ -48,7 +52,7 @@ const REGIOES = ["Cabo Frio", "Búzios", "Arraial do Cabo", "São Pedro da Aldei
 
 export default function Landing() {
   const [showMapa, setShowMapa] = useState(false);
-  const wa = useLocalizacao();
+  const { wa, ready, toggle } = useLocalizacao();
 
   return (
     <div className="overflow-x-hidden">
@@ -79,13 +83,24 @@ export default function Landing() {
               </motion.p>
 
               {/* Cidades atendidas */}
-              <motion.div {...fade(0.25)} className="flex flex-wrap gap-2 justify-center md:justify-start mb-8">
+              <motion.div {...fade(0.25)} className="flex flex-wrap gap-2 justify-center md:justify-start mb-4">
                 {REGIOES.map(c => (
                   <span key={c} className="bg-white/10 border border-white/15 text-white/70 text-xs font-semibold px-3 py-1 rounded-full">
                     📍 {c}
                   </span>
                 ))}
               </motion.div>
+
+              {ready && (
+                <motion.div {...fade(0.28)} className="flex items-center gap-2 justify-center md:justify-start mb-8">
+                  <span className="text-white/50 text-xs">Atendimento via</span>
+                  <span className="text-white font-bold text-xs">{wa.loja}</span>
+                  <button onClick={toggle} className="inline-flex items-center gap-1 text-red-300 hover:text-white text-xs bg-white/10 hover:bg-white/15 px-2.5 py-0.5 rounded-full transition-all">
+                    <MapPin className="w-3 h-3" />
+                    Trocar para {wa.numero === WA_CABO_FRIO.numero ? "Araruama" : "Cabo Frio"}
+                  </button>
+                </motion.div>
+              )}
 
               <motion.div {...fade(0.3)} className="flex flex-col sm:flex-row gap-3 justify-center md:justify-start">
                 <button onClick={() => setShowMapa(true)} className="flex items-center justify-center gap-2 bg-red-600 hover:bg-red-500 text-white font-extrabold px-7 py-4 rounded-2xl transition-all shadow-xl shadow-red-900/40 active:scale-95 text-base">
@@ -109,11 +124,11 @@ export default function Landing() {
                 <div className="absolute inset-0 bg-gradient-to-br from-red-500/30 to-red-900/30 rounded-[2rem] backdrop-blur-sm border border-white/10 shadow-2xl" />
                 <img
                   src="/thalles-avatar.jpg"
-                  alt="Especialista ThallesZzz"
+                  alt={`Especialista ${wa.contato}`}
                   className="absolute inset-0 w-full h-full object-cover object-top rounded-[2rem]"
                 />
                 <div className="absolute bottom-4 left-4 right-4 bg-black/60 backdrop-blur-md rounded-xl px-3 py-2">
-                  <p className="text-white font-extrabold text-sm">Especialista ThallesZzz</p>
+                  <p className="text-white font-extrabold text-sm">Especialista {wa.contato}</p>
                   <p className="text-green-400 text-xs font-semibold">● Online agora · Mapa do Sono</p>
                 </div>
               </div>
@@ -150,9 +165,9 @@ export default function Landing() {
               </div>
             </div>
             <div className="flex-1 text-center md:text-left">
-              <motion.p {...fade(0)} className="text-red-200 text-sm font-bold uppercase tracking-wider mb-2">Exclusivo · Castor Cabo Frio</motion.p>
+              <motion.p {...fade(0)} className="text-red-200 text-sm font-bold uppercase tracking-wider mb-2">Exclusivo · Castor {wa.loja}</motion.p>
               <motion.h2 {...fade(0.1)} className="text-2xl md:text-3xl font-black leading-tight mb-3">
-                Mapa do Sono com o Especialista ThallesZzz
+                Mapa do Sono com o Especialista {wa.contato}
               </motion.h2>
               <motion.p {...fade(0.2)} className="text-red-100 text-base leading-relaxed max-w-lg">
                 Dormir mal, sentir desconforto ao acordar ou ter calor à noite são sinais de desalinhamento entre seu corpo e o colchão.

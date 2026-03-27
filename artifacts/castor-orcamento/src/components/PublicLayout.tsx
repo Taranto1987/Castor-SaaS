@@ -4,7 +4,7 @@ import { cn } from "@/lib/utils";
 import { MessageCircle, Menu, X, Moon, Search, ChevronRight } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 
-const WHATSAPP = "https://wa.me/5522992410112?text=Olá! Vi o site da Castor Cabo Frio e quero saber mais sobre os colchões!";
+const WHATSAPP = "https://wa.me/5522992410112?text=Olá! Vi o site da Castor e quero saber mais sobre os colchões!";
 
 interface PublicLayoutProps {
   children: ReactNode;

@@ -371,6 +371,7 @@ export default function MapaSono() {
   const [precoCalc, setPrecoCalc]   = useState("");
   const [produtosRec, setProdutosRec] = useState<ProdutoCatalogo[]>([]);
   const [waDestino, setWaDestino] = useState(WA_CABO_FRIO);
+  const [autoDetected, setAutoDetected] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
 
   const currentStep = stepIndex >= 0 && stepIndex < STEPS.length ? STEPS[stepIndex] : null;
@@ -386,8 +387,9 @@ export default function MapaSono() {
         if (CIDADES_ARARUAMA.some(c => cidade.includes(c))) {
           setWaDestino(WA_ARARUAMA);
         }
+        setAutoDetected(true);
       })
-      .catch(() => {});
+      .catch(() => { setAutoDetected(true); });
     return () => controller.abort();
   }, []);
 
@@ -514,6 +516,15 @@ export default function MapaSono() {
             <p className="text-red-100 text-sm leading-relaxed">
               Diagnóstico personalizado com {waDestino.contato}
             </p>
+            {autoDetected && (
+              <button
+                onClick={() => setWaDestino(prev => prev.numero === WA_CABO_FRIO.numero ? WA_ARARUAMA : WA_CABO_FRIO)}
+                className="mt-2 inline-flex items-center gap-1 text-red-200 hover:text-white text-xs bg-white/10 hover:bg-white/20 px-3 py-1 rounded-full transition-all"
+              >
+                <MapPin className="w-3 h-3" />
+                Trocar para {waDestino.numero === WA_CABO_FRIO.numero ? "Araruama" : "Cabo Frio"}
+              </button>
+            )}
           </div>
 
           {/* Corpo */}
