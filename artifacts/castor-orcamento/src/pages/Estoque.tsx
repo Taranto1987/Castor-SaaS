@@ -29,7 +29,7 @@ function StockBadge({ estoque }: { estoque: number | null }) {
       <AlertTriangle className="w-2.5 h-2.5" /> Esgotado
     </span>
   );
-  if (estoque <= 2) return (
+  if (estoque <= 3) return (
     <span className="text-[10px] font-bold bg-amber-100 text-amber-700 border border-amber-200 px-2 py-0.5 rounded-full">
       Baixo: {estoque}
     </span>
@@ -79,7 +79,7 @@ function ProdutoEstoqueCard({ produto, isDono }: {
       className={cn(
         "bg-white border rounded-2xl overflow-hidden shadow-sm transition-all",
         produto.estoque === 0 ? "border-red-200 bg-red-50/30" :
-        produto.estoque !== null && produto.estoque <= 2 ? "border-amber-200" :
+        produto.estoque !== null && produto.estoque <= 3 ? "border-amber-200" :
         "border-slate-200"
       )}
     >
@@ -170,15 +170,15 @@ export default function Estoque() {
 
     switch (filtro) {
       case "esgotado": list = list.filter(p => p.estoque === 0); break;
-      case "baixo": list = list.filter(p => p.estoque !== null && p.estoque > 0 && p.estoque <= 2); break;
-      case "ok": list = list.filter(p => p.estoque === null || p.estoque > 2); break;
+      case "baixo": list = list.filter(p => p.estoque !== null && p.estoque > 0 && p.estoque <= 3); break;
+      case "ok": list = list.filter(p => p.estoque === null || p.estoque > 3); break;
     }
 
     return list.sort((a, b) => {
       if (a.estoque === 0 && b.estoque !== 0) return -1;
       if (b.estoque === 0 && a.estoque !== 0) return 1;
-      if (a.estoque !== null && b.estoque !== null && a.estoque <= 2 && b.estoque > 2) return -1;
-      if (a.estoque !== null && b.estoque !== null && b.estoque <= 2 && a.estoque > 2) return 1;
+      if (a.estoque !== null && b.estoque !== null && a.estoque <= 3 && b.estoque > 3) return -1;
+      if (a.estoque !== null && b.estoque !== null && b.estoque <= 3 && a.estoque > 3) return 1;
       return a.nome.localeCompare(b.nome);
     });
   }, [produtos, busca, filtro]);
@@ -189,8 +189,8 @@ export default function Estoque() {
     return {
       total: nonEnc.length,
       esgotado: tracked.filter(p => p.estoque === 0).length,
-      baixo: tracked.filter(p => p.estoque! > 0 && p.estoque! <= 2).length,
-      ok: tracked.filter(p => p.estoque! > 2).length,
+      baixo: tracked.filter(p => p.estoque! > 0 && p.estoque! <= 3).length,
+      ok: tracked.filter(p => p.estoque! > 3).length,
       sem: nonEnc.filter(p => p.estoque === null).length,
     };
   }, [produtos]);

@@ -13,6 +13,7 @@ export default function Layout({ children }: LayoutProps) {
   const [location] = useLocation();
   const { user, logout } = useAuth();
 
+  const isDono = user?.papel === "dono";
   const navItems = [
     { path: "/equipe",          label: "Catálogo",   icon: Search },
     { path: "/orcamento",       label: "Orçamento",  icon: FileText },
@@ -21,7 +22,7 @@ export default function Layout({ children }: LayoutProps) {
     { path: "/dashboard",       label: "Dashboard",  icon: BarChart2 },
     { path: "/equipe/clientes", label: "Clientes",   icon: Users },
     { path: "/outlet",          label: "Outlet",     icon: ShoppingCart },
-    { path: "/estoque",         label: "Estoque",    icon: Package },
+    ...(isDono ? [{ path: "/estoque", label: "Estoque", icon: Package }] : []),
     { path: "/crawler",         label: "Atualizar",  icon: Settings },
   ];
 

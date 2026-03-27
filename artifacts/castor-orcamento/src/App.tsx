@@ -42,6 +42,21 @@ function PrivateRoute({ component: Component }: { component: React.ComponentType
   );
 }
 
+function DonoRoute({ component: Component }: { component: React.ComponentType }) {
+  const { isAuthenticated, user } = useAuth();
+  const [, setLocation] = useLocation();
+  if (!isAuthenticated) return <LoginScreen />;
+  if (user?.papel !== "dono") {
+    setLocation("/equipe");
+    return null;
+  }
+  return (
+    <Layout>
+      <Component />
+    </Layout>
+  );
+}
+
 function AppRoutes() {
   return (
     <Switch>
@@ -65,7 +80,7 @@ function AppRoutes() {
       <Route path="/crawler"            component={() => <PrivateRoute component={Crawler} />} />
       <Route path="/equipe/clientes"    component={() => <PrivateRoute component={Clientes} />} />
       <Route path="/outlet"             component={() => <PrivateRoute component={Outlet} />} />
-      <Route path="/estoque"            component={() => <PrivateRoute component={Estoque} />} />
+      <Route path="/estoque"            component={() => <DonoRoute component={Estoque} />} />
 
       <Route component={NotFound} />
     </Switch>

@@ -30,15 +30,14 @@ function mapProduto(p: typeof produtosTable.$inferSelect) {
 router.get("/", async (req, res) => {
   try {
     const { categoria, limite, interno } = req.query;
-    const conds: any[] = [];
-    if (categoria) conds.push(eq(produtosTable.categoria, categoria as string));
-    if (interno !== "1") {
-      conds.push(or(isNull(produtosTable.estoque), gt(produtosTable.estoque, 0)));
-    }
+    const categoriaCond = categoria ? eq(produtosTable.categoria, categoria as string) : undefined;
+    const stockCond = interno !== "1" ? or(isNull(produtosTable.estoque), gt(produtosTable.estoque, 0)) : undefined;
+    const whereCond = categoriaCond && stockCond ? and(categoriaCond, stockCond)
+      : categoriaCond ?? stockCond;
     const results = await db
       .select()
       .from(produtosTable)
-      .where(conds.length > 0 ? and(...conds) : undefined)
+      .where(whereCond)
       .limit(limite ? parseInt(limite as string) : 100);
     res.json(results.map(mapProduto));
   } catch (error) {

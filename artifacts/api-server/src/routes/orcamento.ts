@@ -214,7 +214,10 @@ router.post("/:id/fechar", async (req, res) => {
       .set({ status: "vendido" })
       .where(eq(orcamentosTable.id, id));
 
-    const produtosJson = Array.isArray(orc.produtosJson) ? (orc.produtosJson as any[]) : [];
+    interface ProdutoItem { id?: number; nome?: string }
+    const produtosJson: ProdutoItem[] = Array.isArray(orc.produtosJson)
+      ? (orc.produtosJson as ProdutoItem[])
+      : [];
 
     const qtdPorId = new Map<number, number>();
     for (const p of produtosJson) {
@@ -234,7 +237,7 @@ router.post("/:id/fechar", async (req, res) => {
       }
     }
 
-    const produtos = produtosJson.map((p: any) => p.nome).filter(Boolean).join(", ");
+    const produtos = produtosJson.map((p) => p.nome).filter(Boolean).join(", ");
 
     const [entrega] = await db.insert(entregasTable).values({
       orcamentoId: id,
