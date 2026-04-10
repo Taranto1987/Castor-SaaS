@@ -1,10 +1,20 @@
-import { Router, type IRouter } from "express";
+import { Router, type IRouter, type Request, type Response, type NextFunction } from "express";
 import { db } from "@workspace/db";
 import { produtosTable, crawlerStatusTable } from "@workspace/db/schema";
 import { eq } from "drizzle-orm";
 import axios from "axios";
+import { getSession, isDono } from "../lib/sessions";
 
 const router: IRouter = Router();
+
+function requireDono(req: Request, res: Response, next: NextFunction) {
+  const token = (req.headers["x-session-token"] || "") as string;
+  if (!token) { res.status(401).json({ error: "Sessão não encontrada" }); return; }
+  const session = getSession(token);
+  if (!session) { res.status(401).json({ error: "Sessão inválida ou expirada" }); return; }
+  if (!isDono(session)) { res.status(403).json({ error: "Acesso restrito ao dono" }); return; }
+  next();
+}
 
 let crawlerRunning = false;
 
@@ -256,7 +266,7 @@ async function executarCrawler() {
   }
 }
 
-router.post("/iniciar", async (_req, res) => {
+router.post("/iniciar", requireDono, async (_req, res) => {
   if (crawlerRunning) {
     res.json({ status: "running", mensagem: "Crawler já está em execução", totalProdutos: 0, produtosColetados: 0, erros: 0 });
     return;

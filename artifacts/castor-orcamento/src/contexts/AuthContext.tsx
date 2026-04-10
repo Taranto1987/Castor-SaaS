@@ -164,7 +164,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
     } catch {}
 
-    if (!sessionToken && found.papel === "dono") {
+    if (!sessionToken) {
       return false;
     }
 

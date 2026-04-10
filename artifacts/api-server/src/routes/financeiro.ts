@@ -698,8 +698,10 @@ router.post("/metas", requireDono, async (req, res) => {
   }
 });
 
-router.get("/alertas", requireDono, async (_req, res) => {
+router.get("/alertas", requireDono, async (req, res) => {
   try {
+    const { operacao: operacaoParam } = req.query as { operacao?: string };
+    const operacao = operacaoParam || "cabo_frio";
     const now = new Date();
     const m = now.getMonth() + 1;
     const a = now.getFullYear();
@@ -713,7 +715,7 @@ router.get("/alertas", requireDono, async (_req, res) => {
         and(
           eq(metasTable.mes, m),
           eq(metasTable.ano, a),
-          eq(metasTable.operacao, "cabo_frio")
+          eq(metasTable.operacao, operacao)
         )
       );
 

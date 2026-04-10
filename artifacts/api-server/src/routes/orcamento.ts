@@ -1,7 +1,17 @@
-import { Router, type IRouter } from "express";
+import { Router, type IRouter, type Request, type Response, type NextFunction } from "express";
 import { db } from "@workspace/db";
 import { produtosTable, orcamentosTable, entregasTable } from "@workspace/db/schema";
 import { inArray, desc, eq } from "drizzle-orm";
+import { getSession } from "../lib/sessions";
+
+function requireAuth(req: Request, res: Response, next: NextFunction) {
+  const token = (req.headers["x-session-token"] || "") as string;
+  if (!token) { res.status(401).json({ error: "Autenticação necessária" }); return; }
+  const session = getSession(token);
+  if (!session) { res.status(401).json({ error: "Sessão inválida ou expirada" }); return; }
+  (req as any).session = session;
+  next();
+}
 
 const router: IRouter = Router();
 
@@ -167,15 +177,15 @@ router.post("/salvar", async (req, res) => {
   }
 });
 
-router.get("/historico", async (req, res) => {
+router.get("/historico", requireAuth, async (req, res) => {
   try {
-    const { vendedor, papel } = req.query as { vendedor?: string; papel?: string };
+    const session = (req as any).session as { nome: string; papel: string };
 
     let query = db.select().from(orcamentosTable).orderBy(desc(orcamentosTable.criadoEm)).limit(200);
 
-    if (vendedor && papel !== "dono") {
+    if (session.papel !== "dono") {
       query = db.select().from(orcamentosTable)
-        .where(eq(orcamentosTable.vendedor, vendedor))
+        .where(eq(orcamentosTable.vendedor, session.nome))
         .orderBy(desc(orcamentosTable.criadoEm))
         .limit(200);
     }
@@ -189,7 +199,7 @@ router.get("/historico", async (req, res) => {
 });
 
 // ── Fechar venda: marca orçamento como vendido e cria entrega ──────────────
-router.post("/:id/fechar", async (req, res) => {
+router.post("/:id/fechar", requireAuth, async (req, res) => {
   try {
     const id = parseInt(req.params.id);
     const { endereco, observacoes, dataEntrega } = req.body;

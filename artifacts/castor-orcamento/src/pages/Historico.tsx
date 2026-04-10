@@ -126,6 +126,7 @@ function FecharVendaModal({
 function ItemCard({ item }: { item: HistoricoItem }) {
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const { user } = useAuth();
   const [expanded, setExpanded] = useState(false);
   const [copied, setCopied] = useState(false);
   const [showFechar, setShowFechar] = useState(false);
@@ -166,7 +167,7 @@ function ItemCard({ item }: { item: HistoricoItem }) {
     try {
       const res = await fetch(`/api/orcamento/${item.id}/fechar`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", "x-session-token": user?.sessionToken || "" },
         body: JSON.stringify({ endereco, observacoes, dataEntrega }),
       });
       if (!res.ok) throw new Error("Erro");
@@ -347,7 +348,9 @@ export default function Historico() {
   const { data: historico, isLoading, refetch } = useQuery<HistoricoItem[]>({
     queryKey: ["historico-orcamentos", user?.nome, user?.papel],
     queryFn: async () => {
-      const res = await fetch(`/api/orcamento/historico?${params.toString()}`);
+      const res = await fetch(`/api/orcamento/historico?${params.toString()}`, {
+        headers: { "x-session-token": user?.sessionToken || "" },
+      });
       if (!res.ok) throw new Error("Erro ao carregar histórico");
       return res.json();
     },
