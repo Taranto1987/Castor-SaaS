@@ -44,6 +44,8 @@ router.get("/", async (req, res) => {
 
     const contagemVendedor: Record<string, { orcamentos: number; valorPix: number; vendas: number }> = {};
     const contagemProdutos: Record<string, number> = {};
+    // Auditoria de desconto: soma descontoPct e contagem por vendedor (apenas vendidos com precoBaseTotal)
+    const auditDesconto: Record<string, { totalPct: number; count: number }> = {};
 
     for (const orc of orcamentos) {
       const pix = parseBRL(orc.totalPix);
@@ -59,12 +61,31 @@ router.get("/", async (req, res) => {
       contagemVendedor[vendedor].valorPix += pix;
       if (orc.status === "vendido") contagemVendedor[vendedor].vendas++;
 
+      // Calcula desconto médio somente em vendas fechadas com auditoria de preço
+      if (orc.status === "vendido" && orc.precoBaseTotal && orc.totalPix) {
+        const base = parseBRL(orc.precoBaseTotal as string);
+        if (base > 0) {
+          const descPct = ((base - pix) / base) * 100;
+          if (!auditDesconto[vendedor]) auditDesconto[vendedor] = { totalPct: 0, count: 0 };
+          auditDesconto[vendedor].totalPct += descPct;
+          auditDesconto[vendedor].count++;
+        }
+      }
+
       const produtos = Array.isArray(orc.produtosJson) ? orc.produtosJson as any[] : [];
       for (const p of produtos) {
         const nome = p.nome || "Desconhecido";
         contagemProdutos[nome] = (contagemProdutos[nome] || 0) + 1;
       }
     }
+
+    const descontoMedioPorVendedor = Object.entries(auditDesconto)
+      .map(([vendedor, { totalPct, count }]) => ({
+        vendedor,
+        descontoMedio: Math.round((totalPct / count) * 10) / 10,
+        vendasAuditadas: count,
+      }))
+      .sort((a, b) => b.descontoMedio - a.descontoMedio);
 
     const topProdutos = Object.entries(contagemProdutos)
       .sort((a, b) => b[1] - a[1])
@@ -115,6 +136,7 @@ router.get("/", async (req, res) => {
       orcamentosPorDia,
       totalEntregas,
       entregasPorStatus,
+      descontoMedioPorVendedor,
     });
   } catch (error) {
     console.error("Erro no dashboard:", error);

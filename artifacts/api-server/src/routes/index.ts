@@ -9,11 +9,13 @@ import financeiroRouter from "./financeiro";
 import authRouter from "./auth";
 import entradaEstoqueRouter from "./entrada-estoque";
 import chatRouter from "./chat";
+import usuariosRouter from "./usuarios";
 
 const router: IRouter = Router();
 
 router.use(healthRouter);
 router.use("/auth", authRouter);
+router.use("/usuarios", usuariosRouter);
 router.use("/produtos", produtosRouter);
 router.use("/orcamento", orcamentoRouter);
 router.use("/crawler", crawlerRouter);

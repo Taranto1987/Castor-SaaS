@@ -3,7 +3,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import {
   Copy, CheckCircle2, MessageCircle, RefreshCw, FileText,
   X, ShoppingCart, Phone, Percent, ExternalLink, Save, Printer,
-  User, MapPin
+  User, MapPin, Tag, TrendingDown
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
@@ -36,6 +36,33 @@ export default function Orcamento() {
 
   const { mutate: generateQuote, data: quoteResult, isPending: isGenerating } = useGerarOrcamento();
   const { mutate: saveQuote, isPending: isSaving } = useSalvarOrcamento();
+
+  // ── Precificação hierárquica em tempo real ────────────────────────────────────
+  // REGRA: todo desconto calculado sobre preço cheio, nunca sobre preço já reduzido
+  const precificacao = useMemo(() => {
+    const parseBRL = (s?: string | null) =>
+      s ? parseFloat(s.replace(/[R$\s.]/g, "").replace(",", ".")) || 0 : 0;
+    const fmt = (n: number) =>
+      n.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
+
+    const precoBaseTotal = carrinho.reduce((sum, p) => {
+      // usa precoBase numérico se disponível, senão parseia o campo preco
+      const base = (p as any).precoBase ?? parseBRL(p.preco);
+      return sum + base;
+    }, 0);
+
+    const totalDescontoPct = 15 + descontoPix; // desconto total sempre sobre preço cheio
+    const pixFinal = precoBaseTotal * (1 - totalDescontoPct / 100);
+    const economiaTotal = precoBaseTotal - pixFinal;
+
+    return {
+      precoBaseTotal,
+      pixFinal,
+      economiaTotal,
+      totalDescontoPct,
+      fmt,
+    };
+  }, [carrinho, descontoPix]);
 
   // ── Texto personalizado ──────────────────────────────────────────────────────
   const textoPersonalizado = useMemo(() => {
@@ -92,6 +119,8 @@ export default function Orcamento() {
         totalPrazo: quoteResult.totalPrazo,
         texto: textoPersonalizado,
         vendedor: user?.nome ?? undefined,
+        precoBaseTotal: (quoteResult as any).totalPrecoBase ?? undefined,
+        descontoAplicado: (quoteResult as any).descontoAplicado ?? undefined,
       }
     }, {
       onSuccess: () => {
@@ -290,6 +319,41 @@ export default function Orcamento() {
                 className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:outline-none focus:border-primary focus:ring-4 focus:ring-primary/10 transition-all text-sm resize-none"
               />
             </div>
+
+            {/* Breakdown de precificação hierárquica em tempo real */}
+            {carrinho.length > 0 && precificacao.precoBaseTotal > 0 && (
+              <div className="bg-slate-50 border border-slate-200 rounded-2xl p-4 space-y-2">
+                <p className="text-xs font-bold text-slate-500 uppercase tracking-wide flex items-center gap-1.5">
+                  <Tag className="w-3.5 h-3.5" /> Precificação
+                </p>
+                <div className="flex items-center justify-between text-sm">
+                  <span className="text-slate-500">Preço cheio</span>
+                  <span className="font-semibold text-slate-700 line-through">
+                    {precificacao.fmt(precificacao.precoBaseTotal)}
+                  </span>
+                </div>
+                <div className="flex items-center justify-between text-sm">
+                  <span className="text-slate-500 flex items-center gap-1">
+                    <TrendingDown className="w-3.5 h-3.5 text-emerald-500" />
+                    Desconto PIX ({precificacao.totalDescontoPct}% sobre preço cheio)
+                  </span>
+                  <span className="font-bold text-emerald-600">
+                    -{precificacao.fmt(precificacao.economiaTotal)}
+                  </span>
+                </div>
+                <div className="flex items-center justify-between border-t border-slate-200 pt-2">
+                  <span className="text-sm font-bold text-slate-800">Preço final PIX</span>
+                  <span className="text-lg font-extrabold text-emerald-700">
+                    {precificacao.fmt(precificacao.pixFinal)}
+                  </span>
+                </div>
+                {descontoPix > 0 && (
+                  <p className="text-[11px] text-amber-600 font-semibold">
+                    ⚡ Desconto extra de {descontoPix}% aplicado sobre o preço cheio — não sobre preço PIX.
+                  </p>
+                )}
+              </div>
+            )}
 
             <button
               onClick={handleGenerate}

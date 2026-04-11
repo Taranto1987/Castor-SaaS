@@ -33,6 +33,7 @@ function mapProduto(p: typeof produtosTable.$inferSelect) {
     custoBRL: p.custoBRL,
     prazoEncomenda: p.prazoEncomenda,
     estoque: p.estoque,
+    precoBase: p.precoBase ? parseFloat(String(p.precoBase)) : null,
     criadoEm: p.criadoEm,
   };
 }

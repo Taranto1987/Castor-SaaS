@@ -26,6 +26,7 @@ import Estoque from "@/pages/Estoque";
 import RankingOutlet from "@/pages/RankingOutlet";
 import EntradaEstoque from "@/pages/EntradaEstoque";
 import Financeiro from "@/pages/Financeiro";
+import Usuarios from "@/pages/Usuarios";
 import NotFound from "@/pages/not-found";
 
 const queryClient = new QueryClient({
@@ -87,6 +88,7 @@ function AppRoutes() {
       <Route path="/ranking-outlet"     component={() => <DonoRoute component={RankingOutlet} />} />
       <Route path="/entrada-estoque"   component={() => <DonoRoute component={EntradaEstoque} />} />
       <Route path="/financeiro"         component={() => <PrivateRoute component={Financeiro} />} />
+      <Route path="/usuarios"           component={() => <DonoRoute component={Usuarios} />} />
 
       <Route component={NotFound} />
     </Switch>

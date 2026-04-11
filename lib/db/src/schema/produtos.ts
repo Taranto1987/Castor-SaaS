@@ -1,4 +1,4 @@
-import { pgTable, serial, text, timestamp, boolean, integer } from "drizzle-orm/pg-core";
+import { pgTable, serial, text, timestamp, boolean, integer, numeric } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod/v4";
 
@@ -19,6 +19,9 @@ export const produtosTable = pgTable("produtos", {
   custoBRL: text("custo_brl"),
   prazoEncomenda: text("prazo_encomenda"),
   estoque: integer("estoque"),
+  // Preço cheio: referência obrigatória para todo cálculo de desconto.
+  // Nunca calcular desconto sobre precoPix ou qualquer preço já reduzido.
+  precoBase: numeric("preco_base", { precision: 12, scale: 2 }),
   criadoEm: timestamp("criado_em").defaultNow(),
 });
 

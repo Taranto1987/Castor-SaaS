@@ -2,7 +2,7 @@ import { createContext, useContext, useState, ReactNode } from "react";
 
 const SESSION_KEY = "castor_auth_user";
 
-export type Papel    = "dono" | "vendedor" | "entrega";
+export type Papel    = "dono" | "vendedor" | "entrega" | "financeiro";
 export type Operacao = "cabo_frio" | "araruama";
 export type Tom      = "especialista" | "acolhedor" | "direto" | "proximo" | "tecnico";
 
@@ -10,118 +10,30 @@ export interface ColaboradorConfig {
   nome:       string;
   papel:      Papel;
   operacao:   Operacao;
-  wa:         string;        // número formatado para exibição (22) XXXXX-XXXX
-  waRaw:      string;        // só dígitos para URL do WA
-  lojaLink:   string;        // Google Business (avaliações)
-  mapsLink:   string;        // Google Maps (navegação)
-  endereco:   string;        // endereço de exibição
+  wa:         string;
+  waRaw:      string;
+  lojaLink:   string;
+  mapsLink:   string;
+  endereco:   string;
   tom:        Tom;
-  header:     string;        // cabeçalho do orçamento
-  assinatura: string;        // linha de assinatura final
+  header:     string;
+  assinatura: string;
 }
 
-// ─── COLABORADORES ────────────────────────────────────────────────────────────
-const CABO_FRIO_LINK      = "https://share.google/bDIGyrtnaNFOMfWEd";
-const ARARUAMA_LINK       = "https://share.google/o7duCdh84jQYnPn7z";
-const CABO_FRIO_MAPS      = "https://maps.app.goo.gl/UuF6w1nAvTgXockS6";
-const ARARUAMA_MAPS       = "https://maps.app.goo.gl/cGmvFgeubawLRNGy8";
-const CABO_FRIO_ENDERECO  = "Av. Júlia Kubitschek, 64 · Jardim Flamboyant · Cabo Frio – RJ";
-const ARARUAMA_ENDERECO   = "Av. Getúlio Vargas, 137 · Centro · Araruama – RJ";
+// ─── Constantes de localização (derivadas de operacao, não vêm do BD) ─────────
+const CABO_FRIO_LINK     = "https://share.google/bDIGyrtnaNFOMfWEd";
+const ARARUAMA_LINK      = "https://share.google/o7duCdh84jQYnPn7z";
+const CABO_FRIO_MAPS     = "https://maps.app.goo.gl/UuF6w1nAvTgXockS6";
+const ARARUAMA_MAPS      = "https://maps.app.goo.gl/cGmvFgeubawLRNGy8";
+const CABO_FRIO_ENDERECO = "Av. Júlia Kubitschek, 64 · Jardim Flamboyant · Cabo Frio – RJ";
+const ARARUAMA_ENDERECO  = "Av. Getúlio Vargas, 137 · Centro · Araruama – RJ";
 
-export const COLABORADORES: Record<string, ColaboradorConfig> = {
-  THALLES: {
-    nome:       "Thalles",
-    papel:      "dono",
-    operacao:   "cabo_frio",
-    wa:         "(22) 99241-0112",
-    waRaw:      "5522992410112",
-    lojaLink:   CABO_FRIO_LINK,
-    mapsLink:   CABO_FRIO_MAPS,
-    endereco:   CABO_FRIO_ENDERECO,
-    tom:        "especialista",
-    header:     "🛏️ CASTOR CABO FRIO | ThallesZzz",
-    assinatura: "ThallesZzz — Especialista em Sono",
-  },
-  MARCELA: {
-    nome:       "Marcela Taranto",
-    papel:      "vendedor",
-    operacao:   "cabo_frio",
-    wa:         "(22) 98844-7240",
-    waRaw:      "5522988447240",
-    lojaLink:   CABO_FRIO_LINK,
-    mapsLink:   CABO_FRIO_MAPS,
-    endereco:   CABO_FRIO_ENDERECO,
-    tom:        "acolhedor",
-    header:     "🏪 CASTOR CABO FRIO | Marcela",
-    assinatura: "Marcela Taranto — Castor Cabo Frio",
-  },
-  VAGNER: {
-    nome:       "Vagner",
-    papel:      "vendedor",
-    operacao:   "cabo_frio",
-    wa:         "(22) 98832-7816",
-    waRaw:      "5522988327816",
-    lojaLink:   CABO_FRIO_LINK,
-    mapsLink:   CABO_FRIO_MAPS,
-    endereco:   CABO_FRIO_ENDERECO,
-    tom:        "direto",
-    header:     "🏪 CASTOR CABO FRIO | Vagner",
-    assinatura: "Vagner — Castor Cabo Frio",
-  },
-  NETE: {
-    nome:       "Nete Rafaele",
-    papel:      "vendedor",
-    operacao:   "araruama",
-    wa:         "(22) 98824-9183",
-    waRaw:      "5522988249183",
-    lojaLink:   ARARUAMA_LINK,
-    mapsLink:   ARARUAMA_MAPS,
-    endereco:   ARARUAMA_ENDERECO,
-    tom:        "proximo",
-    header:     "💙 CASTOR ARARUAMA | Nete",
-    assinatura: "Nete Rafaele — Castor Araruama",
-  },
-  PEDROPAULO: {
-    nome:       "Pedro Paulo",
-    papel:      "vendedor",
-    operacao:   "araruama",
-    wa:         "(22) 2665-6035",
-    waRaw:      "5522266560035",
-    lojaLink:   ARARUAMA_LINK,
-    mapsLink:   ARARUAMA_MAPS,
-    endereco:   ARARUAMA_ENDERECO,
-    tom:        "tecnico",
-    header:     "🏪 CASTOR ARARUAMA | Pedro Paulo",
-    assinatura: "Pedro Paulo — Castor Araruama",
-  },
-  // ── legado / acesso especial ────────────────────────────────────────────────
-  CASTOR2: {
-    nome:       "Administrador",
-    papel:      "dono",
-    operacao:   "cabo_frio",
-    wa:         "(22) 99241-0112",
-    waRaw:      "5522992410112",
-    lojaLink:   CABO_FRIO_LINK,
-    mapsLink:   CABO_FRIO_MAPS,
-    endereco:   CABO_FRIO_ENDERECO,
-    tom:        "especialista",
-    header:     "🏪 CASTOR CABO FRIO",
-    assinatura: "Castor Cabo Frio",
-  },
-  ENTREGA: {
-    nome:       "Pedro",
-    papel:      "entrega",
-    operacao:   "cabo_frio",
-    wa:         "(22) 99241-0112",
-    waRaw:      "5522992410112",
-    lojaLink:   CABO_FRIO_LINK,
-    mapsLink:   CABO_FRIO_MAPS,
-    endereco:   CABO_FRIO_ENDERECO,
-    tom:        "direto",
-    header:     "🏪 CASTOR CABO FRIO",
-    assinatura: "Castor Cabo Frio",
-  },
-};
+function operacaoToLocation(operacao: string) {
+  if (operacao === "araruama") {
+    return { lojaLink: ARARUAMA_LINK, mapsLink: ARARUAMA_MAPS, endereco: ARARUAMA_ENDERECO };
+  }
+  return { lojaLink: CABO_FRIO_LINK, mapsLink: CABO_FRIO_MAPS, endereco: CABO_FRIO_ENDERECO };
+}
 
 // ─── TYPE ─────────────────────────────────────────────────────────────────────
 
@@ -147,31 +59,40 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   });
 
   async function login(codigo: string): Promise<boolean> {
-    const normalizado = codigo.trim().toUpperCase();
-    const found = COLABORADORES[normalizado];
-    if (!found) return false;
-
-    let sessionToken: string | undefined;
     try {
       const res = await fetch("/api/auth/login", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ code: normalizado }),
+        body: JSON.stringify({ code: codigo.trim().toUpperCase() }),
       });
-      if (res.ok) {
-        const data = await res.json();
-        sessionToken = data.token;
-      }
-    } catch {}
 
-    if (!sessionToken) {
+      if (!res.ok) return false;
+
+      const data = await res.json();
+      // data = { token, nome, papel, operacao, wa, waRaw, tom, header, assinatura }
+
+      const location = operacaoToLocation(data.operacao ?? "cabo_frio");
+
+      const authUser: AuthUser = {
+        codigo:     codigo.trim().toUpperCase(),
+        sessionToken: data.token,
+        nome:       data.nome,
+        papel:      data.papel as Papel,
+        operacao:   (data.operacao ?? "cabo_frio") as Operacao,
+        wa:         data.wa ?? "",
+        waRaw:      data.waRaw ?? "",
+        tom:        (data.tom ?? "direto") as Tom,
+        header:     data.header ?? "",
+        assinatura: data.assinatura ?? "",
+        ...location,
+      };
+
+      sessionStorage.setItem(SESSION_KEY, JSON.stringify(authUser));
+      setUser(authUser);
+      return true;
+    } catch {
       return false;
     }
-
-    const authUser: AuthUser = { ...found, codigo: normalizado, sessionToken };
-    sessionStorage.setItem(SESSION_KEY, JSON.stringify(authUser));
-    setUser(authUser);
-    return true;
   }
 
   function logout() {

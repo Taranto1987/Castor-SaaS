@@ -2,7 +2,7 @@ import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   BarChart2, TrendingUp, Package, Truck, Users, RefreshCw,
-  ShoppingBag, CheckCircle2, Percent, Target, Edit3, X
+  ShoppingBag, CheckCircle2, Percent, Target, Edit3, X, TrendingDown
 } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { cn } from "@/lib/utils";
@@ -21,6 +21,7 @@ interface DashboardData {
   orcamentosPorDia: { dia: string; count: number }[];
   totalEntregas: number;
   entregasPorStatus: { pendente: number; em_rota: number; entregue: number; cancelado: number };
+  descontoMedioPorVendedor: { vendedor: string; descontoMedio: number; vendasAuditadas: number }[];
 }
 
 function parseBRL(str?: string): number {
@@ -380,6 +381,56 @@ export default function Dashboard() {
               ))}
             </div>
           </div>
+
+          {/* Auditoria de desconto — apenas dono */}
+          {isDono && (
+            <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm">
+              <h2 className="font-bold text-slate-800 mb-1 flex items-center gap-2">
+                <TrendingDown className="w-4 h-4 text-amber-500" /> Auditoria de Desconto por Vendedor
+              </h2>
+              <p className="text-xs text-slate-400 mb-4">Desconto médio concedido em vendas fechadas (calculado sobre preço cheio)</p>
+              {!data.descontoMedioPorVendedor || data.descontoMedioPorVendedor.length === 0 ? (
+                <p className="text-sm text-slate-400">Nenhuma venda auditada ainda. Os dados aparecem conforme as vendas forem fechadas.</p>
+              ) : (
+                <div className="overflow-x-auto">
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr className="border-b border-slate-100">
+                        <th className="text-left text-xs font-bold text-slate-500 uppercase tracking-wide pb-2">Vendedor</th>
+                        <th className="text-right text-xs font-bold text-slate-500 uppercase tracking-wide pb-2">Desconto médio</th>
+                        <th className="text-right text-xs font-bold text-slate-500 uppercase tracking-wide pb-2">Vendas auditadas</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-50">
+                      {data.descontoMedioPorVendedor.map((v) => {
+                        const isHigh = v.descontoMedio > 20;
+                        const isMid = v.descontoMedio > 15;
+                        return (
+                          <tr key={v.vendedor} className="hover:bg-slate-50 transition-colors">
+                            <td className="py-2.5 font-semibold text-slate-700">{v.vendedor}</td>
+                            <td className="py-2.5 text-right">
+                              <span className={cn(
+                                "font-extrabold text-base",
+                                isHigh ? "text-red-600" : isMid ? "text-amber-600" : "text-emerald-600"
+                              )}>
+                                {v.descontoMedio.toFixed(1)}%
+                              </span>
+                            </td>
+                            <td className="py-2.5 text-right text-slate-400 text-xs font-semibold">
+                              {v.vendasAuditadas} venda{v.vendasAuditadas !== 1 ? "s" : ""}
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                  <p className="text-[11px] text-slate-400 mt-3">
+                    🟢 ≤15% (padrão PIX) · 🟡 15–20% (desconto extra moderado) · 🔴 &gt;20% (desconto elevado)
+                  </p>
+                </div>
+              )}
+            </div>
+          )}
 
           <div className="grid md:grid-cols-2 gap-5">
             {/* Top produtos */}

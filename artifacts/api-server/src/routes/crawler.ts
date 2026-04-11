@@ -237,6 +237,8 @@ async function executarCrawler() {
             sku: item.sku,
             preco,
             precoPix,
+            // precoBase = valor numérico do preço cheio (fonte de verdade)
+            precoBase: String(precoRegular),
             parcelamento: `12x de ${formatBRL(precoRegular / 12)}`,
             medidas: medidas || null,
             altura: altura || null,

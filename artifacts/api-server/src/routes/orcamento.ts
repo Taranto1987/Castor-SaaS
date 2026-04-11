@@ -26,6 +26,17 @@ function formatBRL(valor: number): string {
   return valor.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
 }
 
+// Destaque por categoria — regra do negócio: todo produto tem benefício explícito
+const BENEFICIO_CATEGORIA: Record<string, string> = {
+  "colchoes":          "🌙 Engenharia do sono — conforto e saúde para sua noite",
+  "cama-box":          "🏠 Base de qualidade — sustentação ideal para seu colchão",
+  "cama-box-colchao":  "🌙 Conjunto completo — colchão + base em uma só compra",
+  "travesseiros":      "💤 Suporte perfeito para pescoço e coluna",
+  "roupa-de-cama":     "✨ Proteção e conforto para seu investimento",
+  "protetor":          "🛡️ Proteção total — mantém a garantia do colchão",
+};
+const BENEFICIO_DEFAULT = "✨ Qualidade Castor — fabricante líder em sono saudável";
+
 router.post("/", async (req, res) => {
   try {
     const { cliente, whatsapp, produtoIds, observacoes, descontoPix = 0 } = req.body;
@@ -45,32 +56,45 @@ router.post("/", async (req, res) => {
 
     const ordenados = ids.map(id => results.find(p => p.id === id)).filter(Boolean) as typeof results;
 
-    const desconto = Math.max(0, Math.min(100, Number(descontoPix) || 0));
+    // Desconto extra do vendedor (além do PIX padrão de 15%).
+    // REGRA: qualquer desconto é calculado sobre preço cheio (precoBase),
+    // nunca sobre preço já reduzido. descontoPix = percentual ADICIONAL ao PIX padrão.
+    const extraDesconto = Math.max(0, Math.min(85, Number(descontoPix) || 0));
+    const totalDescontoPct = 15 + extraDesconto; // desconto total sobre preço cheio
 
-    let totalPixBruto = 0;
-    let totalPrazo = 0;
+    let totalPrecoBase = 0;
 
     const listaProdutos = ordenados.map((p, i) => {
-      const pix = parsarPreco(p.precoPix);
-      const prazo = parsarPreco(p.preco);
-      totalPixBruto += pix;
-      totalPrazo += prazo;
+      // precoBase: usa campo numérico se disponível, senão parseia campo texto
+      const precoBaseNum = p.precoBase
+        ? parseFloat(String(p.precoBase))
+        : parsarPreco(p.preco);
+      totalPrecoBase += precoBaseNum;
 
-      const linhas: string[] = [`${i + 1}️⃣ ${p.nome}`];
-      if (p.medidas) linhas.push(`📐 Medidas: ${p.medidas}`);
-      if (p.altura) linhas.push(`📏 Altura: ${p.altura}`);
-      if (p.sku) linhas.push(`🔖 Ref: ${p.sku}`);
-      if (p.precoPix) linhas.push(`💰 Pix: ${p.precoPix}`);
-      if (p.preco) linhas.push(`💳 Prazo: ${p.preco}`);
+      const precoPixProduto = precoBaseNum * (1 - totalDescontoPct / 100);
+      const beneficio = BENEFICIO_CATEGORIA[p.categoria] || BENEFICIO_DEFAULT;
+
+      const linhas: string[] = [
+        `${i + 1}️⃣ *${p.nome}*`,
+        beneficio,
+        "",
+      ];
+
+      const dimensoes = [p.medidas, p.altura].filter(Boolean).join(" | ");
+      if (dimensoes) linhas.push(`📐 ${dimensoes}`);
+      linhas.push("");
+      // Ancoragem: preço cheio visível antes do desconto
+      linhas.push(`De: ~${formatBRL(precoBaseNum)}~`);
+      linhas.push(`💰 PIX: *${formatBRL(precoPixProduto)}* (${totalDescontoPct}% de desconto)`);
+      linhas.push(`💳 Parcelado: ${formatBRL(precoBaseNum)} — 12x de ${formatBRL(precoBaseNum / 12)}`);
 
       return linhas.join("\n");
     });
 
-    const totalPix = desconto > 0
-      ? totalPixBruto * (1 - desconto / 100)
-      : totalPixBruto;
-
-    const parcela12 = totalPrazo / 12;
+    // Todos os cálculos partem do preço cheio — nunca de preço já reduzido
+    const totalPixFinal = totalPrecoBase * (1 - totalDescontoPct / 100);
+    const totalDescontoValor = totalPrecoBase - totalPixFinal;
+    const parcela12 = totalPrecoBase / 12;
 
     const linhas: string[] = [
       "━━━━━━━━━━━━━━━━━━━━━━",
@@ -85,37 +109,37 @@ router.post("/", async (req, res) => {
       "",
       "━━━━━━━━━━━━━━━━━━━━━━",
       "",
-      "Valor Total:",
+      "RESUMO DO PEDIDO",
+      "",
+      `Preço cheio: ~${formatBRL(totalPrecoBase)}~`,
       "",
     ];
 
-    if (desconto > 0) {
-      linhas.push(`💰 PIX (${desconto}% de desconto)`);
-      linhas.push(`~~${formatBRL(totalPixBruto)}~~`);
-      linhas.push(`➡️ ${formatBRL(totalPix)}`);
+    if (extraDesconto > 0) {
+      linhas.push(`💰 PIX (${totalDescontoPct}% de desconto sobre preço cheio)`);
     } else {
-      linhas.push("💰 PIX");
-      linhas.push(formatBRL(totalPix));
+      linhas.push("💰 PIX (15% de desconto)");
     }
-
+    linhas.push(`*${formatBRL(totalPixFinal)}*`);
     linhas.push("");
-    linhas.push("💳 Parcelado");
-    linhas.push(formatBRL(totalPrazo));
-    linhas.push("");
-    linhas.push("ou");
-    linhas.push("");
-    linhas.push(`12x de ${formatBRL(parcela12)}`);
+    linhas.push("💳 Parcelado (sem juros)");
+    linhas.push(`*${formatBRL(totalPrecoBase)}* — 12x de *${formatBRL(parcela12)}*`);
     linhas.push("");
     linhas.push("━━━━━━━━━━━━━━━━━━━━━━");
 
     if (observacoes) {
       linhas.push("");
-      linhas.push("Observações:");
+      linhas.push("📋 Observações:");
       linhas.push(observacoes);
       linhas.push("");
       linhas.push("━━━━━━━━━━━━━━━━━━━━━━");
     }
 
+    // CTA de fechamento (6ª etapa do template obrigatório)
+    linhas.push("");
+    linhas.push("👉 Gostou? Me confirma um *quero* e finalizo tudo agora pelo WhatsApp! 🛏️✨");
+    linhas.push("");
+    linhas.push("━━━━━━━━━━━━━━━━━━━━━━");
     linhas.push("");
     linhas.push("📞 WhatsApp Loja");
     linhas.push("(22) 99241-0112");
@@ -124,15 +148,19 @@ router.post("/", async (req, res) => {
 
     res.json({
       texto,
-      totalPix: formatBRL(totalPix),
-      totalPrazo: formatBRL(totalPrazo),
+      totalPrecoBase: formatBRL(totalPrecoBase),
+      totalPix: formatBRL(totalPixFinal),
+      totalPrazo: formatBRL(totalPrecoBase),
       parcela12: formatBRL(parcela12),
+      descontoAplicado: formatBRL(totalDescontoValor),
+      descontoPercentual: totalDescontoPct,
       produtos: ordenados.map(p => ({
         id: p.id,
         nome: p.nome,
         sku: p.sku,
         preco: p.preco,
         precoPix: p.precoPix,
+        precoBase: p.precoBase ? parseFloat(String(p.precoBase)) : parsarPreco(p.preco),
         parcelamento: p.parcelamento,
         medidas: p.medidas,
         altura: p.altura,
@@ -150,7 +178,11 @@ router.post("/", async (req, res) => {
 
 router.post("/salvar", async (req, res) => {
   try {
-    const { cliente, whatsapp, produtosJson, observacoes, descontoPix, totalPix, totalPrazo, texto, vendedor } = req.body;
+    const {
+      cliente, whatsapp, produtosJson, observacoes, descontoPix,
+      totalPix, totalPrazo, texto, vendedor,
+      precoBaseTotal, descontoAplicado,
+    } = req.body;
 
     if (!cliente || !texto) {
       res.status(400).json({ error: "Dados insuficientes para salvar" });
@@ -168,6 +200,8 @@ router.post("/salvar", async (req, res) => {
       texto,
       vendedor: vendedor || null,
       status: "pendente",
+      precoBaseTotal: precoBaseTotal || null,
+      descontoAplicado: descontoAplicado || null,
     }).returning();
 
     res.json({ id: inserted[0].id, mensagem: "Orçamento salvo com sucesso!" });

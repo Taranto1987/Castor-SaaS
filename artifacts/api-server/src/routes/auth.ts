@@ -3,14 +3,14 @@ import { createSession, getSession, destroySession } from "../lib/sessions";
 
 const router: IRouter = Router();
 
-router.post("/login", (req, res) => {
+router.post("/login", async (req, res) => {
   const { code } = req.body;
   if (!code || typeof code !== "string") {
     res.status(400).json({ error: "Código obrigatório" });
     return;
   }
 
-  const session = createSession(code);
+  const session = await createSession(code);
   if (!session) {
     res.status(401).json({ error: "Código inválido" });
     return;
@@ -20,6 +20,12 @@ router.post("/login", (req, res) => {
     token: session.token,
     nome: session.nome,
     papel: session.papel,
+    operacao: session.operacao,
+    wa: session.wa,
+    waRaw: session.waRaw,
+    tom: session.tom,
+    header: session.header,
+    assinatura: session.assinatura,
   });
 });
 
@@ -39,6 +45,12 @@ router.get("/me", (req, res) => {
   res.json({
     nome: session.nome,
     papel: session.papel,
+    operacao: session.operacao,
+    wa: session.wa,
+    waRaw: session.waRaw,
+    tom: session.tom,
+    header: session.header,
+    assinatura: session.assinatura,
   });
 });
 
