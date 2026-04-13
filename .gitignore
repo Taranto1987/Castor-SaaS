@@ -51,3 +51,4 @@ environment-secrets/
 .env
 *.json
 !vercel.json
+!railway.json
