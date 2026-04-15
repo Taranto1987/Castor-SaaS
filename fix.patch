@@ -1,0 +1,19 @@
+# Patch Summary
+
+This patch includes the following changes:
+
+1. **Removal of dangerouslySetInnerHTML** from `ChatBot.tsx` to prevent XSS vulnerabilities.
+2. **Refactor** of `formatMessage` to safely render React nodes instead of using raw HTML.
+3. **Addition** of in-memory token storage in `AuthContext.tsx` for improved security and usability.
+4. **Migration** to use GraphQL variables in `crawler.ts` instead of string interpolation, ensuring better security and code maintainability.
+5. **Updates** to `Historico.tsx` and `RankingOutlet.tsx` to utilize the `getSessionToken()` helper function for retrieving tokens safely.
+
+# Changes Made:
+- **ChatBot.tsx**: Removed `dangerouslySetInnerHTML` and utilized safer rendering methods.
+- **AuthContext.tsx**: Implemented in-memory token storage.
+- **crawler.ts**: Updated to use GraphQL variables.
+- **Historico.tsx** and **RankingOutlet.tsx** updated to call `getSessionToken()` for consistent token access.
+
+---
+
+This patch is created to enhance security and improve code practices within the project.
