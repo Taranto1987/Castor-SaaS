@@ -1,2 +1,3 @@
 [build]
 packageManager = "pnpm"
+buildCommand = "pnpm --filter @workspace/api-server build"
