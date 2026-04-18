@@ -299,6 +299,17 @@ export async function customFetch<T = unknown>(
 
   const requestInfo = { method, url: resolveUrl(input) };
 
+  // Injeta session token automaticamente para rotas protegidas
+  if (!headers.has("x-session-token")) {
+    try {
+      const raw = typeof sessionStorage !== "undefined" ? sessionStorage.getItem("castor_auth_user") : null;
+      if (raw) {
+        const session = JSON.parse(raw);
+        if (session?.sessionToken) headers.set("x-session-token", session.sessionToken);
+      }
+    } catch {}
+  }
+
   const response = await fetch(input, { ...init, method, headers });
 
   if (!response.ok) {
