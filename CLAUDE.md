@@ -2,6 +2,32 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
+## Railway MCP
+
+The project ships with Railway MCP configured in `.claude/settings.json`. It lets you manage Railway infra via natural language inside Claude Code.
+
+**One-time setup:**
+```bash
+export RAILWAY_API_TOKEN=<token>   # https://railway.app/account/tokens
+bash scripts/setup-railway-mcp.sh  # installs MCP server globally
+npx railway link                   # link this repo to a Railway project
+```
+
+**Example Claude prompts:**
+```
+Liste meus projetos Railway
+Faça deploy do projeto atual no Railway
+Crie um banco Postgres e configure a variável DATABASE_URL
+Mostre os logs do serviço api-server
+Configure a variável AI_INTEGRATIONS_OPENAI_API_KEY
+```
+
+**Architecture:** Claude → Railway MCP (`@railway/mcp-server`) → Railway API → infra
+
+**Healthcheck:** `GET /api/healthz` (configured in `railway.json`)
+
+---
+
 ## Commands
 
 ### Development

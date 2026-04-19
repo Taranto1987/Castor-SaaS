@@ -52,3 +52,4 @@ environment-secrets/
 *.json
 !vercel.json
 !railway.json
+!.claude/settings.json

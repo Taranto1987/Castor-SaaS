@@ -1,0 +1,17 @@
+{
+  "mcpServers": {
+    "railway": {
+      "command": "npx",
+      "args": ["-y", "@railway/mcp-server"],
+      "env": {
+        "RAILWAY_API_TOKEN": "${RAILWAY_API_TOKEN}"
+      }
+    }
+  },
+  "permissions": {
+    "allow": [
+      "Bash(npx railway *)",
+      "Bash(npx -y @railway/mcp-server *)"
+    ]
+  }
+}
