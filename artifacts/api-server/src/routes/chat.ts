@@ -1,10 +1,12 @@
 import { Router, type IRouter } from "express";
-import { openai } from "@workspace/integrations-openai-ai-server";
+import Anthropic from "@anthropic-ai/sdk";
 import { db } from "@workspace/db";
 import { produtosTable } from "@workspace/db/schema";
 import { eq } from "drizzle-orm";
 
 const router: IRouter = Router();
+
+const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
 
 const SYSTEM_PROMPT = `Você é o ThallesZzz, consultor especialista em colchões da Castor Exclusiva — loja autorizada da fábrica Castor na Região dos Lagos, RJ (Cabo Frio e Araruama).
 
@@ -112,7 +114,7 @@ async function getProductContext(): Promise<string> {
 }
 
 interface ChatMessage {
-  role: "user" | "assistant" | "system";
+  role: "user" | "assistant";
   content: string;
 }
 
@@ -127,28 +129,37 @@ router.post("/", async (req, res) => {
 
     const productContext = await getProductContext();
 
-    const chatMessages: ChatMessage[] = [
-      { role: "system", content: SYSTEM_PROMPT + "\n\n" + productContext },
-      ...messages.slice(-10),
-    ];
+    const chatMessages = messages
+      .filter((m) => m.role === "user" || m.role === "assistant")
+      .slice(-10)
+      .map((m) => ({ role: m.role, content: m.content }));
 
     res.setHeader("Content-Type", "text/event-stream");
     res.setHeader("Cache-Control", "no-cache");
     res.setHeader("Connection", "keep-alive");
 
-    const stream = await openai.chat.completions.create({
-      model: "gpt-4o-mini",
-      max_completion_tokens: 1024,
+    const stream = client.messages.stream({
+      model: "claude-opus-4-7",
+      max_tokens: 1024,
+      system: [
+        {
+          type: "text",
+          text: SYSTEM_PROMPT,
+          cache_control: { type: "ephemeral" },
+        },
+        {
+          type: "text",
+          text: productContext,
+        },
+      ],
       messages: chatMessages,
-      stream: true,
     });
 
-    for await (const chunk of stream) {
-      const content = chunk.choices[0]?.delta?.content;
-      if (content) {
-        res.write(`data: ${JSON.stringify({ content })}\n\n`);
-      }
-    }
+    stream.on("text", (text) => {
+      res.write(`data: ${JSON.stringify({ content: text })}\n\n`);
+    });
+
+    await stream.finalMessage();
 
     res.write(`data: ${JSON.stringify({ done: true })}\n\n`);
     res.end();
