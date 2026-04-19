@@ -4,7 +4,7 @@ WORKDIR /app
 
 COPY . .
 
-RUN npm install -g pnpm && pnpm install --frozen-lockfile
+RUN corepack enable && pnpm install --frozen-lockfile
 
 RUN pnpm --filter @workspace/api-server run build
 
