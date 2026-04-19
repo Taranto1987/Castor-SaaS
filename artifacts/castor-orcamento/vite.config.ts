@@ -18,8 +18,12 @@ function gtmPlugin(): Plugin {
         bodyTags += `<noscript><iframe src="https://www.googletagmanager.com/ns.html?id=${gtmId}" height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>\n    `;
       }
 
-      if (gaId) {
-        tags += `<script async src="https://www.googletagmanager.com/gtag/js?id=${gaId}"></script>\n    <script>window.dataLayer=window.dataLayer||[];function gtag(){dataLayer.push(arguments);}gtag('js',new Date());gtag('config','${gaId}');</script>\n    `;
+      const adsId = process.env.VITE_GOOGLE_ADS_ID;
+
+      if (gaId || adsId) {
+        const primaryId = gaId ?? adsId!;
+        const adsConfig = adsId && adsId !== primaryId ? `gtag('config','${adsId}');` : "";
+        tags += `<script async src="https://www.googletagmanager.com/gtag/js?id=${primaryId}"></script>\n    <script>window.dataLayer=window.dataLayer||[];function gtag(){dataLayer.push(arguments);}gtag('js',new Date());gtag('config','${primaryId}');${adsConfig}</script>\n    `;
       }
 
       if (tags) html = html.replace("</head>", `${tags}</head>`);

@@ -1,6 +1,7 @@
 declare global {
   interface Window {
     dataLayer: Record<string, unknown>[];
+    gtag: (...args: unknown[]) => void;
   }
 }
 
@@ -40,4 +41,22 @@ export function trackPageView(pageName: string) {
 export function trackCatalogoWhatsApp(produto: string, loja: string) {
   push("whatsapp_click", { origem: "catalogo", loja, produto });
   push("catalogo_whatsapp", { produto, loja });
+}
+
+/** Fire a Google Ads conversion event. sendTo = "AW-XXXXX/conversionLabel" */
+export function trackAdsConversion(sendTo: string) {
+  if (typeof window.gtag === "function") {
+    window.gtag("event", "conversion", { send_to: sendTo });
+  }
+}
+
+/**
+ * Track WhatsApp click + optionally fire a Google Ads conversion.
+ * Pass VITE_GOOGLE_ADS_CONVERSION_WHATSAPP env var via import.meta.env.
+ */
+export function trackWhatsAppWithAds(origem: string, loja: string) {
+  trackWhatsAppClick(origem, loja);
+  const sendTo = (import.meta as { env?: Record<string, string> }).env
+    ?.VITE_GOOGLE_ADS_CONVERSION_WHATSAPP;
+  if (sendTo) trackAdsConversion(sendTo);
 }

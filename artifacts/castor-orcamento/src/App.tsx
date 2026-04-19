@@ -1,5 +1,6 @@
 import { Switch, Route, Router as WouterRouter, useLocation, Redirect } from "wouter";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { HelmetProvider } from "react-helmet-async";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 
@@ -13,6 +14,7 @@ import Layout from "@/components/Layout";
 import Landing from "@/pages/Landing";
 import Catalogo from "@/pages/Catalogo";
 import MapaSono from "@/pages/MapaSono";
+import ColchaoPage from "@/pages/ColchaoPage";
 
 // Private pages
 import Home from "@/pages/Home";
@@ -82,6 +84,12 @@ function AppRoutes() {
       <Route path="/mapa-sono">
         <PublicLayout><MapaSono /></PublicLayout>
       </Route>
+      <Route path="/colchao-cabo-frio">
+        <PublicLayout><ColchaoPage loja="cabo-frio" /></PublicLayout>
+      </Route>
+      <Route path="/colchao-araruama">
+        <PublicLayout><ColchaoPage loja="araruama" /></PublicLayout>
+      </Route>
 
       {/* ── PRIVATE ────────────────────────────────────────────────────── */}
       <Route path="/equipe"             component={() => <PrivateRoute component={Home} />} />
@@ -105,18 +113,20 @@ function AppRoutes() {
 
 function App() {
   return (
-    <QueryClientProvider client={queryClient}>
-      <TooltipProvider>
-        <AuthProvider>
-          <WouterRouter base={import.meta.env.BASE_URL.replace(/\/$/, "")}>
-            <ErrorBoundary>
-              <AppRoutes />
-            </ErrorBoundary>
-          </WouterRouter>
-          <Toaster />
-        </AuthProvider>
-      </TooltipProvider>
-    </QueryClientProvider>
+    <HelmetProvider>
+      <QueryClientProvider client={queryClient}>
+        <TooltipProvider>
+          <AuthProvider>
+            <WouterRouter base={import.meta.env.BASE_URL.replace(/\/$/, "")}>
+              <ErrorBoundary>
+                <AppRoutes />
+              </ErrorBoundary>
+            </WouterRouter>
+            <Toaster />
+          </AuthProvider>
+        </TooltipProvider>
+      </QueryClientProvider>
+    </HelmetProvider>
   );
 }
 

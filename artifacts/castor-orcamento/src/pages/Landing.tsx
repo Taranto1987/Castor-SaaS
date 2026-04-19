@@ -3,43 +3,19 @@ import { motion } from "framer-motion";
 import { Link } from "wouter";
 import { MessageCircle, Star, MapPin, ChevronRight, Moon, Shield, Zap, Wind, RotateCcw, Award, BedDouble, Package, Box, Layers, Sparkles } from "lucide-react";
 import MapaSonoModal from "@/components/MapaSonoModal";
-import { trackWhatsAppClick, trackPageView } from "@/lib/tracking";
+import { trackWhatsAppWithAds, trackPageView } from "@/lib/tracking";
+import { SEO, LOCAL_BUSINESS_SCHEMA } from "@/components/SEO";
+import { useLocalizacao, LOJAS } from "@/hooks/use-localizacao";
 
-const WA_CABO_FRIO  = { numero: "5522992410112", loja: "Cabo Frio", contato: "ThallesZzz", tel: "(22) 99241-0112" };
-const WA_ARARUAMA   = { numero: "5522988447240", loja: "Araruama",  contato: "Marcela",    tel: "(22) 98844-7240" };
+const WA_CABO_FRIO  = { numero: LOJAS["cabo-frio"].whatsapp, loja: LOJAS["cabo-frio"].cidade, contato: LOJAS["cabo-frio"].nome, tel: LOJAS["cabo-frio"].tel };
+const WA_ARARUAMA   = { numero: LOJAS["araruama"].whatsapp,  loja: LOJAS["araruama"].cidade,  contato: LOJAS["araruama"].nome,  tel: LOJAS["araruama"].tel };
 
-const MAPS_CABO_FRIO = "https://maps.app.goo.gl/UuF6w1nAvTgXockS6";
-const MAPS_ARARUAMA  = "https://maps.app.goo.gl/cGmvFgeubawLRNGy8";
+const MAPS_CABO_FRIO = LOJAS["cabo-frio"].maps;
+const MAPS_ARARUAMA  = LOJAS["araruama"].maps;
 
-const CIDADES_ARARUAMA = ["araruama", "saquarema", "iguaba grande", "maricá", "silva jardim"];
-
-function waLink(wa: typeof WA_CABO_FRIO, texto?: string) {
+function waLink(wa: { numero: string; loja: string; contato: string; tel: string }, texto?: string) {
   const msg = texto ?? `Olá! Vi o site da Castor ${wa.loja} e quero saber mais sobre os colchões!`;
   return `https://wa.me/${wa.numero}?text=${encodeURIComponent(msg)}`;
-}
-
-function useLocalizacao() {
-  const [wa, setWa] = useState(WA_CABO_FRIO);
-  const [ready, setReady] = useState(false);
-
-  useEffect(() => {
-    const controller = new AbortController();
-    fetch("https://ipapi.co/json/", { signal: controller.signal })
-      .then(r => r.json())
-      .then((data: { city?: string }) => {
-        const cidade = (data.city ?? "").toLowerCase();
-        if (CIDADES_ARARUAMA.some(c => cidade.includes(c))) {
-          setWa(WA_ARARUAMA);
-        }
-        setReady(true);
-      })
-      .catch(() => { setReady(true); });
-    return () => controller.abort();
-  }, []);
-
-  const toggle = () => setWa(prev => prev.numero === WA_CABO_FRIO.numero ? WA_ARARUAMA : WA_CABO_FRIO);
-
-  return { wa, ready, toggle };
 }
 
 const fade = (delay = 0) => ({
@@ -53,12 +29,24 @@ const REGIOES = ["Cabo Frio", "Búzios", "Arraial do Cabo", "São Pedro da Aldei
 
 export default function Landing() {
   const [showMapa, setShowMapa] = useState(false);
-  const { wa, ready, toggle } = useLocalizacao();
+  const { loja: lojaData, lojaKey, ready, toggle } = useLocalizacao();
+
+  const wa = lojaKey === "araruama" ? WA_ARARUAMA : WA_CABO_FRIO;
 
   useEffect(() => { trackPageView("landing"); }, []);
 
+  const seoTitle = `Castor Colchões ${wa.loja} | Colchões Ortopédicos na Região dos Lagos – RJ`;
+  const seoDesc = `Loja Castor Colchões em ${wa.loja}. Colchões ortopédicos com tecnologia suíça, cama box e travesseiros. Diagnóstico personalizado de sono. Atendimento com ${wa.contato}: ${wa.tel}.`;
+
   return (
     <div className="overflow-x-hidden">
+      <SEO
+        title={seoTitle}
+        description={seoDesc}
+        city={wa.loja}
+        canonical="/"
+        jsonLd={LOCAL_BUSINESS_SCHEMA}
+      />
 
       {/* ── HERO ─────────────────────────────────────────────────────────── */}
       <section className="relative bg-gradient-to-br from-slate-900 via-red-950 to-slate-900 text-white overflow-hidden">
@@ -99,9 +87,9 @@ export default function Landing() {
                   <p className="text-white/60 text-xs font-semibold uppercase tracking-widest mb-2 text-center md:text-left">📍 Qual loja mais perto de você?</p>
                   <div className="inline-flex bg-white/10 backdrop-blur-sm rounded-xl p-1 border border-white/15">
                     <button
-                      onClick={() => wa.numero !== WA_CABO_FRIO.numero && toggle()}
+                      onClick={() => lojaKey !== "cabo-frio" && toggle()}
                       className={`flex items-center gap-2 px-5 py-2.5 rounded-lg text-sm font-bold transition-all ${
-                        wa.numero === WA_CABO_FRIO.numero
+                        lojaKey === "cabo-frio"
                           ? "bg-red-600 text-white shadow-lg shadow-red-900/40"
                           : "text-white/60 hover:text-white hover:bg-white/10"
                       }`}
@@ -110,9 +98,9 @@ export default function Landing() {
                       Cabo Frio
                     </button>
                     <button
-                      onClick={() => wa.numero === WA_CABO_FRIO.numero && toggle()}
+                      onClick={() => lojaKey === "cabo-frio" && toggle()}
                       className={`flex items-center gap-2 px-5 py-2.5 rounded-lg text-sm font-bold transition-all ${
-                        wa.numero !== WA_CABO_FRIO.numero
+                        lojaKey !== "cabo-frio"
                           ? "bg-red-600 text-white shadow-lg shadow-red-900/40"
                           : "text-white/60 hover:text-white hover:bg-white/10"
                       }`}
@@ -151,7 +139,7 @@ export default function Landing() {
                 <div className="relative w-64 h-64 md:w-80 md:h-80 group-hover:scale-[1.02] transition-transform">
                   <div className="absolute inset-0 bg-gradient-to-br from-red-500/30 to-red-900/30 rounded-[2rem] backdrop-blur-sm border border-white/10 shadow-2xl" />
                   <img
-                    src={wa.numero === WA_CABO_FRIO.numero ? "/thalles-avatar.jpg" : "/marcela-avatar.jpg"}
+                    src={lojaKey === "cabo-frio" ? "/thalles-avatar.jpg" : "/marcela-avatar.jpg"}
                     alt={`Especialista ${wa.contato}`}
                     className="absolute inset-0 w-full h-full object-cover object-top rounded-[2rem]"
                   />
@@ -190,7 +178,7 @@ export default function Landing() {
           <div className="flex flex-col md:flex-row items-center gap-8">
             <div className="flex-shrink-0">
               <div className="w-20 h-20 rounded-2xl overflow-hidden border-2 border-white/20 shadow-xl">
-                <img src={wa.numero === WA_CABO_FRIO.numero ? "/thalles-avatar.jpg" : "/marcela-avatar.jpg"} alt={wa.contato} className="w-full h-full object-cover object-top" />
+                <img src={lojaKey === "cabo-frio" ? "/thalles-avatar.jpg" : "/marcela-avatar.jpg"} alt={wa.contato} className="w-full h-full object-cover object-top" />
               </div>
             </div>
             <div className="flex-1 text-center md:text-left">
@@ -374,7 +362,7 @@ export default function Landing() {
                 href={waLink(wa)}
                 target="_blank"
                 rel="noreferrer"
-                onClick={() => trackWhatsAppClick("landing_cta", wa.loja)}
+                onClick={() => trackWhatsAppWithAds("landing_cta", wa.loja)}
                 className="flex items-center justify-center gap-2 bg-green-500 hover:bg-green-400 text-white font-extrabold px-6 py-4 rounded-2xl transition-all shadow-lg active:scale-95 text-base mb-3"
               >
                 <MessageCircle className="w-5 h-5" />
@@ -394,7 +382,7 @@ export default function Landing() {
         href={waLink(wa)}
         target="_blank"
         rel="noreferrer"
-        onClick={() => trackWhatsAppClick("landing_floating", wa.loja)}
+        onClick={() => trackWhatsAppWithAds("landing_floating", wa.loja)}
         className="fixed bottom-6 right-6 z-50 flex items-center gap-2 bg-green-500 hover:bg-green-600 text-white font-bold px-4 py-3 rounded-2xl shadow-2xl shadow-green-900/40 transition-all active:scale-95 hover:scale-105"
       >
         <MessageCircle className="w-5 h-5" />

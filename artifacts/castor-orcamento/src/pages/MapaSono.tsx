@@ -6,11 +6,12 @@ import {
   Scale, Ruler, Calendar, Wind, Clock, History, MapPin, Moon, ShoppingCart
 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { trackMapaSonoCompleto, trackWhatsAppClick, trackPageView } from "@/lib/tracking";
+import { trackMapaSonoCompleto, trackWhatsAppClick, trackWhatsAppWithAds, trackPageView } from "@/lib/tracking";
+import { SEO } from "@/components/SEO";
+import { useLocalizacao, LOJAS } from "@/hooks/use-localizacao";
 
-const WA_CABO_FRIO = { numero: "5522992410112", contato: "ThallesZzz", loja: "Cabo Frio" };
-const WA_ARARUAMA  = { numero: "5522988447240", contato: "Marcela",    loja: "Araruama" };
-const CIDADES_ARARUAMA = ["araruama", "saquarema", "iguaba grande", "maricá", "silva jardim"];
+const WA_CABO_FRIO = { numero: LOJAS["cabo-frio"].whatsapp, contato: LOJAS["cabo-frio"].nome, loja: LOJAS["cabo-frio"].cidade };
+const WA_ARARUAMA  = { numero: LOJAS["araruama"].whatsapp,  contato: LOJAS["araruama"].nome,  loja: LOJAS["araruama"].cidade };
 
 interface ProdutoCatalogo {
   id: number;
@@ -373,28 +374,13 @@ export default function MapaSono() {
   const [showResult, setShowResult] = useState(false);
   const [precoCalc, setPrecoCalc]   = useState("");
   const [produtosRec, setProdutosRec] = useState<ProdutoCatalogo[]>([]);
-  const [waDestino, setWaDestino] = useState(WA_CABO_FRIO);
-  const [autoDetected, setAutoDetected] = useState(false);
+  const { lojaKey, toggle: toggleLoja, ready: autoDetected } = useLocalizacao();
+  const waDestino = lojaKey === "araruama" ? WA_ARARUAMA : WA_CABO_FRIO;
   const scrollRef = useRef<HTMLDivElement>(null);
 
   const currentStep = stepIndex >= 0 && stepIndex < STEPS.length ? STEPS[stepIndex] : null;
   const total       = STEPS.length;
   const pct         = stepIndex < 0 ? 0 : Math.round(((stepIndex) / total) * 100);
-
-  useEffect(() => {
-    const controller = new AbortController();
-    fetch("https://ipapi.co/json/", { signal: controller.signal })
-      .then(r => r.json())
-      .then((data: { city?: string }) => {
-        const cidade = (data.city ?? "").toLowerCase();
-        if (CIDADES_ARARUAMA.some(c => cidade.includes(c))) {
-          setWaDestino(WA_ARARUAMA);
-        }
-        setAutoDetected(true);
-      })
-      .catch(() => { setAutoDetected(true); });
-    return () => controller.abort();
-  }, []);
 
   useEffect(() => {
     scrollRef.current?.scrollTo({ top: 0, behavior: "smooth" });
@@ -504,6 +490,12 @@ export default function MapaSono() {
   if (stepIndex === -1 && !showResult) {
     return (
       <div ref={scrollRef} className="bg-[#EDEBE8] min-h-full p-4 flex flex-col items-center justify-center">
+        <SEO
+          title={`Mapa do Sono Castor ${waDestino.loja} | Descubra Seu Colchão Ideal`}
+          description={`Faça o diagnóstico de sono grátis com ${waDestino.contato} na Castor Colchões ${waDestino.loja}. Descubra o colchão ideal para sua postura, biotipo e necessidades. 100% personalizado.`}
+          city={waDestino.loja}
+          canonical="/mapa-sono"
+        />
         <motion.div
           initial={{ opacity: 0, scale: 0.95, y: 20 }}
           animate={{ opacity: 1, scale: 1, y: 0 }}
@@ -522,11 +514,11 @@ export default function MapaSono() {
             </p>
             {autoDetected && (
               <button
-                onClick={() => setWaDestino(prev => prev.numero === WA_CABO_FRIO.numero ? WA_ARARUAMA : WA_CABO_FRIO)}
+                onClick={toggleLoja}
                 className="mt-2 inline-flex items-center gap-1 text-red-200 hover:text-white text-xs bg-white/10 hover:bg-white/20 px-3 py-1 rounded-full transition-all"
               >
                 <MapPin className="w-3 h-3" />
-                Trocar para {waDestino.numero === WA_CABO_FRIO.numero ? "Araruama" : "Cabo Frio"}
+                Trocar para {lojaKey === "cabo-frio" ? "Araruama" : "Cabo Frio"}
               </button>
             )}
           </div>

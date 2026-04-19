@@ -10,11 +10,13 @@ import authRouter from "./auth";
 import entradaEstoqueRouter from "./entrada-estoque";
 import chatRouter from "./chat";
 import usuariosRouter from "./usuarios";
+import geoRouter from "./geo";
 
 const router: IRouter = Router();
 
 router.use(healthRouter);
 router.use("/auth", authRouter);
+router.use(geoRouter);
 router.use("/usuarios", usuariosRouter);
 router.use("/produtos", produtosRouter);
 router.use("/orcamento", orcamentoRouter);
