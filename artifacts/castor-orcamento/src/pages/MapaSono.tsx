@@ -776,7 +776,7 @@ export default function MapaSono() {
 
   // ── ETAPA ────────────────────────────────────────────────────────────────────
 
-  if (!currentStep) return null;
+  if (!currentStep) return <div className="min-h-full flex items-center justify-center p-8 text-slate-500">Carregando...</div>;
   const IconStep = currentStep.icon;
 
   return (
@@ -822,7 +822,7 @@ export default function MapaSono() {
 
             {/* Opções */}
             <div className="px-4 py-4 space-y-2">
-              {currentStep.opcoes.map(op => {
+              {(Array.isArray(currentStep.opcoes) ? currentStep.opcoes : []).map(op => {
                 const isSelected = currentStep.tipo === "multi"
                   ? multiSelect.includes(op.value)
                   : pendingValue === op.value;

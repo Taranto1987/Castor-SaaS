@@ -4,6 +4,7 @@ import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 
 import { AuthProvider, useAuth } from "@/contexts/AuthContext";
+import ErrorBoundary from "@/components/ErrorBoundary";
 import LoginScreen from "@/components/LoginScreen";
 import PublicLayout from "@/components/PublicLayout";
 import Layout from "@/components/Layout";
@@ -31,7 +32,14 @@ import NotFound from "@/pages/not-found";
 
 const queryClient = new QueryClient({
   defaultOptions: {
-    queries: { refetchOnWindowFocus: false, staleTime: 5 * 60 * 1000, retry: 1 },
+    queries: {
+      staleTime: 5 * 60 * 1000,
+      gcTime: 10 * 60 * 1000,
+      refetchOnMount: false,
+      refetchOnWindowFocus: false,
+      refetchOnReconnect: false,
+      retry: 1,
+    },
   },
 });
 
@@ -101,7 +109,9 @@ function App() {
       <TooltipProvider>
         <AuthProvider>
           <WouterRouter base={import.meta.env.BASE_URL.replace(/\/$/, "")}>
-            <AppRoutes />
+            <ErrorBoundary>
+              <AppRoutes />
+            </ErrorBoundary>
           </WouterRouter>
           <Toaster />
         </AuthProvider>

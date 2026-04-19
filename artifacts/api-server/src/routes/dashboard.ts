@@ -17,13 +17,28 @@ router.get("/", async (req, res) => {
     const { vendedor, papel } = req.query as { vendedor?: string; papel?: string };
     const filtraPorVendedor = vendedor && papel !== "dono";
 
+    const orcCols = {
+      status: orcamentosTable.status,
+      vendedor: orcamentosTable.vendedor,
+      totalPix: orcamentosTable.totalPix,
+      totalPrazo: orcamentosTable.totalPrazo,
+      produtosJson: orcamentosTable.produtosJson,
+      criadoEm: orcamentosTable.criadoEm,
+      precoBaseTotal: orcamentosTable.precoBaseTotal,
+    };
+
     const orcamentosQuery = filtraPorVendedor
-      ? db.select().from(orcamentosTable).where(eq(orcamentosTable.vendedor, vendedor!)).orderBy(desc(orcamentosTable.criadoEm)).limit(500)
-      : db.select().from(orcamentosTable).orderBy(desc(orcamentosTable.criadoEm)).limit(500);
+      ? db.select(orcCols).from(orcamentosTable).where(eq(orcamentosTable.vendedor, vendedor!)).orderBy(desc(orcamentosTable.criadoEm)).limit(500)
+      : db.select(orcCols).from(orcamentosTable).orderBy(desc(orcamentosTable.criadoEm)).limit(500);
+
+    const entregasCols = {
+      status: entregasTable.status,
+      vendedor: entregasTable.vendedor,
+    };
 
     const entregasQuery = filtraPorVendedor
-      ? db.select().from(entregasTable).where(eq(entregasTable.vendedor, vendedor!))
-      : db.select().from(entregasTable);
+      ? db.select(entregasCols).from(entregasTable).where(eq(entregasTable.vendedor, vendedor!))
+      : db.select(entregasCols).from(entregasTable);
 
     const [orcamentos, totalProdutos, entregas] = await Promise.all([
       orcamentosQuery,
