@@ -10,6 +10,7 @@ import authRouter from "./auth";
 import entradaEstoqueRouter from "./entrada-estoque";
 import chatRouter from "./chat";
 import usuariosRouter from "./usuarios";
+import webhookWhatsAppRouter from "./webhook-whatsapp.js";
 
 const router: IRouter = Router();
 
@@ -24,5 +25,6 @@ router.use("/dashboard", dashboardRouter);
 router.use("/financeiro", financeiroRouter);
 router.use("/entrada-estoque", entradaEstoqueRouter);
 router.use("/chat", chatRouter);
+router.use("/webhook/whatsapp", webhookWhatsAppRouter);
 
 export default router;

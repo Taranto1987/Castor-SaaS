@@ -4,6 +4,7 @@ import { z } from "zod/v4";
 
 export const produtosTable = pgTable("produtos", {
   id: serial("id").primaryKey(),
+  tenantId: text("tenant_id").notNull().default("default"),
   nome: text("nome").notNull(),
   sku: text("sku"),
   preco: text("preco"),
