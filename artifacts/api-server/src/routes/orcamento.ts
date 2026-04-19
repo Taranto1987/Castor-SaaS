@@ -214,14 +214,35 @@ router.post("/salvar", async (req, res) => {
 router.get("/historico", requireAuth, async (req, res) => {
   try {
     const session = (req as any).session as { nome: string; papel: string };
+    const page = Math.max(0, parseInt(String(req.query.page ?? "0")) || 0);
+    const limit = 50;
+    const offset = page * limit;
 
-    let query = db.select().from(orcamentosTable).orderBy(desc(orcamentosTable.criadoEm)).limit(200);
+    const cols = {
+      id: orcamentosTable.id,
+      cliente: orcamentosTable.cliente,
+      whatsapp: orcamentosTable.whatsapp,
+      status: orcamentosTable.status,
+      vendedor: orcamentosTable.vendedor,
+      totalPix: orcamentosTable.totalPix,
+      totalPrazo: orcamentosTable.totalPrazo,
+      descontoPix: orcamentosTable.descontoPix,
+      observacoes: orcamentosTable.observacoes,
+      produtosJson: orcamentosTable.produtosJson,
+      criadoEm: orcamentosTable.criadoEm,
+    };
+
+    let query = db.select(cols).from(orcamentosTable)
+      .orderBy(desc(orcamentosTable.criadoEm))
+      .limit(limit)
+      .offset(offset);
 
     if (session.papel !== "dono") {
-      query = db.select().from(orcamentosTable)
+      query = db.select(cols).from(orcamentosTable)
         .where(eq(orcamentosTable.vendedor, session.nome))
         .orderBy(desc(orcamentosTable.criadoEm))
-        .limit(200);
+        .limit(limit)
+        .offset(offset);
     }
 
     const historico = await query;
