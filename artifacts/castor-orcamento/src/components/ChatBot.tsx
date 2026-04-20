@@ -9,8 +9,6 @@ interface Message {
 
 const GREETING = "Olá! 👋 Sou o **ThallesZzz**, consultor especialista em colchões Castor. Estou aqui pra te ajudar a encontrar o colchão perfeito pro seu sono.\n\nMe conta: **como anda seu sono?** Tem sentido alguma dor ou desconforto?";
 
-const API_BASE = import.meta.env.BASE_URL?.replace(/\/$/, "") || "";
-
 export default function ChatBot() {
   const [isOpen, setIsOpen] = useState(false);
   const [messages, setMessages] = useState<Message[]>([
@@ -59,7 +57,7 @@ export default function ChatBot() {
         .filter((m) => m.content)
         .map((m) => ({ role: m.role, content: m.content }));
 
-      const response = await fetch(`${API_BASE}api/chat`, {
+      const response = await fetch("/api/chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ messages: apiMessages }),

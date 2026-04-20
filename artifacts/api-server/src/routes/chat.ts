@@ -2,7 +2,8 @@ import { Router, type IRouter } from "express";
 import { openai } from "@workspace/integrations-openai-ai-server";
 import { db } from "@workspace/db";
 import { produtosTable } from "@workspace/db/schema";
-import { eq } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
+import type { TenantRequest } from "../middleware/tenant.js";
 
 const router: IRouter = Router();
 
@@ -65,7 +66,7 @@ Você aplica naturalmente:
 Os produtos serão fornecidos como contexto. Use esses dados para recomendar.
 `;
 
-async function getProductContext(): Promise<string> {
+async function getProductContext(tenant: string): Promise<string> {
   try {
     const allProducts = await db
       .select({
@@ -79,7 +80,10 @@ async function getProductContext(): Promise<string> {
       })
       .from(produtosTable)
       .where(
-        eq(produtosTable.disponivel, true)
+        and(
+          eq(produtosTable.tenantId, tenant),
+          eq(produtosTable.disponivel, true)
+        )
       );
 
     if (allProducts.length === 0) return "Catálogo vazio no momento.";
@@ -116,7 +120,7 @@ interface ChatMessage {
   content: string;
 }
 
-router.post("/", async (req, res) => {
+router.post("/", async (req: TenantRequest, res) => {
   try {
     const { messages } = req.body as { messages: ChatMessage[] };
 
@@ -125,7 +129,7 @@ router.post("/", async (req, res) => {
       return;
     }
 
-    const productContext = await getProductContext();
+    const productContext = await getProductContext(req.tenant ?? "default");
 
     const chatMessages: ChatMessage[] = [
       { role: "system", content: SYSTEM_PROMPT + "\n\n" + productContext },
