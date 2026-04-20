@@ -6,7 +6,10 @@ import { eq } from "drizzle-orm";
 
 const router: IRouter = Router();
 
-const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
+const client = new Anthropic({
+    baseURL: "https://api.anthropic.com",
+    apiKey: process.env.ANTHROPIC_API_KEY,
+});
 
 const SYSTEM_PROMPT = `Você é o ThallesZzz, consultor especialista em colchões da Castor Exclusiva — loja autorizada da fábrica Castor na Região dos Lagos, RJ (Cabo Frio e Araruama).
 
@@ -68,110 +71,107 @@ Os produtos serão fornecidos como contexto. Use esses dados para recomendar.
 `;
 
 async function getProductContext(): Promise<string> {
-  try {
-    const allProducts = await db
-      .select({
-        nome: produtosTable.nome,
-        categoria: produtosTable.categoria,
-        precoPix: produtosTable.precoPix,
-        preco: produtosTable.preco,
-        parcelamento: produtosTable.parcelamento,
-        medidas: produtosTable.medidas,
-        altura: produtosTable.altura,
-      })
-      .from(produtosTable)
-      .where(
-        eq(produtosTable.disponivel, true)
-      );
+    try {
+          const allProducts = await db
+            .select({
+                      nome: produtosTable.nome,
+                      categoria: produtosTable.categoria,
+                      precoPix: produtosTable.precoPix,
+                      preco: produtosTable.preco,
+                      parcelamento: produtosTable.parcelamento,
+                      medidas: produtosTable.medidas,
+                      altura: produtosTable.altura,
+            })
+            .from(produtosTable)
+            .where(eq(produtosTable.disponivel, true));
 
-    if (allProducts.length === 0) return "Catálogo vazio no momento.";
+      if (allProducts.length === 0) return "Catálogo vazio no momento.";
 
-    const grouped: Record<string, typeof allProducts> = {};
-    for (const p of allProducts) {
-      const cat = p.categoria || "outros";
-      if (!grouped[cat]) grouped[cat] = [];
-      grouped[cat].push(p);
+      const grouped: Record<string, typeof allProducts> = {};
+          for (const p of allProducts) {
+                  const cat = p.categoria || "outros";
+                  if (!grouped[cat]) grouped[cat] = [];
+                  grouped[cat].push(p);
+          }
+
+      let ctx = "## Produtos Disponíveis\n\n";
+          for (const [cat, items] of Object.entries(grouped)) {
+                  ctx += `### ${cat}\n`;
+                  for (const p of items.slice(0, 15)) {
+                            ctx += `- **${p.nome}**`;
+                            if (p.medidas) ctx += ` (${p.medidas})`;
+                            if (p.precoPix) ctx += ` — PIX: ${p.precoPix}`;
+                            if (p.preco) ctx += ` | Prazo: ${p.preco}`;
+                            if (p.parcelamento) ctx += ` (${p.parcelamento})`;
+                            ctx += "\n";
+                  }
+                  if (items.length > 15) ctx += ` ... e mais ${items.length - 15} produtos\n`;
+                  ctx += "\n";
+          }
+          return ctx;
+    } catch {
+          return "Catálogo temporariamente indisponível.";
     }
-
-    let ctx = "## Produtos Disponíveis\n\n";
-    for (const [cat, items] of Object.entries(grouped)) {
-      ctx += `### ${cat}\n`;
-      for (const p of items.slice(0, 15)) {
-        ctx += `- **${p.nome}**`;
-        if (p.medidas) ctx += ` (${p.medidas})`;
-        if (p.precoPix) ctx += ` — PIX: ${p.precoPix}`;
-        if (p.preco) ctx += ` | Prazo: ${p.preco}`;
-        if (p.parcelamento) ctx += ` (${p.parcelamento})`;
-        ctx += "\n";
-      }
-      if (items.length > 15) ctx += `  ... e mais ${items.length - 15} produtos\n`;
-      ctx += "\n";
-    }
-    return ctx;
-  } catch {
-    return "Catálogo temporariamente indisponível.";
-  }
 }
 
 interface ChatMessage {
-  role: "user" | "assistant";
-  content: string;
+    role: "user" | "assistant";
+    content: string;
 }
 
 router.post("/", async (req, res) => {
-  try {
-    const { messages } = req.body as { messages: ChatMessage[] };
+    try {
+          const { messages } = req.body as { messages: ChatMessage[] };
 
-    if (!messages || !Array.isArray(messages) || messages.length === 0) {
-      res.status(400).json({ error: "messages array is required" });
-      return;
+      if (!messages || !Array.isArray(messages) || messages.length === 0) {
+              res.status(400).json({ error: "messages array is required" });
+              return;
+      }
+
+      const productContext = await getProductContext();
+
+      const chatMessages = messages
+            .filter((m) => m.role === "user" || m.role === "assistant")
+            .slice(-10)
+            .map((m) => ({ role: m.role, content: m.content }));
+
+      res.setHeader("Content-Type", "text/event-stream");
+          res.setHeader("Cache-Control", "no-cache");
+          res.setHeader("Connection", "keep-alive");
+
+      const stream = client.messages.stream({
+              model: "claude-opus-4-5",
+              max_tokens: 1024,
+              system: [
+                {
+                            type: "text",
+                            text: SYSTEM_PROMPT,
+                            cache_control: { type: "ephemeral" },
+                },
+                {
+                            type: "text",
+                            text: productContext,
+                },
+                      ],
+              messages: chatMessages,
+      });
+
+      stream.on("text", (text) => {
+              res.write(`data: ${JSON.stringify({ content: text })}\n\n`);
+      });
+
+      await stream.finalMessage();
+          res.write(`data: ${JSON.stringify({ done: true })}\n\n`);
+          res.end();
+    } catch (error) {
+          console.error("Chat error:", error);
+          if (!res.headersSent) {
+                  res.status(500).json({ error: "Erro interno do chat" });
+          } else {
+                  res.write(`data: ${JSON.stringify({ error: "Erro ao processar mensagem" })}\n\n`);
+                  res.end();
+          }
     }
-
-    const productContext = await getProductContext();
-
-    const chatMessages = messages
-      .filter((m) => m.role === "user" || m.role === "assistant")
-      .slice(-10)
-      .map((m) => ({ role: m.role, content: m.content }));
-
-    res.setHeader("Content-Type", "text/event-stream");
-    res.setHeader("Cache-Control", "no-cache");
-    res.setHeader("Connection", "keep-alive");
-
-    const stream = client.messages.stream({
-      model: "claude-opus-4-7",
-      max_tokens: 1024,
-      system: [
-        {
-          type: "text",
-          text: SYSTEM_PROMPT,
-          cache_control: { type: "ephemeral" },
-        },
-        {
-          type: "text",
-          text: productContext,
-        },
-      ],
-      messages: chatMessages,
-    });
-
-    stream.on("text", (text) => {
-      res.write(`data: ${JSON.stringify({ content: text })}\n\n`);
-    });
-
-    await stream.finalMessage();
-
-    res.write(`data: ${JSON.stringify({ done: true })}\n\n`);
-    res.end();
-  } catch (error) {
-    console.error("Chat error:", error);
-    if (!res.headersSent) {
-      res.status(500).json({ error: "Erro interno do chat" });
-    } else {
-      res.write(`data: ${JSON.stringify({ error: "Erro ao processar mensagem" })}\n\n`);
-      res.end();
-    }
-  }
 });
 
 export default router;
