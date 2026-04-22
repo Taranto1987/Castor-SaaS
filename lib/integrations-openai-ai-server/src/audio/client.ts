@@ -81,7 +81,7 @@ export async function convertToWav(audioBuffer: Buffer): Promise<Buffer> {
       ]);
 
       ffmpeg.stderr.on("data", () => {});
-      ffmpeg.on("close", (code) => {
+      ffmpeg.on("close", (code: number | null) => {
         if (code === 0) resolve();
         else reject(new Error(`ffmpeg exited with code ${code}`));
       });
