@@ -4,7 +4,7 @@ import { Search, X, Plus, RefreshCw, ChevronDown } from "lucide-react";
 import { useDebounce } from "@/hooks/use-debounce";
 import { cn } from "@/lib/utils";
 import { useBuscarProdutos, useListProdutos } from "@workspace/api-client-react";
-import type { Produto } from "@workspace/api-client-react/src/generated/api.schemas";
+import type { Produto } from "@workspace/api-client-react";
 
 const CATEGORIAS = [
   { id: "todas", label: "Todos" },
@@ -67,12 +67,12 @@ export default function ProductPicker({ onAdd, carrinhoIds }: Props) {
 
   const { data: listaProdutos, isLoading: isLoadingLista } = useListProdutos(
     { categoria: dbCategoria, limite: 500 },
-    { query: { enabled: open && !debouncedBusca } }
+    { query: { enabled: open && !debouncedBusca } as any }
   );
 
   const { data: resultadosBusca, isLoading: isSearching } = useBuscarProdutos(
     { q: debouncedBusca, categoria: dbCategoria },
-    { query: { enabled: open && debouncedBusca.length > 1 } }
+    { query: { enabled: open && debouncedBusca.length > 1 } as any }
   );
 
   const produtosBase = debouncedBusca.length > 1 ? (resultadosBusca || []) : (listaProdutos || []);

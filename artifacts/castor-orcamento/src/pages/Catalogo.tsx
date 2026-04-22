@@ -10,7 +10,7 @@ import {
   useListCategorias
 } from "@workspace/api-client-react";
 import { cn } from "@/lib/utils";
-import type { Produto } from "@workspace/api-client-react/src/generated/api.schemas";
+import type { Produto } from "@workspace/api-client-react";
 import { trackPageView, trackCatalogoWhatsApp, trackCatalogoView } from "@/lib/tracking";
 
 const WA_CF  = { numero: "5522992410112", loja: "Cabo Frio", contato: "ThallesZzz" };
@@ -64,11 +64,11 @@ export default function Catalogo() {
   const { data: categoriasData } = useListCategorias();
   const { data: listData, isLoading: isLoadingList } = useListProdutos(
     { categoria: activeCategory !== "Todas" ? activeCategory : undefined },
-    { query: { enabled: !isSearching } }
+    { query: { enabled: !isSearching } as any }
   );
   const { data: searchData, isLoading: isLoadingSearch } = useBuscarProdutos(
     { q: debouncedSearch },
-    { query: { enabled: isSearching } }
+    { query: { enabled: isSearching } as any }
   );
 
   const categorias = ["Todas", ...(categoriasData || [])];

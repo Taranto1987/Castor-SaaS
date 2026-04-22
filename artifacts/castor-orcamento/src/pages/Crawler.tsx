@@ -61,7 +61,7 @@ export default function Crawler() {
   const handleStart = () => {
     if (isRunning) return;
     if (confirm("Tem certeza que deseja iniciar a varredura completa? Isso pode demorar alguns minutos e atualizará o banco de dados atual.")) {
-      startCrawler({});
+      startCrawler();
     }
   };
 
