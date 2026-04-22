@@ -4,7 +4,7 @@ import {
   Clock, ChevronDown, ChevronUp, Copy, CheckCircle2, Phone, Package,
   RefreshCw, FileText, ShoppingBag, MapPin, X, AlertCircle, MessageCircle
 } from "lucide-react";
-import type { HistoricoItem } from "@workspace/api-client-react/src/generated/api.schemas";
+import type { HistoricoItem } from "@workspace/api-client-react";
 import { useToast } from "@/hooks/use-toast";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { cn } from "@/lib/utils";

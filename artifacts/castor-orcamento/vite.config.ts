@@ -67,6 +67,13 @@ export default defineConfig({
   build: {
     outDir: path.resolve(import.meta.dirname, "dist/public"),
     emptyOutDir: true,
+    chunkSizeWarningLimit: 1500,
+    rollupOptions: {
+      onwarn(warning, warn) {
+        if (warning.message?.includes("Can't resolve original location of error")) return;
+        warn(warning);
+      },
+    },
   },
   server: {
     port,

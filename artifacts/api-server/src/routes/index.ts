@@ -24,5 +24,6 @@ router.use("/dashboard", dashboardRouter);
 router.use("/financeiro", financeiroRouter);
 router.use("/entrada-estoque", entradaEstoqueRouter);
 router.use("/chat", chatRouter);
+router.use("/agente", chatRouter);
 
 export default router;

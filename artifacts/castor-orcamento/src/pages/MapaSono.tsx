@@ -223,6 +223,36 @@ const STEPS: Step[] = [
   },
 ];
 
+
+const STEP_OPTION_SET: Record<keyof UserProfile, Set<string>> = STEPS.reduce((acc, step) => {
+  acc[step.id] = new Set(step.opcoes.map((o) => o.value));
+  return acc;
+}, {} as Record<keyof UserProfile, Set<string>>);
+
+function validarPerfil(p: UserProfile): string | null {
+  for (const step of STEPS) {
+    const valor = p[step.id];
+    if (step.tipo === "multi") {
+      if (!Array.isArray(valor) || valor.length === 0) return `Responda: ${step.pergunta}`;
+      if (valor.some((v) => !STEP_OPTION_SET[step.id].has(v))) return `Resposta inválida em: ${step.pergunta}`;
+    } else {
+      if (typeof valor !== "string" || !STEP_OPTION_SET[step.id].has(valor)) return `Resposta inválida em: ${step.pergunta}`;
+    }
+  }
+
+  const peso = p.peso;
+  const biotipo = p.biotipo;
+  const pesoLeve = peso === "ate50" || peso === "50a70";
+  const pesoMedio = peso === "50a70" || peso === "70a90";
+  const pesoPesado = peso === "90a110" || peso === "acima110";
+
+  if (biotipo === "leve" && !pesoLeve) return "Seu biotipo está incompatível com a faixa de peso informada.";
+  if (biotipo === "medio" && !pesoMedio) return "Seu biotipo está incompatível com a faixa de peso informada.";
+  if (biotipo === "pesado" && !pesoPesado) return "Seu biotipo está incompatível com a faixa de peso informada.";
+
+  return null;
+}
+
 // ─── MOTOR DE DECISÃO ─────────────────────────────────────────────────────────
 
 function calcularResultado(p: UserProfile): Resultado {
@@ -372,6 +402,7 @@ export default function MapaSono() {
   const [resultado, setResultado]   = useState<Resultado | null>(null);
   const [showResult, setShowResult] = useState(false);
   const [precoCalc, setPrecoCalc]   = useState("");
+  const [validationError, setValidationError] = useState<string | null>(null);
   const [produtosRec, setProdutosRec] = useState<ProdutoCatalogo[]>([]);
   const [waDestino, setWaDestino] = useState(WA_CABO_FRIO);
   const [autoDetected, setAutoDetected] = useState(false);
@@ -426,6 +457,7 @@ export default function MapaSono() {
     if (!currentStep) return;
 
     const newProfile = { ...profile };
+    setValidationError(null);
     if (currentStep.tipo === "multi") {
       if (multiSelect.length === 0) return;
       (newProfile as any)[currentStep.id] = multiSelect;
@@ -438,6 +470,11 @@ export default function MapaSono() {
     setMultiSelect([]);
 
     if (stepIndex + 1 >= total) {
+      const profileError = validarPerfil(newProfile);
+      if (profileError) {
+        setValidationError(profileError);
+        return;
+      }
       const res = calcularResultado(newProfile);
       setResultado(res);
       setShowResult(true);
@@ -480,6 +517,7 @@ export default function MapaSono() {
     setResultado(null);
     setShowResult(false);
     setPrecoCalc("");
+    setValidationError(null);
   }
 
   const canNext = currentStep
@@ -819,6 +857,12 @@ export default function MapaSono() {
               </h3>
               <p className="text-xs text-slate-400 leading-relaxed">{currentStep.subtitulo}</p>
             </div>
+
+            {validationError && (
+              <div className="mx-4 mt-3 rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-xs font-semibold text-red-700">
+                {validationError}
+              </div>
+            )}
 
             {/* Opções */}
             <div className="px-4 py-4 space-y-2">

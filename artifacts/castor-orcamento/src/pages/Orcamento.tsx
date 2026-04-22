@@ -11,7 +11,7 @@ import {
   useGerarOrcamento,
   useSalvarOrcamento,
 } from "@workspace/api-client-react";
-import type { Produto } from "@workspace/api-client-react/src/generated/api.schemas";
+import type { Produto } from "@workspace/api-client-react";
 import ProductPicker from "@/components/ProductPicker";
 import { useAuth } from "@/contexts/AuthContext";
 import { personalizarTexto } from "@/lib/personalizarTexto";
@@ -119,8 +119,6 @@ export default function Orcamento() {
         totalPrazo: quoteResult.totalPrazo,
         texto: textoPersonalizado,
         vendedor: user?.nome ?? undefined,
-        precoBaseTotal: (quoteResult as any).totalPrecoBase ?? undefined,
-        descontoAplicado: (quoteResult as any).descontoAplicado ?? undefined,
       }
     }, {
       onSuccess: () => {

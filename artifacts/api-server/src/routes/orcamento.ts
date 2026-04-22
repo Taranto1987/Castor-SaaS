@@ -232,20 +232,16 @@ router.get("/historico", requireAuth, async (req, res) => {
       criadoEm: orcamentosTable.criadoEm,
     };
 
-    let query = db.select(cols).from(orcamentosTable)
-      .orderBy(desc(orcamentosTable.criadoEm))
-      .limit(limit)
-      .offset(offset);
-
-    if (session.papel !== "dono") {
-      query = db.select(cols).from(orcamentosTable)
-        .where(eq(orcamentosTable.vendedor, session.nome))
-        .orderBy(desc(orcamentosTable.criadoEm))
-        .limit(limit)
-        .offset(offset);
-    }
-
-    const historico = await query;
+    const historico = session.papel === "dono"
+      ? await db.select(cols).from(orcamentosTable)
+          .orderBy(desc(orcamentosTable.criadoEm))
+          .limit(limit)
+          .offset(offset)
+      : await db.select(cols).from(orcamentosTable)
+          .where(eq(orcamentosTable.vendedor, session.nome))
+          .orderBy(desc(orcamentosTable.criadoEm))
+          .limit(limit)
+          .offset(offset);
     res.json(historico);
   } catch (error) {
     console.error("Erro ao buscar histórico:", error);
@@ -256,7 +252,8 @@ router.get("/historico", requireAuth, async (req, res) => {
 // ── Fechar venda: marca orçamento como vendido e cria entrega ──────────────
 router.post("/:id/fechar", requireAuth, async (req, res) => {
   try {
-    const id = parseInt(req.params.id);
+    const idParam = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id;
+    const id = parseInt(idParam, 10);
     const { endereco, observacoes, dataEntrega } = req.body;
 
     if (!id || isNaN(id)) {
