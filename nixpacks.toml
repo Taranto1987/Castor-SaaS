@@ -1,0 +1,16 @@
+[phases.setup]
+nixPkgs = ["nodejs_18", "pnpm"]
+
+[phases.install]
+cmds = [
+  "npm install -g corepack",
+  "corepack enable",
+  "corepack prepare pnpm@8.15.0 --activate",
+  "pnpm install --no-frozen-lockfile"
+]
+
+[phases.build]
+cmds = ["pnpm run build"]
+
+[start]
+cmd = "pnpm --filter api-server start"
