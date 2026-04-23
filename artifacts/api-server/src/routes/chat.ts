@@ -76,12 +76,9 @@ function sendSSEMessage(res: Response, payload: Record<string, unknown>) {
 }
 
 function buildFallbackMessage(lastUserMessage: string): string {
-  const topic = lastUserMessage.trim();
-  const topicLine = topic
-    ? `Entendi seu ponto: **${topic.slice(0, 180)}**. `
-    : "";
+  const hasContext = lastUserMessage.trim().length > 0;
 
-  return `${topicLine}Pra te indicar com precisão, me responde rapidinho:\n\n1) Você dorme de lado, costas ou bruços?\n2) Qual sua faixa de peso?\n3) Prefere colchão mais firme ou mais macio?\n\nCom isso eu já te passo uma recomendação inicial sem inventar preço. Se quiser, também posso te encaminhar direto pro WhatsApp da loja pra fechar com condição especial.`;
+  return `${hasContext ? "Entendi seu caso. " : ""}Pra te indicar com precisão, me responde rapidinho:\n\n1) Você dorme de lado, costas ou bruços?\n2) Qual sua faixa de peso?\n3) Prefere colchão mais firme ou mais macio?\n\nCom isso eu já te passo uma recomendação inicial sem inventar preço. Se quiser, também posso te encaminhar direto pro WhatsApp da loja pra fechar com condição especial.`;
 }
 
 async function getProductContext(): Promise<string> {
