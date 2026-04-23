@@ -229,6 +229,12 @@ const STEP_OPTION_SET: Record<keyof UserProfile, Set<string>> = STEPS.reduce((ac
   return acc;
 }, {} as Record<keyof UserProfile, Set<string>>);
 
+const BIOTIPO_PESO_COMPATIVEL: Record<NonNullable<UserProfile["biotipo"]>, ReadonlySet<string>> = {
+  leve: new Set(["ate50", "50a70"]),
+  medio: new Set(["50a70", "70a90"]),
+  pesado: new Set(["90a110", "acima110"]),
+};
+
 function validarPerfil(p: UserProfile): string | null {
   for (const step of STEPS) {
     const valor = p[step.id];
@@ -241,14 +247,10 @@ function validarPerfil(p: UserProfile): string | null {
   }
 
   const peso = p.peso;
-  const biotipo = p.biotipo;
-  const pesoLeve = peso === "ate50" || peso === "50a70";
-  const pesoMedio = peso === "50a70" || peso === "70a90";
-  const pesoPesado = peso === "90a110" || peso === "acima110";
-
-  if (biotipo === "leve" && !pesoLeve) return "Seu biotipo está incompatível com a faixa de peso informada.";
-  if (biotipo === "medio" && !pesoMedio) return "Seu biotipo está incompatível com a faixa de peso informada.";
-  if (biotipo === "pesado" && !pesoPesado) return "Seu biotipo está incompatível com a faixa de peso informada.";
+  const biotipo = p.biotipo as keyof typeof BIOTIPO_PESO_COMPATIVEL;
+  if (!BIOTIPO_PESO_COMPATIVEL[biotipo].has(peso ?? "")) {
+    return "Seu biotipo está incompatível com a faixa de peso informada.";
+  }
 
   return null;
 }
