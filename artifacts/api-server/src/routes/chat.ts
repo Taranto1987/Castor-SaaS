@@ -3,6 +3,7 @@ import Anthropic from "@anthropic-ai/sdk";
 import { db } from "@workspace/db";
 import { produtosTable } from "@workspace/db/schema";
 import { eq } from "drizzle-orm";
+import { autoSalvarOrcamentoDaConversa } from "../lib/orcamento-utils";
 
 const router: IRouter = Router();
 
@@ -45,13 +46,20 @@ Você aplica naturalmente:
 9. **Custo por noite**: "Esse colchão sai a menos de R$1 por noite nos próximos 10 anos"
 10. **Urgência genuína**: "Um colchão ruim prejudica sua saúde todos os dias que você adia"
 
+## Fluxo Obrigatório de Captura de Lead
+Quando o cliente demonstrar interesse real em comprar (pergunta sobre preço, prazo, tamanho, condição):
+1. Faça no máximo 2-3 perguntas diagnósticas para entender o perfil
+2. Recomende o produto ideal com justificativa técnica (use o ID do produto do catálogo)
+3. **SEMPRE pergunte**: "Para preparar seu orçamento personalizado e te enviar todas as condições, pode me passar seu **nome** e **WhatsApp**?"
+4. Quando receber nome + WhatsApp, confirme: "Perfeito, [Nome]! Orçamento em preparação. Mas já posso te adiantar: [produto] por PIX [preço], ou 12x de [parcela]. Quer fechar agora?"
+5. Finalize sempre direcionando: "Quer que a gente continue pelo WhatsApp para fechar em detalhes? Posso preparar uma condição especial."
+
 ## Regras Importantes
-- NUNCA invente preços. Use APENAS os preços do catálogo fornecido.
+- NUNCA invente preços. Use APENAS os preços do catálogo fornecido (campo PIX e Prazo).
 - Se não souber o preço, diga "deixa eu verificar com a equipe" e sugira falar no WhatsApp.
 - Sempre tente entender o PROBLEMA antes de recomendar um produto.
 - Faça no máximo 2-3 perguntas antes de dar uma primeira recomendação.
 - Quando recomendar um produto, explique tecnicamente por que ele resolve o problema.
-- No final, sempre direcione para o WhatsApp para fechar: "Quer que eu te passe pro nosso WhatsApp pra gente finalizar? Posso preparar uma condição especial."
 - Use formatação com negrito (**texto**) para destacar pontos importantes.
 - Respostas curtas e diretas — máximo 3-4 parágrafos por mensagem.
 - Responda APENAS em português brasileiro.
@@ -67,13 +75,14 @@ Você aplica naturalmente:
 - Garantia de fábrica Castor
 
 ## Catálogo de Produtos (dados reais)
-Os produtos serão fornecidos como contexto. Use esses dados para recomendar.
+Os produtos serão fornecidos como contexto com ID, nome e preço. Use esses IDs ao recomendar.
 `;
 
 async function getProductContext(): Promise<string> {
     try {
           const allProducts = await db
             .select({
+                      id: produtosTable.id,
                       nome: produtosTable.nome,
                       categoria: produtosTable.categoria,
                       precoPix: produtosTable.precoPix,
@@ -94,11 +103,11 @@ async function getProductContext(): Promise<string> {
                   grouped[cat].push(p);
           }
 
-      let ctx = "## Produtos Disponíveis\n\n";
+      let ctx = "## Produtos Disponíveis (use o ID ao recomendar)\n\n";
           for (const [cat, items] of Object.entries(grouped)) {
                   ctx += `### ${cat}\n`;
                   for (const p of items.slice(0, 15)) {
-                            ctx += `- **${p.nome}**`;
+                            ctx += `- [ID:${p.id}] **${p.nome}**`;
                             if (p.medidas) ctx += ` (${p.medidas})`;
                             if (p.precoPix) ctx += ` — PIX: ${p.precoPix}`;
                             if (p.preco) ctx += ` | Prazo: ${p.preco}`;
@@ -117,6 +126,89 @@ async function getProductContext(): Promise<string> {
 interface ChatMessage {
     role: "user" | "assistant";
     content: string;
+}
+
+interface ExtracaoLead {
+  nomeCliente: string | null;
+  telefone: string | null;
+  produtoIds: number[];
+  deveSalvar: boolean;
+}
+
+/**
+ * Extrai dados estruturados da conversa usando Claude Haiku.
+ * Chamado de forma assíncrona após o stream — não afeta latência do chat.
+ */
+async function extrairDadosConversa(
+  messages: ChatMessage[],
+  ultimaRespostaAssistente: string
+): Promise<ExtracaoLead | null> {
+  if (messages.length < 3) return null;
+
+  const conversa = messages
+    .map((m) => `${m.role === "user" ? "Cliente" : "ThallesZzz"}: ${m.content}`)
+    .join("\n\n");
+
+  try {
+    const response = await client.messages.create({
+      model: "claude-haiku-4-5-20251001",
+      max_tokens: 300,
+      messages: [
+        {
+          role: "user",
+          content: `Analise esta conversa de vendas de colchões e extraia dados se presentes.
+Retorne APENAS JSON válido, sem markdown, sem explicação.
+
+Conversa:
+${conversa}
+
+Última fala do consultor:
+${ultimaRespostaAssistente.slice(0, 600)}
+
+JSON esperado:
+{
+  "nomeCliente": "primeiro nome ou nome completo do cliente, null se não informado",
+  "telefone": "apenas dígitos do número brasileiro (ex: 22999990000), null se não informado",
+  "produtoIds": [IDs numéricos exatos dos produtos recomendados na conversa, array vazio se nenhum],
+  "deveSalvar": true se e somente se temos nomeCliente não-nulo E telefone não-nulo E produtoIds não-vazio
+}`,
+        },
+      ],
+    });
+
+    const text =
+      response.content[0]?.type === "text" ? response.content[0].text : null;
+    if (!text) return null;
+
+    const clean = text.replace(/```json\n?/g, "").replace(/```\n?/g, "").trim();
+    const data = JSON.parse(clean) as ExtracaoLead;
+
+    if (typeof data !== "object" || data === null) return null;
+    if (!Array.isArray(data.produtoIds)) data.produtoIds = [];
+
+    return data;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Pipeline assíncrono pós-stream: extrai lead e auto-salva orçamento.
+ * Não bloqueia a resposta SSE — erros são silenciosos.
+ */
+async function processarLeadDaConversa(
+  messages: ChatMessage[],
+  ultimaRespostaAssistente: string
+): Promise<void> {
+  const dados = await extrairDadosConversa(messages, ultimaRespostaAssistente);
+  if (!dados?.deveSalvar) return;
+  if (!dados.nomeCliente || !dados.telefone || !dados.produtoIds.length) return;
+
+  await autoSalvarOrcamentoDaConversa(
+    dados.nomeCliente,
+    dados.telefone,
+    dados.produtoIds
+  );
 }
 
 router.post("/", async (req, res) => {
@@ -139,6 +231,8 @@ router.post("/", async (req, res) => {
           res.setHeader("Cache-Control", "no-cache");
           res.setHeader("Connection", "keep-alive");
 
+      let fullAssistantText = "";
+
       const stream = client.messages.stream({
               model: "claude-opus-4-5",
               max_tokens: 1024,
@@ -157,12 +251,20 @@ router.post("/", async (req, res) => {
       });
 
       stream.on("text", (text) => {
+              fullAssistantText += text;
               res.write(`data: ${JSON.stringify({ content: text })}\n\n`);
       });
 
       await stream.finalMessage();
           res.write(`data: ${JSON.stringify({ done: true })}\n\n`);
           res.end();
+
+      // Extração e auto-save acontecem após fechar a resposta — sem latência para o usuário
+      setImmediate(() => {
+        processarLeadDaConversa(chatMessages, fullAssistantText).catch((err) =>
+          console.error("[Chat] Erro no processamento de lead:", err)
+        );
+      });
     } catch (error) {
           console.error("Chat error:", error);
           if (!res.headersSent) {

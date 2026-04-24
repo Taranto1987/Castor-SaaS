@@ -1,5 +1,6 @@
 import app from "./app";
 import { iniciarSchedulerRecorrentes } from "./lib/recorrentes-scheduler";
+import { iniciarSchedulerFollowUps } from "./lib/followup-scheduler";
 import { seedColaboradores } from "./lib/sessions";
 
 const rawPort = process.env["PORT"];
@@ -19,5 +20,6 @@ if (Number.isNaN(port) || port <= 0) {
 app.listen(port, () => {
   console.log(`Server listening on port ${port}`);
   iniciarSchedulerRecorrentes();
+  iniciarSchedulerFollowUps();
   seedColaboradores().catch(console.error);
 });
