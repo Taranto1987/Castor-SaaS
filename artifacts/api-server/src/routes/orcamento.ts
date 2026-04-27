@@ -1,7 +1,8 @@
 import { Router, type IRouter, type Request, type Response, type NextFunction } from "express";
 import { db } from "@workspace/db";
 import { produtosTable, orcamentosTable, entregasTable } from "@workspace/db/schema";
-import { inArray, desc, eq } from "drizzle-orm";
+import { inArray, desc, eq, SQL } from "drizzle-orm";
+import { str } from "../utils/params.js";
 import { getSession } from "../lib/sessions";
 
 function requireAuth(req: Request, res: Response, next: NextFunction) {
@@ -232,20 +233,15 @@ router.get("/historico", requireAuth, async (req, res) => {
       criadoEm: orcamentosTable.criadoEm,
     };
 
-    let query = db.select(cols).from(orcamentosTable)
+    const filtro: SQL | undefined = session.papel !== "dono"
+      ? eq(orcamentosTable.vendedor, session.nome)
+      : undefined;
+
+    const historico = await db.select(cols).from(orcamentosTable)
+      .where(filtro)
       .orderBy(desc(orcamentosTable.criadoEm))
       .limit(limit)
       .offset(offset);
-
-    if (session.papel !== "dono") {
-      query = db.select(cols).from(orcamentosTable)
-        .where(eq(orcamentosTable.vendedor, session.nome))
-        .orderBy(desc(orcamentosTable.criadoEm))
-        .limit(limit)
-        .offset(offset);
-    }
-
-    const historico = await query;
     res.json(historico);
   } catch (error) {
     console.error("Erro ao buscar histórico:", error);
@@ -256,7 +252,7 @@ router.get("/historico", requireAuth, async (req, res) => {
 // ── Fechar venda: marca orçamento como vendido e cria entrega ──────────────
 router.post("/:id/fechar", requireAuth, async (req, res) => {
   try {
-    const id = parseInt(req.params.id);
+    const id = parseInt(str(req.params.id));
     const { endereco, observacoes, dataEntrega } = req.body;
 
     if (!id || isNaN(id)) {

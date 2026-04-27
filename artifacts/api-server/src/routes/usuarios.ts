@@ -3,6 +3,7 @@ import { db } from "@workspace/db";
 import { colaboradoresTable } from "@workspace/db/schema";
 import { eq } from "drizzle-orm";
 import { getSession, isDono } from "../lib/sessions";
+import { str } from "../utils/params.js";
 
 const router: IRouter = Router();
 
@@ -116,7 +117,7 @@ router.post("/", requireDono, async (req, res) => {
 // PATCH /api/usuarios/:id/senha — troca código de acesso (requireDono)
 router.patch("/:id/senha", requireDono, async (req, res) => {
   try {
-    const id = parseInt(req.params.id);
+    const id = parseInt(str(req.params.id));
     if (isNaN(id)) { res.status(400).json({ error: "ID inválido" }); return; }
 
     const { novoCodigo } = req.body;
@@ -157,7 +158,7 @@ router.patch("/:id/senha", requireDono, async (req, res) => {
 // PATCH /api/usuarios/:id/ativo — ativa/desativa (requireDono)
 router.patch("/:id/ativo", requireDono, async (req, res) => {
   try {
-    const id = parseInt(req.params.id);
+    const id = parseInt(str(req.params.id));
     if (isNaN(id)) { res.status(400).json({ error: "ID inválido" }); return; }
 
     const { ativo } = req.body;

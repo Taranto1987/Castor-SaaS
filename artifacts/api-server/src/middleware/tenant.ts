@@ -21,7 +21,8 @@ export function identificarTenant(
   }
 
   if (!TENANTS[req.tenant]) {
-    return res.status(400).json({ erro: "Tenant não identificado" });
+    res.status(400).json({ erro: "Tenant não identificado" });
+    return;
   }
 
   next();

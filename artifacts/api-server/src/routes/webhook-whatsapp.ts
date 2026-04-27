@@ -8,7 +8,8 @@ router.post("/", async (req: TenantRequest, res) => {
   const { message, phone } = req.body as { message?: string; phone?: string };
 
   if (!message || !phone) {
-    return res.status(400).json({ erro: "Campos 'message' e 'phone' são obrigatórios" });
+    res.status(400).json({ erro: "Campos 'message' e 'phone' são obrigatórios" });
+    return;
   }
 
   // Responde imediatamente — processamento assíncrono

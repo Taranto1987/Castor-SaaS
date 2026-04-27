@@ -151,19 +151,20 @@ async function getCrawlerStatus() {
 
 async function atualizarStatus(status: string, mensagem: string, produtosColetados: number, erros: number, totalProdutos = 0, finalizado = false) {
   const existing = await db.select({ id: crawlerStatusTable.id }).from(crawlerStatusTable).limit(1);
-  const data: Record<string, unknown> = {
-    status, mensagem,
+  const statusData = {
+    status,
+    mensagem,
     produtosColetados: String(produtosColetados),
     erros: String(erros),
     totalProdutos: String(totalProdutos),
     atualizadoEm: new Date(),
     ...(finalizado ? { finalizadoEm: new Date() } : {}),
-  };
+  } satisfies Partial<typeof crawlerStatusTable.$inferInsert>;
 
   if (existing.length === 0) {
-    await db.insert(crawlerStatusTable).values({ ...(data as Parameters<typeof db.insert>[0]), iniciadoEm: new Date() });
+    await db.insert(crawlerStatusTable).values({ ...statusData, iniciadoEm: new Date() });
   } else {
-    await db.update(crawlerStatusTable).set(data as Parameters<typeof db.update>[0]).where(eq(crawlerStatusTable.id, existing[0].id));
+    await db.update(crawlerStatusTable).set(statusData).where(eq(crawlerStatusTable.id, existing[0].id));
   }
 }
 
