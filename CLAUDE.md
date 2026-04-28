@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Railway MCP
 
-The project ships with Railway MCP configured in `.claude/settings.json`. It lets you manage Railway infra via natural language inside Claude Code.
+The project ships with Railway MCP configured in `.mcp.json`. It lets you manage Railway infra via natural language inside Claude Code.
 
 **One-time setup:**
 ```bash
