@@ -4,6 +4,7 @@ import { db } from "@workspace/db";
 import { produtosTable } from "@workspace/db/schema";
 import { and, eq } from "drizzle-orm";
 import type { TenantRequest } from "../middleware/tenant.js";
+import { autoSalvarOrcamentoDaConversa } from "../lib/orcamento-utils.js";
 
 const router: IRouter = Router();
 
@@ -147,15 +148,23 @@ router.post("/", async (req: TenantRequest, res) => {
       stream: true,
     });
 
+    let fullResponse = "";
     for await (const chunk of stream) {
       const content = chunk.choices[0]?.delta?.content;
       if (content) {
+        fullResponse += content;
         res.write(`data: ${JSON.stringify({ content })}\n\n`);
       }
     }
 
     res.write(`data: ${JSON.stringify({ done: true })}\n\n`);
     res.end();
+
+    autoSalvarOrcamentoDaConversa({
+      tenant: req.tenant ?? "default",
+      mensagens: messages.slice(-10),
+      respostaFinal: fullResponse,
+    }).catch(() => {});
   } catch (error) {
     console.error("Chat error:", error);
     if (!res.headersSent) {
