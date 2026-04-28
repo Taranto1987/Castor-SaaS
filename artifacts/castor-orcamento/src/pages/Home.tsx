@@ -10,7 +10,7 @@ import {
   useListCategorias
 } from "@workspace/api-client-react";
 import { cn } from "@/lib/utils";
-import type { Produto } from "@workspace/api-client-react/src/generated/api.schemas";
+import type { Produto } from "@workspace/api-client-react";
 
 export default function Home() {
   const [location, setLocation] = useLocation();

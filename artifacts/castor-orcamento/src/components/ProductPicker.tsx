@@ -4,7 +4,7 @@ import { Search, X, Plus, RefreshCw, ChevronDown } from "lucide-react";
 import { useDebounce } from "@/hooks/use-debounce";
 import { cn } from "@/lib/utils";
 import { useBuscarProdutos, useListProdutos } from "@workspace/api-client-react";
-import type { Produto } from "@workspace/api-client-react/src/generated/api.schemas";
+import type { Produto } from "@workspace/api-client-react";
 
 const CATEGORIAS = [
   { id: "todas", label: "Todos" },

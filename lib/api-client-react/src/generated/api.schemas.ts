@@ -50,6 +50,8 @@ export interface SalvarOrcamentoInput {
   totalPrazo?: string;
   texto: string;
   vendedor?: string;
+  precoBaseTotal?: string;
+  descontoAplicado?: string;
 }
 
 export interface SalvarOrcamentoOutput {
