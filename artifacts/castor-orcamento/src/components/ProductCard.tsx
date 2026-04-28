@@ -1,7 +1,7 @@
 import { forwardRef } from "react";
 import { BedDouble, Box, Layers, Ruler } from "lucide-react";
 import { cn } from "@/lib/utils";
-import type { Produto } from "@workspace/api-client-react/src/generated/api.schemas";
+import type { Produto } from "@workspace/api-client-react";
 
 interface ProductCardProps extends React.HTMLAttributes<HTMLDivElement> {
   product: Produto;

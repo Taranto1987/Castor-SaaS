@@ -178,7 +178,7 @@ export default function PublicLayout({ children }: PublicLayoutProps) {
                     onClick={() => trackWhatsAppClick("footer", "Araruama")}
                     className="flex items-center gap-2 text-green-400 hover:text-green-300 font-semibold"
                   >
-                    <MessageCircle className="w-4 h-4" /> (22) 3343-7720 · Araruama
+                    <MessageCircle className="w-4 h-4" /> (22) 98844-7240 · Araruama
                   </a>
                 </div>
               </div>

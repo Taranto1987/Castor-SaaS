@@ -10,6 +10,8 @@ import authRouter from "./auth";
 import entradaEstoqueRouter from "./entrada-estoque";
 import chatRouter from "./chat";
 import usuariosRouter from "./usuarios";
+import followupRouter from "./followup";
+import agentRouter from "./agent";
 
 const router: IRouter = Router();
 
@@ -24,5 +26,8 @@ router.use("/dashboard", dashboardRouter);
 router.use("/financeiro", financeiroRouter);
 router.use("/entrada-estoque", entradaEstoqueRouter);
 router.use("/chat", chatRouter);
+router.use("/agente", chatRouter);
+router.use("/followup", followupRouter);
+router.use(agentRouter);
 
 export default router;
