@@ -1,9 +1,18 @@
 import { Router, type IRouter } from "express";
+import { rateLimit } from "express-rate-limit";
 import { createSession, getSession, destroySession } from "../lib/sessions";
+
+const loginLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 20,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: "Muitas tentativas. Tente novamente em 15 minutos." },
+});
 
 const router: IRouter = Router();
 
-router.post("/login", async (req, res) => {
+router.post("/login", loginLimiter, async (req, res) => {
   const { code } = req.body;
   if (!code || typeof code !== "string") {
     res.status(400).json({ error: "Código obrigatório" });
