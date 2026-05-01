@@ -176,7 +176,7 @@ router.post("/", async (req, res) => {
   }
 });
 
-router.post("/salvar", async (req, res) => {
+router.post("/salvar", requireAuth, async (req, res) => {
   try {
     const {
       cliente, whatsapp, produtosJson, observacoes, descontoPix,
