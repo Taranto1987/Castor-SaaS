@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback } from "react";
+import { useState, useEffect, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import useEmblaCarousel from "embla-carousel-react";
 import * as Accordion from "@radix-ui/react-accordion";
@@ -129,11 +129,11 @@ function useTimeOnPage(lpSlug: string) {
   useEffect(() => {
     const start = Date.now();
     const timers = [30, 60, 120].map(secs =>
-      setTimeout(() => pushEvent("lp_time_on_page", { lp: lpSlug, seconds: secs }), secs * 1000)
+      window.setTimeout(() => pushEvent("lp_time_on_page", { lp: lpSlug, seconds: secs }), secs * 1000)
     );
     pushEvent("lp_view", { lp: lpSlug });
     return () => {
-      timers.forEach(clearTimeout);
+      timers.forEach(id => window.clearTimeout(id));
       const total = Math.round((Date.now() - start) / 1000);
       pushEvent("lp_exit", { lp: lpSlug, seconds_total: total });
     };
@@ -273,12 +273,12 @@ function useCountdown(targetHours = 4) {
   useEffect(() => {
     sessionStorage.setItem("castor-lp-countdown", String(secs));
     if (secs <= 0) return;
-    const id = setInterval(() => setSecs(s => {
+    const id = window.setInterval(() => setSecs(s => {
       const next = Math.max(0, s - 1);
       sessionStorage.setItem("castor-lp-countdown", String(next));
       return next;
     }), 1000);
-    return () => clearInterval(id);
+    return () => window.clearInterval(id);
   }, [secs]);
 
   const h = Math.floor(secs / 3600);
@@ -438,10 +438,10 @@ function useViewerCount() {
   useEffect(() => {
     const base = 7 + (new Date().getHours() % 8);
     setCount(base + Math.floor(Math.random() * 5));
-    const id = setInterval(() => {
+    const id = window.setInterval(() => {
       setCount(c => Math.max(5, Math.min(24, c + (Math.random() > 0.55 ? 1 : -1))));
     }, 11000);
-    return () => clearInterval(id);
+    return () => window.clearInterval(id);
   }, []);
   return count;
 }
@@ -609,8 +609,8 @@ function ReviewsCarousel({ cfg }: { cfg: LPConfig }) {
   const [emblaRef, emblaApi] = useEmblaCarousel({ loop: true, align: "start" });
   useEffect(() => {
     if (!emblaApi) return;
-    const id = setInterval(() => emblaApi.scrollNext(), 4000);
-    return () => clearInterval(id);
+    const id = window.setInterval(() => emblaApi.scrollNext(), 4000);
+    return () => window.clearInterval(id);
   }, [emblaApi]);
 
   return (
