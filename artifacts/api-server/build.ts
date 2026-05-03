@@ -65,8 +65,10 @@ async function buildAll() {
     },
     minify: true,
     external: externals,
-    logLevel: "info",
+    logLevel: "silent",
   });
+
+  console.log("server bundle built: dist/index.cjs");
 }
 
 buildAll().catch((err) => {
