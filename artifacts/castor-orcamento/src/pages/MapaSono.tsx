@@ -247,6 +247,13 @@ function validarPerfil(p: UserProfile): string | null {
   }
 
   const peso = p.peso;
+  const biotipo = p.biotipo;
+  const pesoLeve = peso === "ate50" || peso === "50a70";
+  const pesoMedio = peso === "50a70" || peso === "70a90";
+  const pesoPesado = peso === "90a110" || peso === "acima110";
+
+  if (biotipo === "leve" && !pesoLeve) return "Seu biotipo está incompatível com a faixa de peso informada.";
+  if (biotipo === "medio" && !pesoMedio) return "Seu biotipo está incompatível com a faixa de peso informada.";
   const biotipo = p.biotipo as keyof typeof BIOTIPO_PESO_COMPATIVEL;
   if (!BIOTIPO_PESO_COMPATIVEL[biotipo].has(peso ?? "")) {
     return "Seu biotipo está incompatível com a faixa de peso informada.";
