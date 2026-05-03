@@ -14,6 +14,13 @@ import Landing from "@/pages/Landing";
 import Catalogo from "@/pages/Catalogo";
 import MapaSono from "@/pages/MapaSono";
 
+// Landing Pages — conversion-optimized
+import LuxoCaboFrio from "@/pages/lp/LuxoCaboFrio";
+import CamaBoxAraruama from "@/pages/lp/CamaBoxAraruama";
+import OutletPromocao from "@/pages/lp/OutletPromocao";
+import SaudeColuna from "@/pages/lp/SaudeColuna";
+import Entrega24h from "@/pages/lp/Entrega24h";
+
 // Private pages
 import Home from "@/pages/Home";
 import Orcamento from "@/pages/Orcamento";
@@ -82,6 +89,13 @@ function AppRoutes() {
       <Route path="/mapa-sono">
         <PublicLayout><MapaSono /></PublicLayout>
       </Route>
+
+      {/* ── LANDING PAGES ──────────────────────────────────────────────── */}
+      <Route path="/lp/luxo"><LuxoCaboFrio /></Route>
+      <Route path="/lp/box-bau"><CamaBoxAraruama /></Route>
+      <Route path="/lp/outlet"><OutletPromocao /></Route>
+      <Route path="/lp/saude-coluna"><SaudeColuna /></Route>
+      <Route path="/lp/entrega-24h"><Entrega24h /></Route>
 
       {/* ── PRIVATE ────────────────────────────────────────────────────── */}
       <Route path="/equipe"             component={() => <PrivateRoute component={Home} />} />

@@ -1,0 +1,143 @@
+name: 🛡️ Branch Protection
+
+# Applies GitHub Rulesets (IaC) to protect main/master/develop/release/* branches.
+# Re-run manually after any change here, or it auto-applies on push to main.
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - .github/workflows/branch-protection.yml
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: "Dry run — mostra o payload sem aplicar"
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+  administration: write
+
+jobs:
+  apply-ruleset:
+    name: Apply Castor SaaS ruleset
+    runs-on: ubuntu-latest
+    env:
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      REPO: ${{ github.repository }}
+      RULESET_NAME: "Castor SaaS — Branch Protection"
+      DRY_RUN: ${{ inputs.dry_run || 'false' }}
+
+    steps:
+      - name: Build ruleset payload
+        id: payload
+        run: |
+          cat > /tmp/ruleset.json <<'PAYLOAD'
+          {
+            "name": "Castor SaaS — Branch Protection",
+            "target": "branch",
+            "enforcement": "active",
+
+            "conditions": {
+              "ref_name": {
+                "include": [
+                  "refs/heads/main",
+                  "refs/heads/master",
+                  "refs/heads/develop",
+                  "refs/heads/release/**"
+                ],
+                "exclude": []
+              }
+            },
+
+            "bypass_actors": [
+              {
+                "actor_id": 5,
+                "actor_type": "RepositoryRole",
+                "bypass_mode": "always"
+              }
+            ],
+
+            "rules": [
+              { "type": "deletion" },
+              { "type": "non_fast_forward" },
+              { "type": "required_linear_history" },
+
+              {
+                "type": "pull_request",
+                "parameters": {
+                  "required_approving_review_count": 1,
+                  "dismiss_stale_reviews_on_push": true,
+                  "require_code_owner_review": false,
+                  "require_last_push_approval": false,
+                  "required_review_thread_resolution": false
+                }
+              },
+
+              {
+                "type": "required_status_checks",
+                "parameters": {
+                  "strict_required_status_checks_policy": true,
+                  "required_status_checks": [
+                    { "context": "typecheck" },
+                    { "context": "build" }
+                  ]
+                }
+              }
+            ]
+          }
+          PAYLOAD
+
+      - name: Dry run — show payload
+        if: env.DRY_RUN == 'true'
+        run: |
+          echo "=== DRY RUN: payload que seria aplicado ==="
+          cat /tmp/ruleset.json | python3 -m json.tool
+          echo "Nenhuma alteração foi feita."
+
+      - name: Check for existing ruleset
+        if: env.DRY_RUN != 'true'
+        id: existing
+        run: |
+          ID=$(gh api "repos/$REPO/rulesets" \
+            --jq ".[] | select(.name == env.RULESET_NAME) | .id" 2>/dev/null | head -1)
+          echo "id=$ID" >> "$GITHUB_OUTPUT"
+
+      - name: Create ruleset (first time)
+        if: env.DRY_RUN != 'true' && steps.existing.outputs.id == ''
+        run: |
+          echo "🆕 Criando ruleset '$RULESET_NAME'..."
+          gh api --method POST "repos/$REPO/rulesets" \
+            --input /tmp/ruleset.json | python3 -m json.tool
+          echo "✅ Ruleset criado."
+
+      - name: Update ruleset (idempotent)
+        if: env.DRY_RUN != 'true' && steps.existing.outputs.id != ''
+        run: |
+          ID="${{ steps.existing.outputs.id }}"
+          echo "✏️  Atualizando ruleset existente (id: $ID)..."
+          gh api --method PUT "repos/$REPO/rulesets/$ID" \
+            --input /tmp/ruleset.json | python3 -m json.tool
+          echo "✅ Ruleset atualizado."
+
+      - name: Summary
+        if: env.DRY_RUN != 'true'
+        run: |
+          echo "## 🛡️ Branch Protection aplicada" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo "| Branch | Proteção |" >> "$GITHUB_STEP_SUMMARY"
+          echo "|--------|---------|" >> "$GITHUB_STEP_SUMMARY"
+          echo "| \`main\` | ✅ Ativa |" >> "$GITHUB_STEP_SUMMARY"
+          echo "| \`master\` | ✅ Ativa |" >> "$GITHUB_STEP_SUMMARY"
+          echo "| \`develop\` | ✅ Ativa |" >> "$GITHUB_STEP_SUMMARY"
+          echo "| \`release/**\` | ✅ Ativa |" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo "### Regras ativas" >> "$GITHUB_STEP_SUMMARY"
+          echo "- 🚫 Push direto bloqueado" >> "$GITHUB_STEP_SUMMARY"
+          echo "- 🔀 PR obrigatório (mín. 1 aprovação)" >> "$GITHUB_STEP_SUMMARY"
+          echo "- ✅ Status checks obrigatórios: \`typecheck\`, \`build\`" >> "$GITHUB_STEP_SUMMARY"
+          echo "- 📏 Histórico linear exigido" >> "$GITHUB_STEP_SUMMARY"
+          echo "- 🔒 Force push bloqueado" >> "$GITHUB_STEP_SUMMARY"
+          echo "- 🗑️ Exclusão de branch bloqueada" >> "$GITHUB_STEP_SUMMARY"
+          echo "- 👑 Exceção: role \`admin\`" >> "$GITHUB_STEP_SUMMARY"
