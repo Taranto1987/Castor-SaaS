@@ -9,6 +9,7 @@ import {
   BedDouble, TrendingUp, Phone, Eye,
 } from "lucide-react";
 import { trackWhatsAppClick } from "@/lib/tracking";
+import SleepScienceSection from "@/components/lp/SleepScienceSection";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -82,6 +83,7 @@ export interface LPConfig {
     storeInterior?: string;   // Store interior (1200×800)
     productShot?: string;     // Mattress close-up (1200×800)
     deliveryPhoto?: string;   // Delivery team in action (1200×800)
+    sleepScience?: string;    // "Enquanto você dorme" section background (portrait 3:4)
   };
 }
 
@@ -1005,6 +1007,9 @@ export default function LPTemplate({ cfg }: { cfg: LPConfig }) {
           </div>
         </div>
       </section>
+
+      {/* ── SLEEP SCIENCE ───────────────────────────────────────────────────── */}
+      <SleepScienceSection imageSrc={cfg.images?.sleepScience} />
 
       {/* ── PRODUCT IMAGES ──────────────────────────────────────────────────── */}
       <ProductShowcase cfg={cfg} />
