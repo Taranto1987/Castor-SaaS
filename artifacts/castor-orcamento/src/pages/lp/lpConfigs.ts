@@ -163,6 +163,11 @@ export const cfgLuxo: LPConfig = {
     foundingDate: "1998",
     slogan: "25 anos dormindo bem na Região dos Lagos",
   },
+  images: {
+    heroBg:        "/lp/lifestyle-acordar.png",
+    storeInterior: "/lp/loja-interior.png",
+    productShot:   "/lp/colchao-goldstar.jpg",
+  },
 };
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -290,6 +295,11 @@ export const cfgBoxBau: LPConfig = {
   cidade: "Araruama",
   mapLink: "https://maps.app.goo.gl/cGmvFgeubawLRNGy8",
   endereco: "Castor Colchões Araruama — Araruama – RJ",
+  images: {
+    storeInterior: "/lp/loja-interior.png",
+    productShot:   "/lp/colchao-premium.png",
+    sleepScience:  "/lp/sono-ciencia.png",
+  },
 };
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -418,6 +428,10 @@ export const cfgOutlet: LPConfig = {
   cidade: "Cabo Frio",
   mapLink: "https://maps.app.goo.gl/UuF6w1nAvTgXockS6",
   endereco: "Av. Júlia Kubitschek, 64 — Cabo Frio + Araruama – RJ",
+  images: {
+    storeInterior: "/lp/loja-interior.png",
+    productShot:   "/lp/colchao-premium.png",
+  },
 };
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -545,6 +559,11 @@ export const cfgSaudeColuna: LPConfig = {
   cidade: "Cabo Frio",
   mapLink: "https://maps.app.goo.gl/UuF6w1nAvTgXockS6",
   endereco: "Av. Júlia Kubitschek, 64 — Jardim Flamboyant, Cabo Frio – RJ",
+  images: {
+    heroBg:        "/lp/lifestyle-acordar.png",
+    storeInterior: "/lp/loja-interior.png",
+    productShot:   "/lp/colchao-goldstar.jpg",
+  },
 };
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -673,4 +692,8 @@ export const cfgEntrega24h: LPConfig = {
   cidade: "Cabo Frio",
   mapLink: "https://maps.app.goo.gl/UuF6w1nAvTgXockS6",
   endereco: "Av. Júlia Kubitschek, 64 — Cabo Frio + Araruama – RJ",
+  images: {
+    storeInterior: "/lp/loja-interior.png",
+    productShot:   "/lp/colchao-goldstar.jpg",
+  },
 };
