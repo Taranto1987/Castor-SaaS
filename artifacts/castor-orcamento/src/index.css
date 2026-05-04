@@ -148,3 +148,37 @@
     border-right: 12px solid transparent;
   }
 }
+
+/* Range slider — Mapa do Sono */
+.castor-slider {
+  -webkit-appearance: none;
+  appearance: none;
+  height: 6px;
+  border-radius: 9999px;
+  outline: none;
+  cursor: pointer;
+}
+.castor-slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  background: #C41230;
+  border: 3px solid #fff;
+  box-shadow: 0 2px 12px rgba(196, 18, 48, 0.45);
+  cursor: grab;
+  transition: transform 0.1s;
+}
+.castor-slider:active::-webkit-slider-thumb {
+  transform: scale(1.1);
+}
+.castor-slider::-moz-range-thumb {
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  background: #C41230;
+  border: 3px solid #fff;
+  box-shadow: 0 2px 12px rgba(196, 18, 48, 0.45);
+  cursor: grab;
+}
