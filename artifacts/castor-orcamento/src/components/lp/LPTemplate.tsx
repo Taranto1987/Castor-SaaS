@@ -4,12 +4,13 @@ import useEmblaCarousel from "embla-carousel-react";
 import * as Accordion from "@radix-ui/react-accordion";
 import {
   Star, MessageCircle, MapPin, ChevronRight, ChevronDown,
-  Shield, Zap, Wind, RotateCcw, Award, Moon, CheckCircle,
+  Shield, Zap, Wind, RotateCcw, Award, Moon,
   X, ArrowRight, Users, Clock, Sparkles, Heart, ThumbsUp,
   BedDouble, TrendingUp, Phone, Eye,
 } from "lucide-react";
 import { trackWhatsAppClick } from "@/lib/tracking";
 import SleepScienceSection from "@/components/lp/SleepScienceSection";
+import MapaSonoModal from "@/components/MapaSonoModal";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -448,158 +449,61 @@ function useViewerCount() {
   return count;
 }
 
-// ── Sleep Quiz ─────────────────────────────────────────────────────────────────
+// ── Mapa do Sono CTA Section ───────────────────────────────────────────────────
 
-type QuizStep = "posicao" | "peso" | "queixa" | "resultado";
-interface QuizAnswers { posicao: string; peso: string; queixa: string; }
-
-const POSICAO_OPTS = [
-  { id: "lateral", emoji: "🫃", label: "De lado", sub: "posição fetal" },
-  { id: "costas", emoji: "🛌", label: "De costas", sub: "posição supina" },
-  { id: "barriga", emoji: "😴", label: "De bruços", sub: "posição prona" },
-];
-const PESO_OPTS = [
-  { id: "ate60", emoji: "🪶", label: "Até 60 kg" },
-  { id: "60-80", emoji: "⚖️", label: "60 – 80 kg" },
-  { id: "80-100", emoji: "💪", label: "80 – 100 kg" },
-  { id: "acima100", emoji: "🏋️", label: "Acima de 100 kg" },
-];
-const QUEIXA_OPTS = [
-  { id: "dor", emoji: "🦴", label: "Dor nas costas", sub: "acordo com dor" },
-  { id: "calor", emoji: "🌡️", label: "Calor noturno", sub: "transpiro muito" },
-  { id: "insonia", emoji: "😓", label: "Sono leve", sub: "acordo várias vezes" },
-  { id: "parceiro", emoji: "👫", label: "Movimentos", sub: "parceiro me acorda" },
-];
-
-function getRecomendacao(a: QuizAnswers) {
-  if (a.peso === "acima100") return { modelo: "Castor Pocket Extra Suporte", motivo: "Alta densidade e molas reforçadas para suporte superior sem afundamento" };
-  if (a.queixa === "calor") return { modelo: "Castor Fresh Comfort Gel", motivo: "Gel térmico suíço certificado que mantém 18–22°C durante toda a noite" };
-  if (a.posicao === "barriga") return { modelo: "Castor Ortopédico Firme", motivo: "Firmeza superior para manter o alinhamento neutro da coluna vertebral" };
-  if (a.posicao === "costas" && a.queixa === "dor") return { modelo: "Castor Tecnopedic Ortopédico", motivo: "Molas independentes com suporte lombar reforçado, certificado INER" };
-  if (a.posicao === "lateral" && a.queixa === "dor") return { modelo: "Castor Pocket Molas Bolsa", motivo: "Molas isoladas que eliminam pressão nos ombros e quadris ao dormir de lado" };
-  if (a.queixa === "parceiro") return { modelo: "Castor Pocket Híbrido", motivo: "Isolamento de movimento 100% — cada mola responde individualmente" };
-  return { modelo: "Castor Pocket Medium", motivo: "Equilíbrio ideal entre conforto e suporte para o seu perfil de sono" };
-}
-
-function buildQuizMsg(a: QuizAnswers, rec: { modelo: string }, wa: WAContact) {
-  const pos = { lateral: "De lado", costas: "De costas", barriga: "De bruços" };
-  const pes = { ate60: "Até 60 kg", "60-80": "60–80 kg", "80-100": "80–100 kg", acima100: "Acima de 100 kg" };
-  const que = { dor: "Dor nas costas", calor: "Calor noturno", insonia: "Sono leve/insônia", parceiro: "Movimento do parceiro" };
-  return `Olá ${wa.nome}! 👋 Fiz o Quiz do Sono da Castor e preciso de uma indicação personalizada 🛏️\n\n📊 Meu perfil:\n• Durmo: ${pos[a.posicao as keyof typeof pos]}\n• Peso: ${pes[a.peso as keyof typeof pes]}\n• Problema: ${que[a.queixa as keyof typeof que]}\n\n💡 O quiz indicou: *${rec.modelo}*\n\nPode me ajudar a finalizar a escolha?`;
-}
-
-function SleepQuiz({ cfg }: { cfg: LPConfig }) {
-  const [step, setStep] = useState<QuizStep>("posicao");
-  const [answers, setAnswers] = useState<Partial<QuizAnswers>>({});
-  const wa = cfg.waAlt ?? cfg.wa;
-  const rec = answers.posicao && answers.peso && answers.queixa
-    ? getRecomendacao(answers as QuizAnswers) : null;
-  const progress = { posicao: 0, peso: 33, queixa: 66, resultado: 100 }[step];
-
-  const sv = { initial: { opacity: 0, x: 32 }, animate: { opacity: 1, x: 0 }, exit: { opacity: 0, x: -32 } };
-
+function MapaSonoSection({ onOpen }: { onOpen: () => void }) {
   return (
-    <section id="quiz" className="py-20 bg-slate-50">
+    <section id="mapa-sono" className="py-20 bg-slate-50">
       <div className="max-w-2xl mx-auto px-4">
-        <motion.div initial={{ opacity: 0, y: 20 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} className="text-center mb-10">
-          <p className={`${cfg.accentClasses.text} font-bold text-sm uppercase tracking-wider mb-2`}>Diagnóstico gratuito · 60 segundos</p>
-          <h2 className="text-3xl font-black text-slate-900 mb-2">{cfg.quizTitle}</h2>
-          <p className="text-slate-500">{cfg.quizSub}</p>
-        </motion.div>
+        <motion.div
+          initial={{ opacity: 0, y: 24 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          viewport={{ once: true }}
+          className="rounded-3xl overflow-hidden shadow-2xl"
+          style={{ background: "linear-gradient(155deg, #6B0E1E 0%, #8B1428 100%)" }}
+        >
+          <div className="px-8 py-10 text-center">
+            <div className="w-14 h-14 rounded-2xl bg-white/10 flex items-center justify-center mx-auto mb-5">
+              <Moon className="w-7 h-7 text-white" />
+            </div>
+            <p className="text-white/50 text-[11px] font-bold tracking-[0.25em] uppercase mb-3">
+              Diagnóstico personalizado · gratuito
+            </p>
+            <h2 className="text-white text-3xl font-black leading-snug mb-3">
+              Mapa do Sono
+            </h2>
+            <p className="text-white/70 text-[15px] leading-relaxed mb-8 max-w-md mx-auto">
+              13 perguntas precisas. Motor de recomendação baseado em pesquisas do INER. Resultado entregue direto no WhatsApp — com o colchão certo para o seu corpo.
+            </p>
 
-        <div className="bg-white rounded-3xl border border-slate-200 shadow-xl overflow-hidden">
-          <div className="h-1.5 bg-slate-100">
-            <motion.div className={`h-full ${cfg.accentClasses.bg}`} animate={{ width: `${progress}%` }} transition={{ duration: 0.4 }} />
+            <div className="flex flex-col sm:flex-row gap-3 justify-center mb-6">
+              {[
+                "13 perguntas — só cliques",
+                "Resultado no WhatsApp",
+                "Atendimento imediato",
+              ].map(item => (
+                <div key={item} className="flex items-center gap-2 bg-white/8 rounded-full px-3 py-2 justify-center">
+                  <svg className="w-3.5 h-3.5 text-white/70 shrink-0" fill="none" viewBox="0 0 12 12" stroke="currentColor" strokeWidth={2.5} strokeLinecap="round">
+                    <polyline points="1.5,6 4.5,9 10.5,3" />
+                  </svg>
+                  <span className="text-white/70 text-[12px] font-medium whitespace-nowrap">{item}</span>
+                </div>
+              ))}
+            </div>
+
+            <motion.button
+              whileTap={{ scale: 0.97 }}
+              whileHover={{ scale: 1.02 }}
+              onClick={onOpen}
+              className="inline-flex items-center gap-2.5 bg-white font-black text-[15px] px-8 py-4 rounded-2xl shadow-lg shadow-black/20 transition-all"
+              style={{ color: "#6B0E1E" }}
+            >
+              <Moon className="w-5 h-5" />
+              Iniciar Mapa do Sono
+              <ChevronRight className="w-4 h-4" />
+            </motion.button>
           </div>
-          <div className="p-8">
-            <AnimatePresence mode="wait">
-              {step === "posicao" && (
-                <motion.div key="pos" {...sv} transition={{ duration: 0.22 }}>
-                  <p className="text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-1">Passo 1 de 3</p>
-                  <h3 className="text-xl font-black text-slate-900 mb-6">Como você prefere dormir?</h3>
-                  <div className="grid grid-cols-3 gap-3">
-                    {POSICAO_OPTS.map(o => (
-                      <button key={o.id} onClick={() => { setAnswers({ posicao: o.id }); setStep("peso"); }}
-                        className="flex flex-col items-center gap-2 p-4 rounded-2xl border-2 border-slate-200 hover:border-slate-400 hover:shadow-md transition-all active:scale-95">
-                        <span className="text-3xl">{o.emoji}</span>
-                        <span className="font-bold text-slate-800 text-sm">{o.label}</span>
-                        <span className="text-xs text-slate-400">{o.sub}</span>
-                      </button>
-                    ))}
-                  </div>
-                </motion.div>
-              )}
-              {step === "peso" && (
-                <motion.div key="pes" {...sv} transition={{ duration: 0.22 }}>
-                  <p className="text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-1">Passo 2 de 3</p>
-                  <h3 className="text-xl font-black text-slate-900 mb-6">Qual é o seu peso aproximado?</h3>
-                  <div className="grid grid-cols-2 gap-3">
-                    {PESO_OPTS.map(o => (
-                      <button key={o.id} onClick={() => { setAnswers(p => ({ ...p, peso: o.id })); setStep("queixa"); }}
-                        className="flex items-center gap-3 p-4 rounded-2xl border-2 border-slate-200 hover:border-slate-400 hover:shadow-md transition-all active:scale-95">
-                        <span className="text-2xl">{o.emoji}</span>
-                        <span className="font-bold text-slate-800">{o.label}</span>
-                      </button>
-                    ))}
-                  </div>
-                </motion.div>
-              )}
-              {step === "queixa" && (
-                <motion.div key="que" {...sv} transition={{ duration: 0.22 }}>
-                  <p className="text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-1">Passo 3 de 3</p>
-                  <h3 className="text-xl font-black text-slate-900 mb-6">Qual é seu maior problema ao dormir?</h3>
-                  <div className="grid grid-cols-2 gap-3">
-                    {QUEIXA_OPTS.map(o => (
-                      <button key={o.id} onClick={() => {
-                        const next = { ...answers, queixa: o.id } as QuizAnswers;
-                        setAnswers(next);
-                        setStep("resultado");
-                        pushEvent("lp_quiz_completo", { loja: cfg.wa.loja, queixa: o.id });
-                      }}
-                        className="flex items-center gap-3 p-4 rounded-2xl border-2 border-slate-200 hover:border-slate-400 hover:shadow-md transition-all active:scale-95 text-left">
-                        <span className="text-2xl">{o.emoji}</span>
-                        <div>
-                          <p className="font-bold text-slate-800 text-sm">{o.label}</p>
-                          <p className="text-xs text-slate-400">{o.sub}</p>
-                        </div>
-                      </button>
-                    ))}
-                  </div>
-                </motion.div>
-              )}
-              {step === "resultado" && rec && (
-                <motion.div key="res" {...sv} transition={{ duration: 0.28 }}>
-                  <div className="text-center mb-6">
-                    <div className="w-16 h-16 rounded-2xl bg-green-100 flex items-center justify-center mx-auto mb-4">
-                      <CheckCircle className="w-8 h-8 text-green-600" />
-                    </div>
-                    <p className="text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-1">Diagnóstico concluído!</p>
-                    <h3 className="text-xl font-black text-slate-900 mb-2">Colchão ideal para você:</h3>
-                    <div className={`inline-block ${cfg.accentClasses.bgLight} ${cfg.accentClasses.text} font-black text-lg px-6 py-3 rounded-2xl mt-1 mb-3`}>
-                      {rec.modelo}
-                    </div>
-                    <p className="text-slate-500 text-sm">{rec.motivo}</p>
-                  </div>
-                  <a
-                    href={waLink(wa, buildQuizMsg(answers as QuizAnswers, rec, wa))}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    onClick={() => trackWhatsAppClick("lp_quiz", wa.loja)}
-                    className="flex items-center justify-center gap-2 w-full bg-green-500 hover:bg-green-400 text-white font-extrabold px-6 py-4 rounded-2xl transition-all shadow-lg shadow-green-900/20 active:scale-95 text-base mb-3"
-                  >
-                    <MessageCircle className="w-5 h-5" />
-                    Falar com {wa.nome} sobre o {rec.modelo}
-                  </a>
-                  <p className="text-center text-slate-400 text-xs mb-4">Resposta imediata · {wa.tel}</p>
-                  <button onClick={() => { setStep("posicao"); setAnswers({}); }}
-                    className="block mx-auto text-slate-400 hover:text-slate-600 text-xs underline transition-colors">
-                    Refazer o quiz
-                  </button>
-                </motion.div>
-              )}
-            </AnimatePresence>
-          </div>
-        </div>
+        </motion.div>
       </div>
     </section>
   );
@@ -823,6 +727,7 @@ function ProductShowcase({ cfg }: { cfg: LPConfig }) {
 
 export default function LPTemplate({ cfg }: { cfg: LPConfig }) {
   const [scarcityDismissed, setScarcityDismissed] = useState(false);
+  const [showMapa, setShowMapa] = useState(false);
   const viewerCount = useViewerCount();
   const { show: exitShow, dismiss: exitDismiss } = useExitIntent(true);
 
@@ -931,10 +836,12 @@ export default function LPTemplate({ cfg }: { cfg: LPConfig }) {
                   <MessageCircle className="w-5 h-5" />{cfg.ctaLabel}
                   <ArrowRight className="w-4 h-4 group-hover:translate-x-0.5 transition-transform" />
                 </a>
-                <a href="#quiz"
-                  className="flex items-center justify-center gap-2 bg-white/10 hover:bg-white/20 border border-white/20 text-white font-bold px-8 py-4 rounded-2xl transition-all text-base">
-                  <Moon className="w-5 h-5" /> Quiz do sono grátis
-                </a>
+                <button
+                  onClick={() => setShowMapa(true)}
+                  className="flex items-center justify-center gap-2 bg-white/10 hover:bg-white/20 border border-white/20 text-white font-bold px-8 py-4 rounded-2xl transition-all text-base active:scale-95"
+                >
+                  <Moon className="w-5 h-5" /> Mapa do Sono grátis
+                </button>
               </div>
 
               <p className="text-white/40 text-xs text-center lg:text-left">{cfg.ctaSubtext}</p>
@@ -1017,8 +924,8 @@ export default function LPTemplate({ cfg }: { cfg: LPConfig }) {
       {/* ── GUARANTEE ───────────────────────────────────────────────────────── */}
       <GuaranteeStrip text={cfg.garantiaText} />
 
-      {/* ── QUIZ ────────────────────────────────────────────────────────────── */}
-      <SleepQuiz cfg={cfg} />
+      {/* ── MAPA DO SONO ─────────────────────────────────────────────────── */}
+      <MapaSonoSection onOpen={() => setShowMapa(true)} />
 
       {/* ── REVIEWS ─────────────────────────────────────────────────────────── */}
       <ReviewsCarousel cfg={cfg} />
@@ -1078,6 +985,9 @@ export default function LPTemplate({ cfg }: { cfg: LPConfig }) {
       <AnimatePresence>
         {exitShow && <ExitIntentPopup cfg={cfg} onClose={exitDismiss} />}
       </AnimatePresence>
+
+      {/* ── MAPA DO SONO MODAL ───────────────────────────────────────────────── */}
+      <MapaSonoModal open={showMapa} onClose={() => setShowMapa(false)} />
     </div>
   );
 }
