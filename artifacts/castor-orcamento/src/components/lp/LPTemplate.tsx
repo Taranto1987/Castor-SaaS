@@ -1008,8 +1008,8 @@ export default function LPTemplate({ cfg }: { cfg: LPConfig }) {
         </div>
       </section>
 
-      {/* ── SLEEP SCIENCE ───────────────────────────────────────────────────── */}
-      <SleepScienceSection imageSrc={cfg.images?.sleepScience} />
+      {/* ── SLEEP SCIENCE — aparece só quando a foto estiver configurada ─────── */}
+      {cfg.images?.sleepScience && <SleepScienceSection imageSrc={cfg.images.sleepScience} />}
 
       {/* ── PRODUCT IMAGES ──────────────────────────────────────────────────── */}
       <ProductShowcase cfg={cfg} />
