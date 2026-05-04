@@ -1,1065 +1,899 @@
 import { useState, useRef, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
-  ChevronLeft, ChevronRight, MessageCircle, RotateCcw,
-  Package, User, BedDouble, Activity, Thermometer, Users, Layers,
-  Scale, Ruler, Calendar, Wind, Clock, History, MapPin, Moon, ShoppingCart,
+  ShoppingCart, Users, Calendar, Ruler, Scale,
+  Cloud, BedDouble, Activity, Thermometer, Maximize2,
+  RefreshCw, Star, ChevronLeft, ChevronRight,
+  MessageCircle, User, Home, Check, Zap, Heart,
+  Shield, Clock, Package, Layers, Phone,
 } from "lucide-react";
-import { cn } from "@/lib/utils";
-import { trackMapaSonoCompleto, trackWhatsAppClick, trackPageView } from "@/lib/tracking";
+import { trackWhatsAppClick } from "@/lib/tracking";
 
-const WA_CABO_FRIO = { numero: "5522992410112", contato: "ThallesZzz", loja: "Cabo Frio" };
-const WA_ARARUAMA  = { numero: "5522988447240", contato: "Marcela",    loja: "Araruama" };
-const CIDADES_ARARUAMA = ["araruama", "saquarema", "iguaba grande", "maricá", "silva jardim"];
+export interface MapaSonoProps { embedded?: boolean; }
 
-const C_DARK = "#6B0E1E";
-const C_MID  = "#8B1428";
-const C_RED  = "#C41230";
+// ── Design tokens ──────────────────────────────────────────────────────────────
+const BG     = "#0c0c0c";
+const CARD   = "#140000";
+const BORDER = "#2a0808";
+const RED    = "#C41230";
 
-// ─── TYPES ───────────────────────────────────────────────────────────────────
+// ── Types ──────────────────────────────────────────────────────────────────────
+type Phase = "welcome" | "quiz" | "mid_loading" | "capture" | "analyzing" | "result";
 
-interface ProdutoCatalogo {
-  id: number;
-  nome: string;
-  categoria: string;
-  precoPix?: string | null;
-  precoPrazo?: string | null;
-}
-
-interface UserProfile {
+interface Answers {
   finalidade?: string;
-  biotipo?: string;
+  casal?: string;
+  frequencia?: string;
+  altura?: number;
+  peso?: number;
+  firmeza?: string;
   posicao?: string;
   dores?: string[];
   temperatura?: string;
-  casal?: string;
-  firmeza?: string;
-  peso?: string;
-  altura?: string;
-  idade?: string;
-  alergia?: string;
-  durabilidade?: string;
-  historico?: string;
+  tamanho?: string;
+  substituicao?: string;
+  prioridade?: string;
 }
 
-interface Resultado {
-  estrutura: "MOLA" | "ESPUMA";
-  firmeza: string;
-  perfil: string;
-  justificativa: string;
-  confianca: number;
-  tecnologias: string[];
-  estrategia: { continuidade: boolean; migracao: boolean; upgrade: boolean };
+interface Opt { value: string; label: string; Icon: React.ElementType; }
+
+interface QStep {
+  id: keyof Answers;
+  question: string;
+  subtitle?: string;
+  StepIcon: React.ElementType;
+  type: "single" | "multi" | "height" | "weight";
+  options?: Opt[];
+  grid2?: boolean;
+  min?: number; max?: number; defaultVal?: number;
 }
 
-interface Opcao { label: string; value: string; desc?: string; }
-
-interface SliderConfig {
-  min: number; max: number; step: number; defaultValue: number;
-  unit: string;
-  format: (v: number) => string;
-  toProfileValue: (v: number) => string;
-}
-
-interface Step {
-  id: keyof UserProfile;
-  pergunta: string;
-  subtitulo: string;
-  icon: React.ElementType;
-  tipo: "single" | "multi" | "slider";
-  opcoes: Opcao[];
-  slider?: SliderConfig;
-}
-
-// ─── STEPS ───────────────────────────────────────────────────────────────────
-
-const STEPS: Step[] = [
+// ── Steps ──────────────────────────────────────────────────────────────────────
+const STEPS: QStep[] = [
   {
-    id: "finalidade", icon: Package,
-    pergunta: "Para qual uso é o colchão?",
-    subtitulo: "Selecione a opção que melhor descreve sua necessidade.",
-    tipo: "single",
-    opcoes: [
-      { label: "Uso diário",    desc: "Casa principal — dormida todos os dias", value: "diario"    },
-      { label: "Casa de praia", desc: "Temporada ou fim de semana",             value: "praia"     },
-      { label: "Uso ocasional", desc: "Quarto de hóspedes ou extra",            value: "ocasional" },
+    id: "finalidade", StepIcon: ShoppingCart, type: "single",
+    question: "O que você está procurando?",
+    subtitle: "Isso nos ajuda a direcionar a recomendação certa para você.",
+    options: [
+      { value: "colchao",      label: "Colchão",              Icon: BedDouble       },
+      { value: "box",          label: "Cama box completa",    Icon: Package         },
+      { value: "recomendacao", label: "Quero recomendação",   Icon: MessageCircle   },
     ],
   },
   {
-    id: "casal", icon: Users,
-    pergunta: "Para quem é o colchão?",
-    subtitulo: "",
-    tipo: "single",
-    opcoes: [
-      { label: "Só para mim",              desc: "Uso individual",                          value: "sozinho"         },
-      { label: "Casal — pesos parecidos",  desc: "Diferença menor que 20 kg entre os dois", value: "casal_similar"   },
-      { label: "Casal — pesos diferentes", desc: "Diferença maior que 20 kg",               value: "casal_diferente" },
-      { label: "Com filho(s) pequeno(s)",  desc: "Criança dorme na mesma cama às vezes",    value: "familia"         },
+    id: "casal", StepIcon: Users, type: "single",
+    question: "Para quem é o colchão?",
+    options: [
+      { value: "sozinho", label: "Só para mim",      Icon: User  },
+      { value: "casal",   label: "Para um casal",    Icon: Users },
+      { value: "hospede", label: "Para hóspede",     Icon: Home  },
     ],
   },
   {
-    id: "biotipo", icon: User,
-    pergunta: "Como você descreveria seu biotipo?",
-    subtitulo: "Isso determina o suporte correto para o seu corpo.",
-    tipo: "single",
-    opcoes: [
-      { label: "Leve",   desc: "Até 60 kg",        value: "leve"   },
-      { label: "Médio",  desc: "Entre 60 e 90 kg",  value: "medio"  },
-      { label: "Pesado", desc: "Acima de 90 kg",    value: "pesado" },
+    id: "frequencia", StepIcon: Calendar, type: "single",
+    question: "Qual a frequência de uso?",
+    options: [
+      { value: "diario",    label: "Uso diário",               Icon: Zap      },
+      { value: "semanal",   label: "Algumas vezes na semana",  Icon: Calendar },
+      { value: "esporadico",label: "Uso esporádico",           Icon: Clock    },
     ],
   },
   {
-    id: "altura", icon: Ruler,
-    pergunta: "Qual é a sua altura?",
-    subtitulo: "Arraste o controle para selecionar.",
-    tipo: "slider",
-    opcoes: [],
-    slider: {
-      min: 140, max: 210, step: 1, defaultValue: 170,
-      unit: "m",
-      format: (v) => `${(v / 100).toFixed(2).replace(".", ",")} m`,
-      toProfileValue: (v) => v < 160 ? "ate160" : v <= 175 ? "160a175" : v <= 190 ? "175a190" : "acima190",
-    },
+    id: "altura", StepIcon: Ruler, type: "height",
+    question: "Qual a sua altura?",
+    subtitle: "Informe sua altura",
+    min: 140, max: 210, defaultVal: 170,
   },
   {
-    id: "peso", icon: Scale,
-    pergunta: "Qual é o seu peso aproximado?",
-    subtitulo: "Para calcular a densidade correta do colchão.",
-    tipo: "slider",
-    opcoes: [],
-    slider: {
-      min: 40, max: 150, step: 1, defaultValue: 70,
-      unit: "kg",
-      format: (v) => `${v} kg`,
-      toProfileValue: (v) => v < 50 ? "ate50" : v < 70 ? "50a70" : v < 90 ? "70a90" : v < 110 ? "90a110" : "acima110",
-    },
+    id: "peso", StepIcon: Scale, type: "weight",
+    question: "Qual o seu peso?",
+    subtitle: "Informe seu peso",
+    min: 40, max: 150, defaultVal: 75,
   },
   {
-    id: "posicao", icon: BedDouble,
-    pergunta: "Qual posição você mais dorme?",
-    subtitulo: "A posição influencia diretamente na firmeza ideal.",
-    tipo: "single",
-    opcoes: [
-      { label: "De lado",                   desc: "Posição fetal ou semi-fetal",        value: "lado"    },
-      { label: "De costas",                  desc: "Posição supina / barriga para cima", value: "costas"  },
-      { label: "De bruços",                  desc: "Barriga voltada para baixo",         value: "brucos"  },
-      { label: "Mudo muito durante a noite", desc: "Posição varia ao longo da noite",    value: "variado" },
+    id: "firmeza", StepIcon: Cloud, type: "single",
+    question: "Qual o seu nível de conforto preferido?",
+    options: [
+      { value: "macio",         label: "Mais macio",      Icon: Cloud  },
+      { value: "intermediario", label: "Intermediário",   Icon: Layers },
+      { value: "firme",         label: "Mais firme",      Icon: Shield },
     ],
   },
   {
-    id: "firmeza", icon: Layers,
-    pergunta: "Qual firmeza você prefere?",
-    subtitulo: "Considere seu conforto subjetivo, não só a saúde.",
-    tipo: "single",
-    opcoes: [
-      { label: "Muito firme", desc: "Gosto de sentir resistência ao deitar",   value: "muito_firme" },
-      { label: "Firme",        desc: "Suporte bom sem ser duro",                value: "firme"       },
-      { label: "Médio",        desc: "Equilíbrio entre firmeza e conforto",    value: "medio"       },
-      { label: "Macio",        desc: "Afundo um pouco — gosto de ser abraçado", value: "macio"       },
+    id: "posicao", StepIcon: BedDouble, type: "single",
+    question: "Qual posição você mais dorme?",
+    options: [
+      { value: "lado",    label: "De lado",            Icon: Activity  },
+      { value: "costas",  label: "De costas",          Icon: User      },
+      { value: "barriga", label: "De barriga",         Icon: Heart     },
+      { value: "variado", label: "Varia de posição",   Icon: RefreshCw },
     ],
   },
   {
-    id: "temperatura", icon: Thermometer,
-    pergunta: "Você sente calor ao dormir?",
-    subtitulo: "A regulação térmica interfere na qualidade do sono.",
-    tipo: "single",
-    opcoes: [
-      { label: "Esquento muito",     desc: "Sudo fácil ou acordo com calor",     value: "quente" },
-      { label: "Temperatura normal", desc: "Não tenho problema com temperatura", value: "normal" },
-      { label: "Tenho frio",         desc: "Preciso de cobertor mesmo no verão", value: "frio"   },
+    id: "dores", StepIcon: Activity, type: "multi",
+    question: "Você sente alguma dor com frequência?",
+    options: [
+      { value: "lombar",  label: "Lombar",    Icon: Zap      },
+      { value: "coluna",  label: "Coluna",    Icon: Activity },
+      { value: "ombro",   label: "Ombro",     Icon: User     },
+      { value: "nenhuma", label: "Nenhuma",   Icon: Check    },
     ],
   },
   {
-    id: "dores", icon: Activity,
-    pergunta: "Você sente alguma dor com frequência?",
-    subtitulo: "Pode marcar mais de uma opção.",
-    tipo: "multi",
-    opcoes: [
-      { label: "Não sinto dores",               value: "nenhuma" },
-      { label: "Costas / Coluna",               desc: "Lombar ou torácica",            value: "coluna"  },
-      { label: "Quadril",                        desc: "Lateral ou glúteos",            value: "quadril" },
-      { label: "Ombros / Pescoço",               desc: "Cervical e membros superiores", value: "ombros"  },
-      { label: "Pressão nos pontos de contato",  desc: "Formigamento ou dormência",     value: "pressao" },
+    id: "temperatura", StepIcon: Thermometer, type: "single",
+    question: "Você sente calor ao dormir?",
+    options: [
+      { value: "sim", label: "Sim", Icon: Thermometer },
+      { value: "nao", label: "Não", Icon: Cloud        },
     ],
   },
   {
-    id: "alergia", icon: Wind,
-    pergunta: "Você tem alguma sensibilidade?",
-    subtitulo: "Fundamental para indicar o tecido e tratamento certo.",
-    tipo: "single",
-    opcoes: [
-      { label: "Não tenho alergias", value: "nenhuma" },
-      { label: "Rinite ou Asma",      desc: "Sensibilidade a pó ou ácaro",   value: "rinite"  },
-      { label: "Pele sensível",       desc: "Reação a tecidos ou materiais", value: "pele"    },
-      { label: "Não sei ao certo",    value: "nao_sei" },
+    id: "tamanho", StepIcon: Maximize2, type: "single", grid2: true,
+    question: "Qual o tamanho desejado?",
+    options: [
+      { value: "solteiro", label: "Solteiro", Icon: User     },
+      { value: "casal",    label: "Casal",    Icon: Users    },
+      { value: "queen",    label: "Queen",    Icon: BedDouble },
+      { value: "king",     label: "King",     Icon: Star     },
     ],
   },
   {
-    id: "durabilidade", icon: Clock,
-    pergunta: "Por quanto tempo quer que dure?",
-    subtitulo: "Isso define a densidade e a estrutura mais indicadas.",
-    tipo: "single",
-    opcoes: [
-      { label: "Curto prazo",  desc: "1 a 3 anos de uso",   value: "curto" },
-      { label: "Médio prazo",  desc: "3 a 7 anos de uso",   value: "medio" },
-      { label: "Longo prazo",  desc: "7 a 10+ anos de uso", value: "longo" },
+    id: "substituicao", StepIcon: RefreshCw, type: "single",
+    question: "Você está substituindo seu colchão atual?",
+    options: [
+      { value: "sim", label: "Sim, vou substituir",    Icon: RefreshCw },
+      { value: "nao", label: "Não, é uma compra nova", Icon: Package   },
     ],
   },
   {
-    id: "idade", icon: Calendar,
-    pergunta: "Qual é a sua faixa de idade?",
-    subtitulo: "Necessidades de suporte articular variam com a idade.",
-    tipo: "single",
-    opcoes: [
-      { label: "Até 18 anos",      desc: "Jovem em crescimento",              value: "menor18" },
-      { label: "18 a 35 anos",     desc: "Adulto jovem — ativo",              value: "18a35"   },
-      { label: "35 a 55 anos",     desc: "Adulto — foco em recuperação",      value: "35a55"   },
-      { label: "Acima de 55 anos", desc: "Maior atenção ao conforto articular", value: "acima55" },
-    ],
-  },
-  {
-    id: "historico", icon: History,
-    pergunta: "Qual é o seu colchão atual?",
-    subtitulo: "Saber de onde você vem ajuda a calibrar a transição.",
-    tipo: "single",
-    opcoes: [
-      { label: "Colchão de mola",               value: "mola"    },
-      { label: "Espuma ou viscoelástico",        value: "espuma"  },
-      { label: "Cama de madeira / estrado",      value: "madeira" },
-      { label: "Nunca tive colchão de qualidade", value: "nenhum" },
+    id: "prioridade", StepIcon: Star, type: "single",
+    question: "O que é mais importante para você?",
+    subtitle: "Isso nos ajuda a encontrar o colchão perfeito.",
+    options: [
+      { value: "conforto",     label: "Conforto máximo",  Icon: Heart  },
+      { value: "durabilidade", label: "Durabilidade",     Icon: Shield },
+      { value: "custo",        label: "Custo-benefício",  Icon: Star   },
     ],
   },
 ];
 
-const STEP_OPTION_SET = STEPS.reduce((acc, step) => {
-  if (step.tipo !== "slider") acc[step.id] = new Set(step.opcoes.map(o => o.value));
-  return acc;
-}, {} as Partial<Record<keyof UserProfile, Set<string>>>);
+const TOTAL = STEPS.length;
+const MID_AFTER = 4; // show mid-loading after step index 4 (peso)
 
-// ─── VALIDATION ──────────────────────────────────────────────────────────────
+// ── Recommendation engine ──────────────────────────────────────────────────────
+function computeResult(a: Answers) {
+  const peso = a.peso ?? 75;
+  const alt  = a.altura ?? 170;
+  const imc  = peso / ((alt / 100) ** 2);
 
-function validarPerfil(p: UserProfile): string | null {
-  for (const step of STEPS) {
-    const valor = p[step.id];
-    if (step.tipo === "slider") {
-      if (typeof valor !== "string" || valor.length === 0) return `Responda: ${step.pergunta}`;
-    } else if (step.tipo === "multi") {
-      if (!Array.isArray(valor) || valor.length === 0) return `Responda: ${step.pergunta}`;
-      if (valor.some(v => !STEP_OPTION_SET[step.id]?.has(v))) return `Resposta inválida: ${step.pergunta}`;
-    } else {
-      if (typeof valor !== "string" || !STEP_OPTION_SET[step.id]?.has(valor)) return `Responda: ${step.pergunta}`;
-    }
-  }
-  return null;
-}
+  let firmeza = "Intermediário";
+  if (imc >= 28 || a.posicao === "costas") firmeza = "Firme";
+  if (imc < 22 && a.posicao !== "costas") firmeza = "Macio";
+  if (a.firmeza === "macio"  && firmeza !== "Firme") firmeza = "Macio";
+  if (a.firmeza === "firme") firmeza = "Firme";
 
-// ─── SCORING ENGINE ──────────────────────────────────────────────────────────
+  const dores = a.dores ?? [];
+  if (dores.some(d => ["lombar", "coluna"].includes(d)) && firmeza === "Macio") firmeza = "Intermediário";
 
-function calcularResultado(p: UserProfile): Resultado {
-  let scoreMola = 0; let scoreEspuma = 0;
-
-  if (p.biotipo === "pesado") scoreMola += 3;
-  else if (p.biotipo === "medio") scoreMola += 1;
-  else scoreEspuma += 1;
-
-  if (p.finalidade === "praia") scoreMola += 2;
-  if (p.finalidade === "diario") scoreMola += 1;
-  if (p.temperatura === "quente") scoreMola += 2;
-  else if (p.temperatura === "frio") scoreEspuma += 1;
-
-  if (p.casal === "casal_diferente" || p.casal === "casal_similar") scoreMola += 2;
-  if (p.casal === "familia") scoreMola += 1;
-  if (p.durabilidade === "longo") scoreMola += 2;
-  else if (p.durabilidade === "medio") scoreMola += 1;
-
-  const dores = Array.isArray(p.dores) ? p.dores : [];
-  if (dores.includes("coluna") || dores.includes("quadril") || dores.includes("pressao")) scoreEspuma += 2;
-  if (dores.includes("ombros")) scoreEspuma += 1;
-  if (p.firmeza === "muito_firme" || p.firmeza === "firme") scoreMola += 1;
-  if (p.firmeza === "macio") scoreEspuma += 2;
-  if (p.idade === "acima55") scoreEspuma += 2;
-  if (p.idade === "menor18" || p.idade === "18a35") scoreMola += 1;
-  if (p.alergia === "rinite") scoreEspuma += 2;
-  if (p.alergia === "pele") scoreEspuma += 1;
-  if (p.posicao === "lado" || p.posicao === "brucos") scoreEspuma += 1;
-
-  const estrategia = { continuidade: false, migracao: false, upgrade: false };
-  if (p.historico === "mola")   { scoreMola   += 2; estrategia.continuidade = true; }
-  if (p.historico === "espuma") { scoreEspuma += 1; estrategia.continuidade = true; }
-  if (p.historico === "madeira"){ scoreEspuma += 3; estrategia.migracao     = true; }
-  if (p.historico === "nenhum") { scoreMola   += 1; estrategia.upgrade      = true; }
-
-  const estrutura: "MOLA" | "ESPUMA" = scoreMola >= scoreEspuma ? "MOLA" : "ESPUMA";
-
-  let firmeza = "Médio";
-  if (p.firmeza === "muito_firme") firmeza = "Extra Firme";
-  else if (p.firmeza === "firme")  firmeza = "Firme";
-  else if (p.firmeza === "macio")  firmeza = "Macio";
-
-  const finalidadeLabel: Record<string, string> = { diario: "uso diário", praia: "casa de praia", ocasional: "uso ocasional" };
-  const perfil = `${p.biotipo === "pesado" ? "Pessoa pesada" : p.biotipo === "medio" ? "Biotipo médio" : "Pessoa leve"}, ${finalidadeLabel[p.finalidade ?? ""] ?? ""}`;
-
-  const justificativas: string[] = [];
-  const tecnologias: string[] = [];
-
-  if (estrutura === "MOLA") {
-    if (p.temperatura === "quente") { justificativas.push("a ventilação natural das molas mantém o corpo na temperatura ideal de 18–22°C para sono REM (Stanford Sleep Center)"); tecnologias.push("Fresh Comfort Gel®"); }
-    if (p.biotipo === "pesado")     { justificativas.push("as molas Tecnopedic® de aço temperado eletronicamente garantem suporte real para seu biotipo, sem afundamento precoce (INER)"); tecnologias.push("Molas Tecnopedic®"); }
-    if (p.casal?.includes("casal")) { justificativas.push("o sistema Pocket® pré-comprimido elimina a transferência de movimento — se um se mexe, o outro não sente"); tecnologias.push("Pocket® Autêntico"); }
-    if (p.durabilidade === "longo") { justificativas.push("o sistema Double Face permite girar o colchão, aumentando a vida útil em até 50% — projetado para 10+ anos"); tecnologias.push("Double Face"); }
-    if (!tecnologias.includes("Pocket® Autêntico")) tecnologias.push("Pocket® Autêntico");
-  } else {
-    if (dores.length > 0 && !dores.includes("nenhuma")) { justificativas.push("firmeza média comprovada como superior para dores lombares e de quadril em estudo publicado pela The Lancet"); tecnologias.push("Selo Pró-Espuma INER"); }
-    if (p.alergia === "rinite" || p.alergia === "pele") { justificativas.push("o tratamento Actigard® elimina permanentemente ácaros, fungos e bactérias — essencial para saúde respiratória"); tecnologias.push("Actigard® Anti-ácaros"); }
-    if (p.posicao === "lado" || p.posicao === "brucos") { justificativas.push("o Pillow Top reduz pontos de pressão em ombros e quadris, diminuindo o giro na cama em até 80%"); tecnologias.push("Pillow Top"); }
-    if (p.idade === "acima55")      { justificativas.push("conforto articular certificado pelo INER com densidade real garantida — D33 a D45 sem carga mineral"); tecnologias.push("Densidade Real INER"); }
-    if (p.temperatura === "quente") { justificativas.push("espuma com células abertas + partículas de gel dissipam o calor corporal durante o sono"); tecnologias.push("Fresh Comfort Gel®"); }
-    if (tecnologias.length === 0) tecnologias.push("Selo Pró-Espuma INER");
-  }
-
-  const justificativa = justificativas.length > 0
-    ? justificativas.slice(0, 2).join("; ") + "."
-    : "perfil equilibrado com boa relação custo-benefício certificada pelo INER.";
-
-  const total = scoreMola + scoreEspuma;
-  const dominant = Math.max(scoreMola, scoreEspuma);
-  const confianca = Math.round(70 + (total === 0 ? 0.75 : dominant / total) * 29);
-
-  return { estrutura, firmeza, perfil, justificativa, confianca, tecnologias, estrategia };
-}
-
-function gerarMensagemWA(p: UserProfile, r: Resultado, contato: string): string {
-  const labels: Record<string, Record<string, string>> = {
-    finalidade:  { diario: "Uso diário", praia: "Casa de praia", ocasional: "Uso ocasional" },
-    biotipo:     { leve: "Leve (até 60kg)", medio: "Médio (60–90kg)", pesado: "Pesado (+90kg)" },
-    posicao:     { lado: "De lado", costas: "De costas", brucos: "De bruços", variado: "Varia" },
-    temperatura: { quente: "Esquento muito", normal: "Normal", frio: "Tenho frio" },
-    casal:       { sozinho: "Sozinho(a)", casal_similar: "Casal (pesos similares)", casal_diferente: "Casal (pesos diferentes)", familia: "Com filhos" },
-    firmeza:     { muito_firme: "Muito firme", firme: "Firme", medio: "Médio", macio: "Macio" },
-    alergia:     { nenhuma: "Nenhuma", rinite: "Rinite/Asma", pele: "Pele sensível", nao_sei: "Não sei" },
-    durabilidade:{ curto: "1–3 anos", medio: "3–7 anos", longo: "7–10+ anos" },
-    historico:   { mola: "Mola", espuma: "Espuma", madeira: "Madeira/estrado", nenhum: "Não tive" },
-  };
-  const get = (key: keyof UserProfile, val?: string) => val ? (labels[key]?.[val] ?? val) : "—";
-  const doresLabel = Array.isArray(p.dores) && !p.dores.includes("nenhuma")
-    ? p.dores.map(d => ({ coluna: "Costas/coluna", quadril: "Quadril", ombros: "Ombros/pescoço", pressao: "Pressão" }[d] ?? d)).join(", ")
-    : "Nenhuma";
-  return `Olá, ${contato}! 👋 Acabei de preencher o *Mapa do Sono* e quero minha recomendação personalizada!\n\n📋 *Meu perfil completo:*\n• Finalidade: ${get("finalidade", p.finalidade)}\n• Biotipo: ${get("biotipo", p.biotipo)}\n• Posição ao dormir: ${get("posicao", p.posicao)}\n• Dores: ${doresLabel}\n• Temperatura: ${get("temperatura", p.temperatura)}\n• Uso: ${get("casal", p.casal)}\n• Firmeza preferida: ${get("firmeza", p.firmeza)}\n• Peso: ${p.peso ?? "—"} / Altura: ${p.altura ?? "—"}\n• Idade: ${p.idade ?? "—"}\n• Alergia: ${get("alergia", p.alergia)}\n• Durabilidade esperada: ${get("durabilidade", p.durabilidade)}\n• Histórico: ${get("historico", p.historico)}\n\n🎯 *Resultado do Mapa do Sono:*\nEstrutura recomendada: *${r.estrutura === "MOLA" ? "Mola Ensacada" : "Espuma / Viscoelástico"}*\nFirmeza ideal: *${r.firmeza}*\n\nQuero ver as opções disponíveis e saber o melhor preço! 🛏️\n\n💊 *Compatibilidade com meu perfil:* ${r.confianca}%\n🔧 *Tecnologias indicadas:* ${r.tecnologias.join(" · ")}\n\nTambém tenho interesse no *kit completo* (protetor de colchão + travesseiro)! 😊`;
-}
-
-// ─── SUB-COMPONENTS ──────────────────────────────────────────────────────────
-
-function RadioOption({ opcao, selected, onSelect }: { opcao: Opcao; selected: boolean; onSelect: () => void }) {
-  return (
-    <motion.button
-      whileTap={{ scale: 0.985 }}
-      onClick={onSelect}
-      className={cn(
-        "w-full flex items-center justify-between px-5 py-[18px] border-b border-slate-100 last:border-0 text-left transition-colors",
-        selected ? "bg-rose-50/70" : "bg-white active:bg-slate-50/80"
-      )}
-    >
-      <div className="flex-1 min-w-0 pr-4">
-        <p className={cn("text-[15px] font-semibold leading-snug", selected ? "text-[#6B0E1E]" : "text-slate-800")}>
-          {opcao.label}
-        </p>
-        {opcao.desc && (
-          <p className={cn("text-[12px] mt-0.5 leading-snug", selected ? "text-[#8B1428]/60" : "text-slate-400")}>
-            {opcao.desc}
-          </p>
-        )}
-      </div>
-      <div className={cn(
-        "w-[22px] h-[22px] rounded-full border-2 flex items-center justify-center shrink-0 transition-all duration-150",
-        selected ? "border-[#C41230]" : "border-slate-300"
-      )}>
-        {selected && (
-          <motion.div
-            initial={{ scale: 0 }}
-            animate={{ scale: 1 }}
-            transition={{ type: "spring", stiffness: 500, damping: 20 }}
-            className="w-[10px] h-[10px] rounded-full bg-[#C41230]"
-          />
-        )}
-      </div>
-    </motion.button>
-  );
-}
-
-function MultiOption({ opcao, selected, onToggle }: { opcao: Opcao; selected: boolean; onToggle: () => void }) {
-  return (
-    <motion.button
-      whileTap={{ scale: 0.985 }}
-      onClick={onToggle}
-      className={cn(
-        "w-full flex items-center justify-between px-5 py-[18px] border-b border-slate-100 last:border-0 text-left transition-colors",
-        selected ? "bg-rose-50/70" : "bg-white active:bg-slate-50/80"
-      )}
-    >
-      <div className="flex-1 min-w-0 pr-4">
-        <p className={cn("text-[15px] font-semibold leading-snug", selected ? "text-[#6B0E1E]" : "text-slate-800")}>
-          {opcao.label}
-        </p>
-        {opcao.desc && (
-          <p className={cn("text-[12px] mt-0.5 leading-snug", selected ? "text-[#8B1428]/60" : "text-slate-400")}>
-            {opcao.desc}
-          </p>
-        )}
-      </div>
-      <div className={cn(
-        "w-[22px] h-[22px] rounded-[6px] border-2 flex items-center justify-center shrink-0 transition-all duration-150",
-        selected ? "border-[#C41230] bg-[#C41230]" : "border-slate-300 bg-white"
-      )}>
-        {selected && (
-          <svg className="w-3 h-3 text-white" fill="none" viewBox="0 0 12 12" stroke="currentColor" strokeWidth={2.5} strokeLinecap="round">
-            <polyline points="1.5,6 4.5,9 10.5,3" />
-          </svg>
-        )}
-      </div>
-    </motion.button>
-  );
-}
-
-function SliderInput({ cfg, value, onChange }: { cfg: SliderConfig; value: number; onChange: (v: number) => void }) {
-  const pct = ((value - cfg.min) / (cfg.max - cfg.min)) * 100;
-  const formatted = cfg.format(value);
-  const parts = formatted.split(" ");
-  const numPart  = parts[0];
-  const unitPart = parts.slice(1).join(" ");
-
-  return (
-    <div className="flex flex-col items-center px-8 pt-10 pb-8">
-      <div className="text-center mb-10 select-none">
-        <motion.span
-          key={numPart}
-          initial={{ opacity: 0.5, y: 6 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.08 }}
-          className="text-[76px] font-black text-slate-900 leading-none tabular-nums"
-        >
-          {numPart}
-        </motion.span>
-        <span className="text-[26px] font-bold text-slate-400 ml-2">{unitPart}</span>
-      </div>
-
-      <div className="w-full">
-        <input
-          type="range"
-          min={cfg.min}
-          max={cfg.max}
-          step={cfg.step}
-          value={value}
-          onChange={e => onChange(Number(e.target.value))}
-          className="castor-slider w-full"
-          style={{
-            background: `linear-gradient(to right, ${C_RED} ${pct}%, #e5e7eb ${pct}%)`,
-          }}
-        />
-      </div>
-
-      <div className="flex justify-between w-full mt-3 text-xs text-slate-400 font-semibold">
-        <span>{cfg.format(cfg.min)}</span>
-        <span>{cfg.format(cfg.max)}</span>
-      </div>
-    </div>
-  );
-}
-
-function AnalyzingScreen() {
-  const checks = [
-    "Avaliando sua posição de sono",
-    "Calculando densidade ideal",
-    "Selecionando tecnologias",
-    "Gerando recomendação personalizada",
+  const tags: string[] = [
+    firmeza === "Firme"  ? "Alto Suporte"          :
+    firmeza === "Macio"  ? "Suave e Aconchegante"  : "Conforto Equilibrado",
   ];
+  if (a.temperatura === "sim")                        tags.push("Tecnologia Térmica");
+  if (a.casal === "casal")                            tags.push("Molas Ensacadas");
+  if (dores.some(d => d !== "nenhuma"))               tags.push("Alívio de Pressão");
+  if (a.prioridade === "durabilidade")                tags.push("Alta Durabilidade");
+
+  const nome =
+    a.casal === "casal"   ? "Castor Duo Confort"    :
+    firmeza === "Firme"   ? "Castor Suporte Active" :
+    firmeza === "Macio"   ? "Castor Soft Premium"   : "Castor Premium D45";
+
+  return { nome, firmeza, tags };
+}
+
+function buildWAMsg(a: Answers, capNome: string, res: { nome: string; firmeza: string }) {
+  const altStr  = a.altura ? `${(a.altura / 100).toFixed(2).replace(".", ",")} m` : "-";
+  const pesoStr = a.peso   ? `${a.peso} kg` : "-";
+  const doresStr = (a.dores ?? []).filter(Boolean).join(", ") || "nenhuma";
+  return [
+    `Olá! Fiz o Mapa do Sono da Castor e recebi minha recomendação. 🌙`,
+    ``,
+    `👤 ${capNome}`,
+    ``,
+    `📋 Meu perfil:`,
+    `• Altura: ${altStr} · Peso: ${pesoStr}`,
+    `• Para: ${a.casal === "casal" ? "casal" : "uso individual"}`,
+    `• Posição ao dormir: ${a.posicao ?? "-"}`,
+    `• Dores: ${doresStr}`,
+    `• Calor ao dormir: ${a.temperatura === "sim" ? "sim" : "não"}`,
+    `• Prioridade: ${a.prioridade ?? "-"}`,
+    ``,
+    `✅ Recomendação recebida: ${res.nome} (${res.firmeza})`,
+    ``,
+    `Gostaria de saber mais sobre esse colchão!`,
+  ].join("\n");
+}
+
+// ── Progress header ─────────────────────────────────────────────────────────────
+function ProgressHeader({ step }: { step: number }) {
+  const pct = Math.round(((step + 1) / TOTAL) * 100);
   return (
-    <div className="min-h-screen flex flex-col items-center justify-center" style={{ background: `linear-gradient(160deg, ${C_DARK} 0%, ${C_MID} 100%)` }}>
-      <motion.div
-        initial={{ opacity: 0, scale: 0.92 }}
-        animate={{ opacity: 1, scale: 1 }}
-        className="text-center px-8 w-full max-w-sm"
-      >
+    <div className="px-5 pt-5 pb-3 shrink-0">
+      <div className="flex items-center justify-between mb-2">
+        <span className="text-xs font-semibold" style={{ color: "#777" }}>
+          {step + 1} / {TOTAL}
+        </span>
+        <span className="text-xs font-semibold" style={{ color: "#777" }}>
+          {pct}%
+        </span>
+      </div>
+      <div className="h-1 rounded-full" style={{ background: "#1e0000" }}>
         <motion.div
-          className="w-14 h-14 rounded-full border-4 border-white/20 border-t-white mx-auto mb-7"
-          animate={{ rotate: 360 }}
-          transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
+          className="h-1 rounded-full"
+          style={{ background: RED }}
+          initial={false}
+          animate={{ width: `${pct}%` }}
+          transition={{ type: "spring", stiffness: 280, damping: 28 }}
         />
-        <h2 className="text-white text-xl font-black mb-2">Analisando seu perfil…</h2>
-        <p className="text-white/60 text-sm mb-8">Estamos finalizando sua recomendação personalizada</p>
-
-        <div className="w-full h-1 bg-white/20 rounded-full overflow-hidden mb-8">
-          <motion.div
-            className="h-full bg-white rounded-full"
-            initial={{ width: "0%" }}
-            animate={{ width: "100%" }}
-            transition={{ duration: 2.2, ease: "easeInOut" }}
-          />
-        </div>
-
-        <div className="space-y-2.5 text-left">
-          {checks.map((check, i) => (
-            <motion.div
-              key={check}
-              initial={{ opacity: 0, x: -16 }}
-              animate={{ opacity: 1, x: 0 }}
-              transition={{ delay: i * 0.42, duration: 0.3 }}
-              className="flex items-center gap-3"
-            >
-              <motion.div
-                initial={{ scale: 0 }}
-                animate={{ scale: 1 }}
-                transition={{ delay: i * 0.42 + 0.18, type: "spring", stiffness: 500 }}
-                className="w-5 h-5 rounded-full bg-white/15 flex items-center justify-center shrink-0"
-              >
-                <svg className="w-2.5 h-2.5 text-white" fill="none" viewBox="0 0 12 12" stroke="currentColor" strokeWidth={2.5} strokeLinecap="round">
-                  <polyline points="1.5,6 4.5,9 10.5,3" />
-                </svg>
-              </motion.div>
-              <p className="text-white/80 text-[14px] font-medium">{check}</p>
-            </motion.div>
-          ))}
-        </div>
-      </motion.div>
+      </div>
     </div>
   );
 }
 
-// ─── MAIN COMPONENT ──────────────────────────────────────────────────────────
+// ── Number picker ───────────────────────────────────────────────────────────────
+function NumberPicker({
+  value, min, max, format, onChange,
+}: {
+  value: number; min: number; max: number;
+  format: (v: number) => string;
+  onChange: (v: number) => void;
+}) {
+  const pct = ((value - min) / (max - min)) * 100;
+  const ticks = Array.from({ length: 11 }, (_, i) => ({
+    i,
+    left: i * 10,
+    major: i % 2 === 0,
+    v: Math.round(min + (i / 10) * (max - min)),
+  }));
 
-interface MapaSonoProps {
-  embedded?: boolean;
+  return (
+    <div className="px-6">
+      <div className="flex items-center justify-center gap-6 mb-8">
+        <motion.button
+          whileTap={{ scale: 0.88 }}
+          onClick={() => onChange(Math.max(min, value - 1))}
+          disabled={value <= min}
+          className="w-12 h-12 rounded-full flex items-center justify-center text-white"
+          style={{ background: CARD, border: `1.5px solid ${BORDER}` }}
+        >
+          <ChevronLeft className="w-6 h-6" />
+        </motion.button>
+
+        <AnimatePresence mode="wait">
+          <motion.div
+            key={value}
+            initial={{ opacity: 0, y: -6 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: 6 }}
+            transition={{ duration: 0.12 }}
+            className="text-5xl font-black text-white tracking-tight min-w-[170px] text-center"
+          >
+            {format(value)}
+          </motion.div>
+        </AnimatePresence>
+
+        <motion.button
+          whileTap={{ scale: 0.88 }}
+          onClick={() => onChange(Math.min(max, value + 1))}
+          disabled={value >= max}
+          className="w-12 h-12 rounded-full flex items-center justify-center text-white"
+          style={{ background: CARD, border: `1.5px solid ${BORDER}` }}
+        >
+          <ChevronRight className="w-6 h-6" />
+        </motion.button>
+      </div>
+
+      {/* Ruler */}
+      <div className="relative h-9">
+        <div className="absolute top-0 inset-x-0 h-px" style={{ background: "#2a2a2a" }} />
+        <motion.div
+          className="absolute top-0 left-0 h-px"
+          style={{ background: RED }}
+          animate={{ width: `${pct}%` }}
+          transition={{ type: "spring", stiffness: 300, damping: 30 }}
+        />
+        {/* Current dot */}
+        <motion.div
+          className="absolute -top-1.5"
+          animate={{ left: `${pct}%` }}
+          transition={{ type: "spring", stiffness: 300, damping: 30 }}
+          style={{ transform: "translateX(-50%)" }}
+        >
+          <div className="w-3.5 h-3.5 rounded-full" style={{ background: RED, boxShadow: `0 0 10px ${RED}99` }} />
+        </motion.div>
+        {/* Ticks */}
+        {ticks.map(({ left, major, v, i }) => (
+          <div key={i} className="absolute flex flex-col items-center" style={{ left: `${left}%`, transform: "translateX(-50%)" }}>
+            <div style={{ width: 1, height: major ? 14 : 7, background: left <= pct ? RED : "#3a3a3a" }} />
+            {major && (
+              <span className="text-[9px] mt-0.5 whitespace-nowrap" style={{ color: "#555" }}>
+                {v}
+              </span>
+            )}
+          </div>
+        ))}
+      </div>
+    </div>
+  );
 }
 
-export default function MapaSono({ embedded = false }: MapaSonoProps) {
-  const [phase, setPhase] = useState<"welcome" | "quiz" | "analyzing" | "result">("welcome");
-  const [stepIndex, setStepIndex] = useState(0);
-  const [profile, setProfile]     = useState<UserProfile>({});
-  const [multiSelect, setMultiSelect]   = useState<string[]>([]);
-  const [pendingValue, setPendingValue] = useState<string | null>(null);
-  const [sliderValues, setSliderValues] = useState<Partial<Record<keyof UserProfile, number>>>({});
-  const [resultado, setResultado]   = useState<Resultado | null>(null);
-  const [precoCalc, setPrecoCalc]   = useState("");
-  const [validationError, setValidationError] = useState<string | null>(null);
-  const [produtosRec, setProdutosRec] = useState<ProdutoCatalogo[]>([]);
-  const [waDestino, setWaDestino]   = useState(WA_CABO_FRIO);
-  const [autoDetected, setAutoDetected] = useState(false);
-  const scrollRef = useRef<HTMLDivElement>(null);
-  const autoAdvanceTimer = useRef<number | null>(null);
+// ── Quiz screen ─────────────────────────────────────────────────────────────────
+function QuizScreen({
+  step, answers, onAnswer, onMultiConfirm, onBack, onContinueNumber,
+  sliderValues, setSliderValue,
+}: {
+  step: number;
+  answers: Answers;
+  onAnswer: (id: keyof Answers, val: string) => void;
+  onMultiConfirm: (id: keyof Answers, vals: string[]) => void;
+  onBack: () => void;
+  onContinueNumber: (id: keyof Answers, val: number) => void;
+  sliderValues: Record<string, number>;
+  setSliderValue: (id: string, val: number) => void;
+}) {
+  const s = STEPS[step];
+  const [multiSel, setMultiSel] = useState<string[]>([]);
 
-  useEffect(() => { trackPageView("mapa_sono"); }, []);
+  useEffect(() => { setMultiSel([]); }, [step]);
 
-  useEffect(() => {
-    const controller = new AbortController();
-    fetch("https://ipapi.co/json/", { signal: controller.signal })
-      .then(r => r.json())
-      .then((data: { city?: string }) => {
-        const cidade = (data.city ?? "").toLowerCase();
-        if (CIDADES_ARARUAMA.some(c => cidade.includes(c))) setWaDestino(WA_ARARUAMA);
-        setAutoDetected(true);
-      })
-      .catch(() => { setAutoDetected(true); });
-    return () => controller.abort();
-  }, []);
+  const isHeight = s.type === "height";
+  const isWeight = s.type === "weight";
+  const isNum    = isHeight || isWeight;
+  const numVal   = sliderValues[s.id as string] ?? (s.defaultVal ?? (isHeight ? 170 : 75));
 
-  useEffect(() => {
-    scrollRef.current?.scrollTo({ top: 0, behavior: "smooth" });
-  }, [stepIndex, phase]);
-
-  useEffect(() => {
-    if (phase !== "result" || !resultado) return;
-    fetch("/api/produtos")
-      .then(r => r.ok ? r.json() : [])
-      .then((produtos: ProdutoCatalogo[]) => {
-        const keywords = resultado.estrutura === "MOLA"
-          ? ["mola", "pocket", "molas", "ensacada"]
-          : ["espuma", "visco", "viscoelástico", "viscoelastico", "gel", "latex"];
-        const colchoes = produtos.filter((p: ProdutoCatalogo) => {
-          const cat = (p.categoria ?? "").toLowerCase();
-          const nome = (p.nome ?? "").toLowerCase();
-          if (!cat.includes("colch") && !nome.includes("colch")) return false;
-          return keywords.some(kw => nome.includes(kw) || cat.includes(kw));
-        });
-        setProdutosRec(colchoes.slice(0, 3));
-      })
-      .catch(() => {});
-  }, [phase, resultado]);
-
-  // Restore step state when navigating back
-  useEffect(() => {
-    if (phase !== "quiz") return;
-    const step = STEPS[stepIndex];
-    if (!step) return;
-    if (step.tipo === "multi") {
-      const saved = (profile as Record<string, unknown>)[step.id];
-      setMultiSelect(Array.isArray(saved) ? (saved as string[]) : []);
-      setPendingValue(null);
-    } else if (step.tipo === "single") {
-      const saved = (profile as Record<string, unknown>)[step.id];
-      setPendingValue(typeof saved === "string" ? saved : null);
-      setMultiSelect([]);
-    }
-    // Clear auto-advance timer when step changes
-    if (autoAdvanceTimer.current !== null) {
-      window.clearTimeout(autoAdvanceTimer.current);
-      autoAdvanceTimer.current = null;
-    }
-  }, [stepIndex, phase]);
-
-  const currentStep = phase === "quiz" ? STEPS[stepIndex] ?? null : null;
-  const total = STEPS.length;
-  const pct   = phase === "quiz"
-    ? Math.round((stepIndex / total) * 100)
-    : phase === "analyzing" || phase === "result" ? 100 : 0;
-
-  function getSliderValue(id: keyof UserProfile, cfg: SliderConfig): number {
-    return sliderValues[id] ?? cfg.defaultValue;
-  }
-
-  function finalizeQuiz(p: UserProfile) {
-    const err = validarPerfil(p);
-    if (err) { setValidationError(err); return; }
-    const res = calcularResultado(p);
-    setResultado(res);
-    trackMapaSonoCompleto(res.estrutura, res.firmeza, res.confianca);
-    setPhase("analyzing");
-    window.setTimeout(() => setPhase("result"), 2600);
-  }
-
-  function advanceSingle(value: string) {
-    if (!currentStep) return;
-    const newProfile = { ...profile, [currentStep.id]: value };
-    setProfile(newProfile);
-    setPendingValue(null);
-    setValidationError(null);
-    if (stepIndex + 1 >= total) finalizeQuiz(newProfile);
-    else setStepIndex(i => i + 1);
-  }
-
-  function avancar() {
-    if (!currentStep) return;
-    setValidationError(null);
-    if (currentStep.tipo === "slider" && currentStep.slider) {
-      const val = getSliderValue(currentStep.id, currentStep.slider);
-      const newProfile = { ...profile, [currentStep.id]: currentStep.slider.toProfileValue(val) };
-      setProfile(newProfile);
-      if (stepIndex + 1 >= total) finalizeQuiz(newProfile);
-      else setStepIndex(i => i + 1);
-    } else if (currentStep.tipo === "multi") {
-      if (multiSelect.length === 0) return;
-      const newProfile = { ...profile, [currentStep.id]: multiSelect };
-      setProfile(newProfile);
-      setMultiSelect([]);
-      if (stepIndex + 1 >= total) finalizeQuiz(newProfile);
-      else setStepIndex(i => i + 1);
-    }
-  }
-
-  function voltar() {
-    if (autoAdvanceTimer.current !== null) {
-      window.clearTimeout(autoAdvanceTimer.current);
-      autoAdvanceTimer.current = null;
-    }
-    if (stepIndex === 0) setPhase("welcome");
-    else setStepIndex(i => i - 1);
-  }
+  const fmt = isHeight
+    ? (v: number) => `${(v / 100).toFixed(2).replace(".", ",")} m`
+    : (v: number) => `${v} kg`;
 
   function toggleMulti(val: string) {
-    if (val === "nenhuma") { setMultiSelect(["nenhuma"]); return; }
-    setMultiSelect(prev => {
+    if (val === "nenhuma") { setMultiSel(["nenhuma"]); return; }
+    setMultiSel(prev => {
       const without = prev.filter(v => v !== "nenhuma");
       return without.includes(val) ? without.filter(v => v !== val) : [...without, val];
     });
   }
 
-  function reiniciar() {
-    setPhase("welcome");
-    setStepIndex(0);
-    setProfile({});
-    setMultiSelect([]);
-    setPendingValue(null);
-    setSliderValues({});
-    setResultado(null);
-    setPrecoCalc("");
-    setValidationError(null);
-    setProdutosRec([]);
-  }
+  return (
+    <div className="flex flex-col h-full" style={{ background: BG }}>
+      <ProgressHeader step={step} />
 
-  function handleSingleSelect(value: string) {
-    setPendingValue(value);
-    if (autoAdvanceTimer.current !== null) window.clearTimeout(autoAdvanceTimer.current);
-    autoAdvanceTimer.current = window.setTimeout(() => {
-      autoAdvanceTimer.current = null;
-      advanceSingle(value);
-    }, 300);
-  }
-
-  const canNext = currentStep
-    ? currentStep.tipo === "slider" ? true
-      : currentStep.tipo === "multi" ? multiSelect.length > 0
-      : !!pendingValue
-    : false;
-
-  // ── WELCOME ──────────────────────────────────────────────────────────────────
-  if (phase === "welcome") {
-    return (
-      <div
-        ref={scrollRef}
-        className={cn("flex flex-col", embedded ? "min-h-full" : "min-h-screen")}
-        style={{ background: `linear-gradient(155deg, ${C_DARK} 0%, ${C_MID} 60%, #A01020 100%)` }}
-      >
-        <div className="flex-1 flex flex-col items-center justify-center px-6 py-10">
-          <motion.div
-            initial={{ opacity: 0, y: 24 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.5 }}
-            className="w-full max-w-sm"
+      <div className="flex-1 overflow-y-auto overscroll-contain px-5 pb-6">
+        {/* Back */}
+        {step > 0 && (
+          <button
+            onClick={onBack}
+            className="flex items-center gap-1.5 mb-5 text-sm font-semibold"
+            style={{ color: "#666" }}
           >
-            <div className="text-center mb-8">
-              <div className="w-14 h-14 rounded-2xl bg-white/10 flex items-center justify-center mx-auto mb-5">
-                <Moon className="w-7 h-7 text-white" />
-              </div>
-              <p className="text-white/50 text-[11px] font-bold tracking-[0.25em] uppercase mb-2">
-                Castor Colchões · {waDestino.loja}
-              </p>
-              <h1 className="text-white text-[38px] font-black leading-none mb-3">Mapa do Sono</h1>
-              <p className="text-white/70 text-[15px] leading-relaxed max-w-[280px] mx-auto">
-                Descubra o colchão ideal para o seu corpo em menos de 3 minutos.
-              </p>
-              {autoDetected && (
-                <button
-                  onClick={() => setWaDestino(prev => prev.numero === WA_CABO_FRIO.numero ? WA_ARARUAMA : WA_CABO_FRIO)}
-                  className="mt-3 inline-flex items-center gap-1.5 text-white/50 hover:text-white/80 text-[11px] bg-white/8 hover:bg-white/15 px-3 py-1.5 rounded-full transition-all"
-                >
-                  <MapPin className="w-3 h-3" />
-                  Loja: {waDestino.loja} — trocar
-                </button>
-              )}
-            </div>
+            <ChevronLeft className="w-4 h-4" />
+            Voltar
+          </button>
+        )}
 
-            <div className="space-y-2 mb-8">
-              {[
-                { t: `${total} perguntas — só cliques, sem digitar`,  d: "Rápido e direto ao ponto" },
-                { t: "Motor de recomendação baseado em pesquisas INER", d: "Ciência aplicada ao sono" },
-                { t: "Resultado completo no WhatsApp",                  d: "Atendimento imediato" },
-              ].map(item => (
-                <div key={item.t} className="flex items-start gap-3 bg-white/8 rounded-2xl px-4 py-3.5">
-                  <div className="w-5 h-5 rounded-full bg-white/15 flex items-center justify-center shrink-0 mt-0.5">
-                    <svg className="w-3 h-3 text-white" fill="none" viewBox="0 0 12 12" stroke="currentColor" strokeWidth={2.5} strokeLinecap="round">
-                      <polyline points="1.5,6 4.5,9 10.5,3" />
-                    </svg>
-                  </div>
-                  <div>
-                    <p className="text-white text-[13px] font-semibold leading-snug">{item.t}</p>
-                    <p className="text-white/45 text-[11px] mt-0.5">{item.d}</p>
-                  </div>
-                </div>
-              ))}
-            </div>
+        {/* Icon */}
+        <div className="flex justify-center mb-5">
+          <div className="w-16 h-16 rounded-full flex items-center justify-center shadow-lg"
+            style={{ background: RED, boxShadow: `0 4px 24px ${RED}55` }}>
+            <s.StepIcon className="w-8 h-8 text-white" />
+          </div>
+        </div>
 
+        {/* Question */}
+        <h2 className="text-center text-2xl font-black text-white mb-2 leading-snug">
+          {s.question}
+        </h2>
+        {s.subtitle && (
+          <p className="text-center text-sm mb-6" style={{ color: "#888" }}>
+            {s.subtitle}
+          </p>
+        )}
+        {!s.subtitle && <div className="mb-6" />}
+
+        {/* Number picker */}
+        {isNum && (
+          <>
+            <NumberPicker
+              value={numVal}
+              min={s.min!}
+              max={s.max!}
+              format={fmt}
+              onChange={v => setSliderValue(s.id as string, v)}
+            />
             <motion.button
               whileTap={{ scale: 0.97 }}
-              whileHover={{ scale: 1.01 }}
-              onClick={() => { setStepIndex(0); setPhase("quiz"); }}
-              className="w-full py-4 rounded-2xl bg-white font-black text-[16px] flex items-center justify-center gap-2 shadow-lg shadow-black/20"
-              style={{ color: C_DARK }}
+              onClick={() => onContinueNumber(s.id, numVal)}
+              className="mt-8 w-full py-4 rounded-2xl font-extrabold text-white text-base"
+              style={{ background: RED }}
             >
-              Começar diagnóstico
-              <ChevronRight className="w-5 h-5" />
+              Continuar →
             </motion.button>
-          </motion.div>
+          </>
+        )}
+
+        {/* Single select */}
+        {s.type === "single" && s.options && (
+          <div className={s.grid2 ? "grid grid-cols-2 gap-3" : "flex flex-col gap-3"}>
+            {s.options.map(opt => (
+              <motion.button
+                key={opt.value}
+                whileTap={{ scale: 0.97 }}
+                onClick={() => onAnswer(s.id, opt.value)}
+                className="flex items-center gap-3 p-4 rounded-xl border text-left transition-all"
+                style={{
+                  background: answers[s.id] === opt.value ? "#1e0000" : CARD,
+                  borderColor: answers[s.id] === opt.value ? RED : BORDER,
+                }}
+              >
+                <div className="w-9 h-9 rounded-lg flex items-center justify-center shrink-0"
+                  style={{ background: "#0a0000", border: `1px solid ${BORDER}` }}>
+                  <opt.Icon className="w-4 h-4" style={{ color: RED }} />
+                </div>
+                <span className="text-white font-semibold text-sm leading-tight">{opt.label}</span>
+              </motion.button>
+            ))}
+          </div>
+        )}
+
+        {/* Multi select */}
+        {s.type === "multi" && s.options && (
+          <>
+            <div className="flex flex-col gap-3 mb-5">
+              {s.options.map(opt => {
+                const sel = multiSel.includes(opt.value);
+                return (
+                  <motion.button
+                    key={opt.value}
+                    whileTap={{ scale: 0.97 }}
+                    onClick={() => toggleMulti(opt.value)}
+                    className="flex items-center gap-3 p-4 rounded-xl border text-left"
+                    style={{
+                      background: sel ? "#1e0000" : CARD,
+                      borderColor: sel ? RED : BORDER,
+                    }}
+                  >
+                    <div className="w-9 h-9 rounded-lg flex items-center justify-center shrink-0"
+                      style={{ background: "#0a0000", border: `1px solid ${BORDER}` }}>
+                      <opt.Icon className="w-4 h-4" style={{ color: sel ? RED : "#555" }} />
+                    </div>
+                    <span className="text-white font-semibold text-sm flex-1">{opt.label}</span>
+                    {sel && <Check className="w-4 h-4 shrink-0" style={{ color: RED }} />}
+                  </motion.button>
+                );
+              })}
+            </div>
+            <motion.button
+              whileTap={{ scale: 0.97 }}
+              onClick={() => multiSel.length > 0 && onMultiConfirm(s.id, multiSel)}
+              className="w-full py-4 rounded-2xl font-extrabold text-white text-base"
+              style={{
+                background: multiSel.length > 0 ? RED : "#2a0808",
+                opacity: multiSel.length > 0 ? 1 : 0.5,
+              }}
+            >
+              Confirmar →
+            </motion.button>
+          </>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ── Mid-loading screen ──────────────────────────────────────────────────────────
+function MidLoadingScreen() {
+  const [progress, setProgress] = useState(0);
+  useEffect(() => {
+    const start = Date.now();
+    const total = 1800;
+    const raf = setInterval(() => {
+      setProgress(Math.min(100, ((Date.now() - start) / total) * 100));
+    }, 30);
+    return () => clearInterval(raf);
+  }, []);
+
+  return (
+    <div className="flex flex-col items-center justify-center flex-1 px-6 text-center" style={{ background: BG }}>
+      <div className="relative w-20 h-20 mb-8">
+        <div className="absolute inset-0 rounded-full" style={{ border: `3px solid ${BORDER}` }} />
+        <motion.div
+          className="absolute inset-0 rounded-full"
+          style={{ borderTop: `3px solid ${RED}`, borderRight: `3px solid transparent`, borderBottom: "3px solid transparent", borderLeft: "3px solid transparent" }}
+          animate={{ rotate: 360 }}
+          transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
+        />
+        <div className="absolute inset-0 flex items-center justify-center">
+          <Scale className="w-8 h-8" style={{ color: RED }} />
         </div>
       </div>
-    );
-  }
+      <h3 className="text-2xl font-black text-white mb-2">Analisando seu biotipo</h3>
+      <p className="text-sm mb-8" style={{ color: "#777" }}>
+        Calculando perfil ideal com base na sua altura e peso...
+      </p>
+      <div className="w-full max-w-xs h-1.5 rounded-full" style={{ background: "#1a0000" }}>
+        <div className="h-1.5 rounded-full transition-none" style={{ background: RED, width: `${progress}%` }} />
+      </div>
+    </div>
+  );
+}
 
-  // ── ANALYZING ────────────────────────────────────────────────────────────────
-  if (phase === "analyzing") return <AnalyzingScreen />;
+// ── Capture screen ──────────────────────────────────────────────────────────────
+function CaptureScreen({
+  onSubmit, onBack,
+}: {
+  onSubmit: (nome: string, whatsapp: string) => void;
+  onBack: () => void;
+}) {
+  const [nome, setNome] = useState("");
+  const [zap, setZap] = useState("");
 
-  // ── RESULT ───────────────────────────────────────────────────────────────────
-  if (phase === "result" && resultado) {
-    const wa = `https://wa.me/${waDestino.numero}?text=${encodeURIComponent(gerarMensagemWA(profile, resultado, waDestino.contato))}`;
-    return (
-      <div ref={scrollRef} className={cn("bg-slate-50 overflow-auto", embedded ? "min-h-full" : "min-h-screen")}>
-        {/* Crimson result header */}
-        <div
-          className="px-5 pt-6 pb-10"
-          style={{ background: `linear-gradient(155deg, ${C_DARK} 0%, ${C_MID} 100%)` }}
-        >
-          <p className="text-white/50 text-[10px] font-bold tracking-[0.25em] uppercase mb-5">
-            Mapa do Sono · Resultado
+  return (
+    <div className="flex flex-col h-full" style={{ background: BG }}>
+      <div className="flex-1 overflow-y-auto overscroll-contain px-6 py-6">
+        <button onClick={onBack} className="flex items-center gap-1.5 mb-6 text-sm font-semibold" style={{ color: "#666" }}>
+          <ChevronLeft className="w-4 h-4" /> Voltar
+        </button>
+
+        <div className="text-center mb-8">
+          <div className="text-3xl mb-3">👋</div>
+          <h2 className="text-2xl font-black text-white mb-2">Quase lá!</h2>
+          <p className="font-bold text-lg text-white mb-1">Estamos finalizando sua análise personalizada</p>
+          <p className="text-sm" style={{ color: "#888" }}>
+            Para ver sua recomendação completa, precisamos de seus dados.
           </p>
-          <h2 className="text-white text-[24px] font-black leading-snug mb-1">
-            Seu colchão ideal<br />foi encontrado!
-          </h2>
-          <p className="text-white/60 text-sm mb-6">Baseado em {total} respostas personalizadas</p>
+        </div>
 
-          <div className="bg-white/10 backdrop-blur-sm rounded-2xl p-4 border border-white/10">
-            <p className="text-white/50 text-[10px] font-bold uppercase tracking-widest mb-1">Estrutura recomendada</p>
-            <p className="text-white text-[20px] font-black">
-              {resultado.estrutura === "MOLA" ? "🌀 Mola Ensacada" : "🧽 Espuma / Viscoelástico"}
-            </p>
-            <p className="text-white/80 text-sm font-semibold mt-0.5">Firmeza: {resultado.firmeza}</p>
-
-            <div className="mt-4">
-              <div className="flex justify-between text-xs font-bold mb-1.5">
-                <span className="text-white/60">Compatibilidade com seu perfil</span>
-                <span className="text-white">{resultado.confianca}%</span>
-              </div>
-              <div className="h-1 bg-white/20 rounded-full overflow-hidden">
-                <motion.div
-                  className="h-full bg-white rounded-full"
-                  initial={{ width: 0 }}
-                  animate={{ width: `${resultado.confianca}%` }}
-                  transition={{ delay: 0.3, duration: 0.9 }}
-                />
-              </div>
-            </div>
+        <div className="space-y-4 mb-6">
+          <div className="flex items-center gap-3 rounded-xl border p-4" style={{ background: CARD, borderColor: BORDER }}>
+            <User className="w-5 h-5 shrink-0" style={{ color: "#666" }} />
+            <input
+              type="text"
+              placeholder="Seu nome"
+              value={nome}
+              onChange={e => setNome(e.target.value)}
+              className="flex-1 bg-transparent text-white placeholder:text-[#444] outline-none text-sm font-medium"
+            />
+          </div>
+          <div className="flex items-center gap-3 rounded-xl border p-4" style={{ background: CARD, borderColor: BORDER }}>
+            <Phone className="w-5 h-5 shrink-0" style={{ color: "#666" }} />
+            <input
+              type="tel"
+              placeholder="Seu WhatsApp"
+              value={zap}
+              onChange={e => setZap(e.target.value)}
+              className="flex-1 bg-transparent text-white placeholder:text-[#444] outline-none text-sm font-medium"
+            />
           </div>
         </div>
 
-        <div className="px-4 -mt-4 space-y-3 pb-8">
-          {/* Technologies */}
-          <div className="bg-white rounded-2xl p-4 border border-slate-100 shadow-sm">
-            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3">Tecnologias indicadas</p>
+        <p className="text-center text-xs mb-6" style={{ color: "#555" }}>
+          🔒 Seus dados estão seguros conosco. Não enviamos spam.
+        </p>
+
+        <motion.button
+          whileTap={{ scale: 0.97 }}
+          onClick={() => (nome.trim() || zap.trim()) && onSubmit(nome.trim(), zap.trim())}
+          className="w-full py-4 rounded-2xl font-extrabold text-white text-base flex items-center justify-center gap-2"
+          style={{ background: RED, opacity: nome.trim() || zap.trim() ? 1 : 0.6 }}
+        >
+          Ver minha recomendação →
+        </motion.button>
+      </div>
+    </div>
+  );
+}
+
+// ── Analyzing screen ────────────────────────────────────────────────────────────
+function AnalyzingScreen() {
+  const items = [
+    "Calculando IMC e biotipo corporal...",
+    "Mapeando posição de sono...",
+    "Cruzando dados de dores e temperatura...",
+    "Selecionando o colchão ideal...",
+  ];
+  return (
+    <div className="flex flex-col items-center justify-center flex-1 px-6 text-center" style={{ background: BG }}>
+      <div className="relative w-20 h-20 mb-8">
+        <div className="absolute inset-0 rounded-full" style={{ border: `3px solid ${BORDER}` }} />
+        <motion.div
+          className="absolute inset-0 rounded-full"
+          style={{ borderTop: `3px solid ${RED}`, borderRight: "3px solid transparent", borderBottom: "3px solid transparent", borderLeft: "3px solid transparent" }}
+          animate={{ rotate: 360 }}
+          transition={{ duration: 0.9, repeat: Infinity, ease: "linear" }}
+        />
+        <div className="absolute inset-0 flex items-center justify-center">
+          <Star className="w-8 h-8" style={{ color: RED }} />
+        </div>
+      </div>
+      <h3 className="text-2xl font-black text-white mb-6">Processando suas respostas...</h3>
+      <div className="w-full max-w-xs text-left space-y-3">
+        {items.map((item, i) => (
+          <motion.div
+            key={i}
+            initial={{ opacity: 0, x: -12 }}
+            animate={{ opacity: 1, x: 0 }}
+            transition={{ delay: i * 0.45 }}
+            className="flex items-center gap-3 text-sm"
+          >
+            <div className="w-2 h-2 rounded-full shrink-0" style={{ background: RED }} />
+            <span style={{ color: "#aaa" }}>{item}</span>
+          </motion.div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+// ── Result screen ───────────────────────────────────────────────────────────────
+function ResultScreen({
+  answers, capNome, capZap, onRestart,
+}: {
+  answers: Answers; capNome: string; capZap: string; onRestart: () => void;
+}) {
+  const result = computeResult(answers);
+  const msg    = buildWAMsg(answers, capNome, result);
+  const waUrl  = `https://wa.me/5522992410112?text=${encodeURIComponent(msg)}`;
+
+  return (
+    <div className="flex flex-col h-full" style={{ background: BG }}>
+      <div className="flex-1 overflow-y-auto overscroll-contain px-6 pb-8">
+        {/* Header */}
+        <div className="text-center pt-8 mb-6">
+          <p className="text-xs font-black tracking-widest uppercase mb-2" style={{ color: RED }}>
+            ✅ ANÁLISE CONCLUÍDA
+          </p>
+          <h2 className="text-2xl font-black text-white mb-2">Seu colchão ideal foi encontrado!</h2>
+          <p className="text-sm" style={{ color: "#888" }}>
+            Com base nas suas respostas, encontramos o colchão perfeito para o seu perfil.
+          </p>
+        </div>
+
+        {/* Product card */}
+        <div className="rounded-2xl overflow-hidden mb-5" style={{ background: CARD, border: `1px solid ${BORDER}` }}>
+          <div className="px-5 py-5">
+            <p className="text-xs font-bold uppercase tracking-wider mb-1" style={{ color: "#666" }}>
+              Recomendação Personalizada
+            </p>
+            <h3 className="text-xl font-black text-white mb-4">{result.nome}</h3>
             <div className="flex flex-wrap gap-2">
-              {resultado.tecnologias.map(t => (
-                <span key={t} className="text-[12px] font-bold px-3 py-1.5 rounded-full border-2" style={{ borderColor: C_RED, color: C_DARK }}>
-                  {t}
+              {result.tags.map(tag => (
+                <span key={tag} className="text-xs font-bold px-3 py-1 rounded-full" style={{ background: "#1e0000", color: RED, border: `1px solid ${BORDER}` }}>
+                  {tag}
                 </span>
               ))}
             </div>
           </div>
+        </div>
 
-          {/* Why */}
-          <div className="bg-white rounded-2xl p-4 border border-slate-100 shadow-sm">
-            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Por que essa recomendação?</p>
-            <p className="text-sm text-slate-600 leading-relaxed">{resultado.justificativa}</p>
-            {resultado.estrategia.upgrade   && <p className="text-xs font-bold mt-2" style={{ color: C_RED }}>🚀 Grande evolução no seu sono!</p>}
-            {resultado.estrategia.migracao  && <p className="text-xs font-bold mt-2" style={{ color: C_RED }}>🔄 Migração para maior conforto e saúde.</p>}
-            {resultado.estrategia.continuidade && <p className="text-xs font-bold mt-2" style={{ color: C_RED }}>✅ Vamos encontrar a versão ideal para você!</p>}
-          </div>
-
-          {/* Price calculator */}
-          <div className="bg-white rounded-2xl p-4 border border-slate-100 shadow-sm">
-            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Calculadora: custo por noite</p>
-            <div className="flex items-center gap-2">
-              <span className="text-xs text-slate-400 font-bold shrink-0">R$</span>
-              <input
-                type="number"
-                placeholder="valor do colchão"
-                value={precoCalc}
-                onChange={e => setPrecoCalc(e.target.value)}
-                className="flex-1 text-sm border border-slate-200 rounded-xl px-3 py-2 focus:outline-none focus:border-[#C41230] min-w-0"
-              />
-              {precoCalc && Number(precoCalc) > 0 && (
-                <span className="text-xs font-black text-emerald-600 shrink-0 whitespace-nowrap">
-                  R$ {(Number(precoCalc) / 3650).toFixed(2)}/noite
-                </span>
-              )}
-            </div>
-            <p className="text-[10px] text-slate-400 mt-1.5">Base: 10 anos = 3.650 noites de vida útil Castor.</p>
-          </div>
-
-          {/* Products */}
-          {produtosRec.length > 0 && (
-            <div className="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden">
-              <div className="px-4 pt-3.5 pb-2.5 border-b border-slate-100 flex items-center gap-2">
-                <ShoppingCart className="w-3.5 h-3.5 shrink-0" style={{ color: C_RED }} />
-                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Disponíveis agora na Castor</p>
-              </div>
-              <div className="divide-y divide-slate-50">
-                {produtosRec.map(p => {
-                  const msg = encodeURIComponent(`Olá, ${waDestino.contato}! 👋 Pelo Mapa do Sono recebi a recomendação *${resultado?.estrutura === "MOLA" ? "Mola Ensacada" : "Espuma/Viscoelástico"}* e gostei do colchão *${p.nome}*. Pode me dar mais detalhes e melhores condições? 🛏️`);
-                  return (
-                    <div key={p.id} className="flex items-center justify-between px-4 py-3 gap-3">
-                      <div className="flex-1 min-w-0">
-                        <p className="text-sm font-bold text-slate-800 leading-tight truncate">{p.nome}</p>
-                        {p.precoPix && <p className="text-xs text-emerald-600 font-bold mt-0.5">PIX {p.precoPix}</p>}
-                      </div>
-                      <a
-                        href={`https://wa.me/${waDestino.numero}?text=${msg}`}
-                        target="_blank"
-                        rel="noreferrer"
-                        onClick={() => trackWhatsAppClick("mapa_sono_produto", waDestino.loja)}
-                        className="flex items-center gap-1 bg-green-500 hover:bg-green-600 text-white text-[10px] font-extrabold px-2.5 py-1.5 rounded-lg transition-all shrink-0 active:scale-95"
-                      >
-                        <MessageCircle className="w-3 h-3" /> Quero esse
-                      </a>
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-          )}
-
-          {/* Trust badges */}
-          <div className="grid grid-cols-3 gap-2">
-            {[{ icon: "🚚", label: "Entrega rápida" }, { icon: "📦", label: "Pronta entrega" }, { icon: "💳", label: "12x sem juros" }].map(g => (
-              <div key={g.label} className="bg-emerald-50 border border-emerald-100 rounded-2xl px-2 py-3 text-center">
-                <p className="text-xl mb-1">{g.icon}</p>
-                <p className="text-[10px] font-bold text-emerald-700 leading-tight">{g.label}</p>
-              </div>
-            ))}
-          </div>
-
-          {/* Address */}
-          <a
-            href="https://maps.app.goo.gl/UuF6w1nAvTgXockS6"
-            target="_blank"
-            rel="noreferrer"
-            className="flex items-start gap-3 bg-white border border-slate-100 rounded-2xl px-4 py-3 shadow-sm hover:border-rose-200 transition-all group"
-          >
-            <MapPin className="w-4 h-4 mt-0.5 shrink-0" style={{ color: C_RED }} />
-            <div>
-              <p className="text-xs font-bold text-slate-800 group-hover:text-rose-700 transition-colors">Av. Júlia Kubitschek, 64</p>
-              <p className="text-[10px] text-slate-400">Jardim Flamboyant · Cabo Frio — RJ</p>
-              <p className="text-[10px] text-blue-500 font-semibold mt-0.5">Ver no Google Maps →</p>
-            </div>
-          </a>
-
-          {/* CTAs */}
-          <div className="space-y-2">
-            <a
-              href={wa}
-              target="_blank"
-              rel="noreferrer"
-              onClick={() => trackWhatsAppClick("mapa_sono_resultado", waDestino.loja)}
-              className="flex items-center justify-center gap-2 w-full bg-green-500 hover:bg-green-400 text-white font-extrabold px-5 py-4 rounded-2xl shadow-lg shadow-green-900/20 transition-all active:scale-95 text-[15px]"
-            >
-              <MessageCircle className="w-5 h-5" />
-              Falar com {waDestino.contato} agora
-            </a>
-            <p className="text-center text-[10px] text-slate-400">Você já chega com seu perfil — atendimento imediato!</p>
-            <button
-              onClick={reiniciar}
-              className="flex items-center justify-center gap-2 w-full bg-white text-slate-500 font-semibold border border-slate-200 px-5 py-3 rounded-2xl text-sm hover:bg-slate-50 active:scale-95 transition-all"
-            >
-              <RotateCcw className="w-4 h-4" /> Refazer o mapa
-            </button>
+        {/* Profile summary */}
+        <div className="rounded-2xl px-5 py-4 mb-6" style={{ background: "#0e0e0e", border: `1px solid #1e1e1e` }}>
+          <p className="text-xs font-bold uppercase tracking-wider mb-3" style={{ color: "#555" }}>Seu Perfil</p>
+          <div className="grid grid-cols-2 gap-2 text-xs" style={{ color: "#888" }}>
+            {answers.altura && (
+              <span>Altura: {(answers.altura / 100).toFixed(2).replace(".", ",")} m</span>
+            )}
+            {answers.peso && (
+              <span>Peso: {answers.peso} kg</span>
+            )}
+            {answers.posicao && (
+              <span>Posição: {answers.posicao}</span>
+            )}
+            {answers.temperatura && (
+              <span>Calor: {answers.temperatura === "sim" ? "sim" : "não"}</span>
+            )}
           </div>
         </div>
+
+        {/* CTA */}
+        <a
+          href={waUrl}
+          target="_blank"
+          rel="noopener noreferrer"
+          onClick={() => trackWhatsAppClick("mapa_sono_resultado", "Cabo Frio")}
+          className="flex items-center justify-center gap-2.5 w-full py-4 rounded-2xl font-extrabold text-white text-base mb-3"
+          style={{ background: "#25D366", boxShadow: "0 4px 20px rgba(37,211,102,0.3)" }}
+        >
+          <MessageCircle className="w-5 h-5" />
+          Falar no WhatsApp
+        </a>
+
+        <button
+          onClick={onRestart}
+          className="w-full py-3 rounded-2xl text-sm font-semibold"
+          style={{ color: "#666" }}
+        >
+          Refazer o diagnóstico
+        </button>
       </div>
-    );
+    </div>
+  );
+}
+
+// ── Welcome screen ──────────────────────────────────────────────────────────────
+function WelcomeScreen({ onStart }: { onStart: () => void }) {
+  return (
+    <div className="min-h-screen flex flex-col items-center justify-center px-6 py-12 text-center" style={{ background: BG }}>
+      <div className="w-16 h-16 rounded-2xl flex items-center justify-center mb-6"
+        style={{ background: RED, boxShadow: `0 4px 24px ${RED}55` }}>
+        <BedDouble className="w-8 h-8 text-white" />
+      </div>
+      <p className="text-xs font-black tracking-widest uppercase mb-3" style={{ color: RED }}>
+        Diagnóstico Gratuito
+      </p>
+      <h1 className="text-4xl font-black text-white mb-3 leading-tight">
+        Mapa do Sono<br />
+        <span style={{ color: "#aaa" }}>Castor</span>
+      </h1>
+      <p className="text-base mb-8 max-w-sm" style={{ color: "#888" }}>
+        Responda {TOTAL} perguntas rápidas e receba a recomendação de colchão personalizada para o seu corpo.
+      </p>
+      <div className="flex flex-col gap-2 mb-10 w-full max-w-xs text-left">
+        {["100% Online · Leva menos de 60 segundos", "Personalizado · Baseado no seu biotipo", "Gratuito · Sem compromisso"].map(t => (
+          <div key={t} className="flex items-center gap-3 text-sm" style={{ color: "#666" }}>
+            <Check className="w-4 h-4 shrink-0" style={{ color: RED }} /> {t}
+          </div>
+        ))}
+      </div>
+      <motion.button
+        whileTap={{ scale: 0.97 }}
+        whileHover={{ scale: 1.02 }}
+        onClick={onStart}
+        className="w-full max-w-xs py-4 rounded-2xl font-extrabold text-white text-base flex items-center justify-center gap-2"
+        style={{ background: RED, boxShadow: `0 4px 24px ${RED}55` }}
+      >
+        Começar diagnóstico →
+      </motion.button>
+    </div>
+  );
+}
+
+// ── Main ───────────────────────────────────────────────────────────────────────
+export default function MapaSono({ embedded = false }: MapaSonoProps) {
+  const [phase, setPhase]     = useState<Phase>(embedded ? "quiz" : "welcome");
+  const [step, setStep]       = useState(0);
+  const [answers, setAnswers] = useState<Answers>({});
+  const [sliders, setSliders] = useState<Record<string, number>>({});
+  const [capNome, setCapNome] = useState("");
+  const [capZap,  setCapZap]  = useState("");
+
+  const midTimer      = useRef<number | null>(null);
+  const analyzingTimer = useRef<number | null>(null);
+  const autoTimer     = useRef<number | null>(null);
+
+  useEffect(() => () => {
+    [midTimer, analyzingTimer, autoTimer].forEach(r => {
+      if (r.current !== null) window.clearTimeout(r.current);
+    });
+  }, []);
+
+  function setAnswer(id: keyof Answers, val: string) {
+    const next = { ...answers, [id]: val };
+    setAnswers(next);
+    if (autoTimer.current !== null) window.clearTimeout(autoTimer.current);
+    autoTimer.current = window.setTimeout(() => { autoTimer.current = null; advance(next); }, 280);
   }
 
-  // ── QUIZ STEP ────────────────────────────────────────────────────────────────
-  if (!currentStep) return null;
+  function setMultiAnswer(id: keyof Answers, vals: string[]) {
+    const next = { ...answers, [id]: vals };
+    setAnswers(next);
+    advance(next);
+  }
+
+  function setNumAnswer(id: keyof Answers, val: number) {
+    const next = { ...answers, [id]: val };
+    setAnswers(next);
+    advance(next);
+  }
+
+  function advance(cur: Answers) {
+    void cur; // just for completeness
+    if (step === MID_AFTER) {
+      // After peso → mid loading
+      setPhase("mid_loading");
+      midTimer.current = window.setTimeout(() => {
+        midTimer.current = null;
+        setStep(s => s + 1);
+        setPhase("quiz");
+      }, 2000);
+    } else if (step >= TOTAL - 1) {
+      // After last step → capture
+      setPhase("capture");
+    } else {
+      setStep(s => s + 1);
+    }
+  }
+
+  function goBack() {
+    if (autoTimer.current !== null) { window.clearTimeout(autoTimer.current); autoTimer.current = null; }
+    if (phase === "capture") { setStep(TOTAL - 1); setPhase("quiz"); }
+    else if (step > 0) setStep(s => s - 1);
+    else if (!embedded) setPhase("welcome");
+  }
+
+  function handleCapture(nome: string, zap: string) {
+    setCapNome(nome); setCapZap(zap);
+    setPhase("analyzing");
+    analyzingTimer.current = window.setTimeout(() => {
+      analyzingTimer.current = null;
+      setPhase("result");
+    }, 2600);
+  }
+
+  function restart() {
+    setPhase(embedded ? "quiz" : "welcome");
+    setStep(0);
+    setAnswers({});
+    setSliders({});
+    setCapNome(""); setCapZap("");
+  }
+
+  const outerClass = embedded ? "flex flex-col min-h-full" : "flex flex-col min-h-screen";
 
   return (
-    <div className={cn("bg-white flex flex-col", embedded ? "min-h-full" : "min-h-screen")}>
-      {/* Sticky header (hidden when embedded — modal provides its own) */}
-      {!embedded && (
-        <div
-          className="sticky top-0 z-20 flex items-center justify-between px-4 py-3 shrink-0"
-          style={{ backgroundColor: C_DARK }}
-        >
-          <button onClick={voltar} className="text-white/60 hover:text-white p-1 -ml-1 transition-colors">
-            <ChevronLeft className="w-5 h-5" />
-          </button>
-          <p className="text-white/80 text-[13px] font-bold">Mapa do Sono</p>
-          <span className="text-white/60 text-[12px] font-bold tabular-nums">{stepIndex + 1}/{total}</span>
-        </div>
-      )}
-
-      {/* Progress bar */}
-      <div className="h-[3px] bg-slate-100 shrink-0">
-        <motion.div
-          className="h-full"
-          style={{ backgroundColor: C_RED }}
-          animate={{ width: `${pct}%` }}
-          transition={{ duration: 0.35 }}
-        />
-      </div>
-
-      {/* Scrollable content */}
-      <div ref={scrollRef} className="flex-1 overflow-y-auto">
-        <AnimatePresence mode="wait">
-          <motion.div
-            key={stepIndex}
-            initial={{ opacity: 0, x: 36 }}
-            animate={{ opacity: 1, x: 0 }}
-            exit={{ opacity: 0, x: -36 }}
-            transition={{ duration: 0.2, ease: [0.25, 0.46, 0.45, 0.94] }}
-          >
-            {/* Question header */}
-            <div className="px-5 pt-8 pb-5">
-              <p className="text-[11px] font-bold text-slate-400 uppercase tracking-widest mb-3">
-                Etapa {stepIndex + 1} de {total}
-              </p>
-              <h2 className="text-[22px] font-black text-slate-900 leading-snug">
-                {currentStep.pergunta}
-              </h2>
-              {currentStep.subtitulo && (
-                <p className="text-[13px] text-slate-400 mt-2 leading-relaxed">{currentStep.subtitulo}</p>
-              )}
-            </div>
-
-            {/* Options / Slider */}
-            <div className="border-t border-slate-100">
-              {currentStep.tipo === "slider" && currentStep.slider ? (
-                <SliderInput
-                  cfg={currentStep.slider}
-                  value={getSliderValue(currentStep.id, currentStep.slider)}
-                  onChange={v => setSliderValues(prev => ({ ...prev, [currentStep.id]: v }))}
-                />
-              ) : currentStep.tipo === "multi" ? (
-                currentStep.opcoes.map(op => (
-                  <MultiOption
-                    key={op.value}
-                    opcao={op}
-                    selected={multiSelect.includes(op.value)}
-                    onToggle={() => toggleMulti(op.value)}
-                  />
-                ))
-              ) : (
-                currentStep.opcoes.map(op => (
-                  <RadioOption
-                    key={op.value}
-                    opcao={op}
-                    selected={pendingValue === op.value}
-                    onSelect={() => handleSingleSelect(op.value)}
-                  />
-                ))
-              )}
-            </div>
-
-            {validationError && (
-              <div className="mx-5 mt-4 rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-xs font-semibold text-red-700">
-                {validationError}
-              </div>
-            )}
+    <div className={outerClass} style={{ background: BG }}>
+      <AnimatePresence mode="wait">
+        {phase === "welcome" && !embedded && (
+          <motion.div key="welcome" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="flex-1 flex flex-col">
+            <WelcomeScreen onStart={() => setPhase("quiz")} />
           </motion.div>
-        </AnimatePresence>
-      </div>
-
-      {/* Bottom nav — always visible for slider/multi; hidden for single (auto-advances) */}
-      <div
-        className={cn(
-          "shrink-0 border-t border-slate-100 px-4 py-4 bg-white flex gap-3",
-          !embedded && "sticky bottom-0",
-          currentStep.tipo === "single" && "opacity-0 pointer-events-none select-none h-0 py-0 border-0"
         )}
-      >
-        <button
-          onClick={voltar}
-          className="flex items-center justify-center w-12 h-12 rounded-xl border border-slate-200 text-slate-500 hover:bg-slate-50 transition-colors shrink-0"
-        >
-          <ChevronLeft className="w-5 h-5" />
-        </button>
-        <motion.button
-          onClick={avancar}
-          disabled={!canNext}
-          whileTap={canNext ? { scale: 0.97 } : {}}
-          className={cn(
-            "flex-1 h-12 rounded-xl font-bold text-[15px] flex items-center justify-center gap-2 transition-all",
-            canNext ? "text-white shadow-md" : "bg-slate-100 text-slate-400 cursor-not-allowed"
-          )}
-          style={canNext ? { backgroundColor: C_RED } : undefined}
-        >
-          {stepIndex + 1 === total ? "Ver resultado" : "Próximo"}
-          <ChevronRight className="w-4 h-4" />
-        </motion.button>
-      </div>
+
+        {phase === "quiz" && (
+          <motion.div
+            key={`quiz-${step}`}
+            initial={{ opacity: 0, x: 24 }}
+            animate={{ opacity: 1, x: 0 }}
+            exit={{ opacity: 0, x: -24 }}
+            transition={{ duration: 0.2 }}
+            className="flex-1 flex flex-col"
+          >
+            <QuizScreen
+              step={step}
+              answers={answers}
+              onAnswer={setAnswer}
+              onMultiConfirm={setMultiAnswer}
+              onContinueNumber={(id, val) => { setSliders(s => ({ ...s, [id as string]: val })); setNumAnswer(id, val); }}
+              onBack={goBack}
+              sliderValues={sliders}
+              setSliderValue={(id, val) => setSliders(s => ({ ...s, [id]: val }))}
+            />
+          </motion.div>
+        )}
+
+        {phase === "mid_loading" && (
+          <motion.div key="mid" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="flex-1 flex flex-col">
+            <MidLoadingScreen />
+          </motion.div>
+        )}
+
+        {phase === "capture" && (
+          <motion.div key="capture" initial={{ opacity: 0, x: 24 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -24 }} transition={{ duration: 0.2 }} className="flex-1 flex flex-col">
+            <CaptureScreen onSubmit={handleCapture} onBack={goBack} />
+          </motion.div>
+        )}
+
+        {phase === "analyzing" && (
+          <motion.div key="analyzing" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="flex-1 flex flex-col">
+            <AnalyzingScreen />
+          </motion.div>
+        )}
+
+        {phase === "result" && (
+          <motion.div key="result" initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} transition={{ duration: 0.3 }} className="flex-1 flex flex-col">
+            <ResultScreen answers={answers} capNome={capNome} capZap={capZap} onRestart={restart} />
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }

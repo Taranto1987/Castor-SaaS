@@ -4,7 +4,7 @@ import useEmblaCarousel from "embla-carousel-react";
 import * as Accordion from "@radix-ui/react-accordion";
 import {
   Star, MessageCircle, MapPin, ChevronRight, ChevronDown,
-  Shield, Zap, Wind, RotateCcw, Award, Moon,
+  Shield, Zap, Wind, RotateCcw, Award, Moon, CheckCircle,
   X, ArrowRight, Users, Clock, Sparkles, Heart, ThumbsUp,
   BedDouble, TrendingUp, Phone, Eye,
 } from "lucide-react";
