@@ -1,0 +1,110 @@
+name: Railway Deploy Guard
+
+# POLÍTICA DE PROJETO ÚNICO — CFO RULE
+#
+# Projeto de produção ÚNICO: diligent-endurance
+# URL: https://evolution-api-production-405f.up.railway.app
+#
+# Deploy automático do Railway APENAS via branch main.
+# Feature branches NUNCA devem criar novos projetos ou ambientes no Railway.
+#
+# Este workflow:
+# 1. Bloqueia merges para main quando railway.json foi alterado de forma inválida
+# 2. Posta aviso em PRs que tocam configs Railway
+# 3. Valida que nenhum novo railwayProjectId foi adicionado
+
+on:
+  pull_request:
+    branches: [main, master]
+    types: [opened, synchronize, reopened]
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  railway-guard:
+    name: Railway single-project guard
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Detect Railway config changes
+        id: detect
+        run: |
+          CHANGED=$(git diff --name-only origin/main...HEAD | grep -E '(railway\.json|railway\.toml|nixpacks\.toml|Dockerfile)' || true)
+          echo "changed_files=$CHANGED" >> "$GITHUB_OUTPUT"
+          if [ -n "$CHANGED" ]; then
+            echo "has_railway_changes=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "has_railway_changes=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Validate railway.json — no new project creation
+        run: |
+          if [ ! -f railway.json ]; then
+            echo "railway.json not found — OK, nothing to validate."
+            exit 0
+          fi
+
+          # Garantir que railway.json não contém campos que criariam novo projeto
+          INVALID=$(python3 -c "
+          import json, sys
+          with open('railway.json') as f:
+              cfg = json.load(f)
+          forbidden = ['newProject', 'createProject', 'projectName']
+          found = [k for k in forbidden if k in cfg]
+          if found:
+              print('FORBIDDEN_KEYS: ' + ', '.join(found))
+              sys.exit(1)
+          print('OK')
+          ")
+          echo "$INVALID"
+
+      - name: Post warning comment on PR (Railway changes detected)
+        if: steps.detect.outputs.has_railway_changes == 'true'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const files = `${{ steps.detect.outputs.changed_files }}`.trim().split('\n').filter(Boolean);
+            const fileList = files.map(f => `- \`${f}\``).join('\n');
+
+            const body = `## ⚠️ Railway Deploy Guard — Atenção
+
+            Este PR modifica arquivos de configuração de deploy no Railway:
+
+            ${fileList}
+
+            ### Regra de ouro: **UM único projeto Railway**
+
+            | Projeto | Status |
+            |---------|--------|
+            | \`diligent-endurance\` | ✅ PRODUÇÃO — único permitido |
+            | Qualquer outro projeto | ❌ PROIBIDO criar |
+
+            **Antes de fazer merge:**
+            - [ ] Confirmar que as mudanças se aplicam ao projeto \`diligent-endurance\`
+            - [ ] Confirmar que nenhum novo projeto/ambiente Railway será criado
+            - [ ] Confirmar que o serviço \`evolution-api\` existente está sendo reutilizado
+
+            > CFO Rule: Não temos verba para múltiplos servidores. Se vira com um.`;
+
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              body
+            });
+
+      - name: Block if multiple railway.json files detected
+        run: |
+          COUNT=$(find . -name "railway.json" -not -path "*/node_modules/*" | wc -l)
+          echo "railway.json files found: $COUNT"
+          if [ "$COUNT" -gt 1 ]; then
+            echo "::error::BLOQUEIO CRÍTICO: $COUNT arquivos railway.json encontrados. Apenas 1 é permitido (na raiz do projeto). Remova os extras."
+            exit 1
+          fi
+          echo "OK — apenas 1 railway.json."
