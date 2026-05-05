@@ -512,7 +512,12 @@ export default function MapaSono() {
                   <input
                     autoFocus
                     value={inputVal}
-                    onChange={(e) => { setInputVal(e.target.value); setError(""); }}
+                    onChange={(e) => {
+                      const raw = e.target.value;
+                      const filtered = currentStep.numerico ? raw.replace(/[^0-9,.]/g, "") : raw;
+                      setInputVal(filtered);
+                      setError("");
+                    }}
                     onKeyDown={(e) => e.key === "Enter" && avancarInput()}
                     placeholder={currentStep.placeholder}
                     inputMode={currentStep.numerico ? "numeric" : "text"}
