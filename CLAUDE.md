@@ -99,7 +99,24 @@ Castor-SaaS is a SaaS platform for a mattress store chain. Key business features
 
 ## Deploy — Railway (Production) — 30/04/2026
 
-### Serviços no projeto diligent-endurance
+### REGRA ABSOLUTA — PROJETO UNICO (CFO RULE)
+
+**PROIBICOES IMUTAVEIS — qualquer violacao e erro critico de execucao:**
+- NUNCA criar novo projeto Railway
+- NUNCA criar novo ambiente Railway
+- NUNCA duplicar servicos (backend, banco, frontend)
+- NUNCA iniciar infraestrutura fora do projeto `diligent-endurance`
+
+**ANTES de qualquer criacao de servico:**
+1. Verificar se ja existe no projeto `diligent-endurance`
+2. Se existir → reutilizar obrigatoriamente
+3. Se nao existir → criar DENTRO de `diligent-endurance` apenas
+
+**Deploy automatico:** APENAS via branch `main`. Feature branches nao fazem deploy no Railway.
+
+---
+
+### Servicos no projeto diligent-endurance
 | Service | Tipo | URL |
 |---|---|---|
 | Postgres | Railway Postgres | (internal) |
