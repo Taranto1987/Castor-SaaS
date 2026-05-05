@@ -1,8 +1,8 @@
 import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
-  ShoppingCart, Users, Clock, Ruler, Scale, Layers,
-  BedDouble, Activity, Thermometer, LayoutGrid, History, Star,
+  ShoppingCart, LayoutGrid, Clock, Users, Calendar,
+  Ruler, Scale, BedDouble, Activity, Thermometer, Layers, History, Star,
 } from "lucide-react";
 import RulerPicker from "@/components/RulerPicker";
 import { trackMapaSonoCompleto, trackWhatsAppClick, trackPageView } from "@/lib/tracking";
@@ -11,15 +11,20 @@ import { trackMapaSonoCompleto, trackWhatsAppClick, trackPageView } from "@/lib/
 
 interface DiagnosticoData {
   objetivo?: string;
-  usuario_tipo?: string;
-  frequencia?: string;
-  altura_cm?: number;
+  tamanho?: string;
+  uso?: string;
+  pessoas?: string;       // "1" | "2"
+  idade?: string;
+  altura_cm?: number;     // stored in metres (1.75) — converted to cm on send
   peso_kg?: number;
-  conforto?: string;
+  altura_a?: number;      // person A (metres)
+  peso_a?: number;
+  altura_b?: number;      // person B (metres)
+  peso_b?: number;
   posicao?: string;
   dor?: string;
   calor?: string;
-  tamanho?: string;
+  conforto?: string;
   historico?: string;
   prioridade?: string;
   nome?: string;
@@ -37,10 +42,7 @@ interface Resultado {
   confianca: number;
 }
 
-interface Opcao {
-  label: string;
-  value: string;
-}
+interface Opcao { label: string; value: string; }
 
 type StepBase = {
   key: keyof DiagnosticoData;
@@ -48,140 +50,186 @@ type StepBase = {
   subtitulo: string;
   Icon: React.ComponentType<{ className?: string }>;
 };
-
-type StepOpcoes = StepBase & {
-  tipo: "opcoes";
-  opcoes: Opcao[];
-};
-
-type StepRuler = StepBase & {
-  tipo: "ruler";
-  ruler: { min: number; max: number; step: number; unit: string; defaultValue: number };
-};
-
+type StepOpcoes = StepBase & { tipo: "opcoes"; opcoes: Opcao[] };
+type StepRuler  = StepBase & { tipo: "ruler";  ruler: { min: number; max: number; step: number; unit: string; defaultValue: number } };
 type Step = StepOpcoes | StepRuler;
 
-// ─── STEPS ───────────────────────────────────────────────────────────────────
+// ─── STEP DEFINITIONS ────────────────────────────────────────────────────────
 
-const STEPS: Step[] = [
-  {
+const STEP_DEFS: Record<string, Step> = {
+  objetivo: {
     key: "objetivo", tipo: "opcoes", Icon: ShoppingCart,
     pergunta: "O que você está procurando?",
     subtitulo: "Selecione o que você busca",
     opcoes: [
-      { label: "Colchão", value: "colchao" },
-      { label: "Cama box completa", value: "cama_box" },
-      { label: "Quero recomendação personalizada", value: "recomendacao" },
+      { label: "Colchão",              value: "colchao"  },
+      { label: "Conjunto box completo", value: "cama_box" },
     ],
   },
-  {
-    key: "usuario_tipo", tipo: "opcoes", Icon: Users,
-    pergunta: "Para quem é o colchão?",
-    subtitulo: "Quem vai usar o colchão?",
+  tamanho: {
+    key: "tamanho", tipo: "opcoes", Icon: LayoutGrid,
+    pergunta: "Qual o tamanho desejado?",
+    subtitulo: "Define o suporte e o fluxo do diagnóstico",
     opcoes: [
-      { label: "Para mim", value: "solo" },
-      { label: "Para um casal", value: "casal" },
-      { label: "Para hóspede", value: "hospede" },
+      { label: "Solteiro", value: "solteiro" },
+      { label: "Casal",    value: "casal"    },
+      { label: "Queen",    value: "queen"    },
+      { label: "King",     value: "king"     },
     ],
   },
-  {
-    key: "frequencia", tipo: "opcoes", Icon: Clock,
+  uso: {
+    key: "uso", tipo: "opcoes", Icon: Clock,
     pergunta: "Qual a frequência de uso?",
     subtitulo: "Com que frequência será utilizado",
     opcoes: [
-      { label: "Uso diário", value: "diario" },
-      { label: "Às vezes", value: "semanal" },
+      { label: "Uso diário",    value: "diario"    },
       { label: "Uso esporádico", value: "esporadico" },
     ],
   },
-  {
+  pessoas: {
+    key: "pessoas", tipo: "opcoes", Icon: Users,
+    pergunta: "Quantas pessoas vão usar?",
+    subtitulo: "Isso define o diagnóstico corporal",
+    opcoes: [
+      { label: "1 pessoa",   value: "1" },
+      { label: "2 pessoas",  value: "2" },
+    ],
+  },
+  idade: {
+    key: "idade", tipo: "opcoes", Icon: Calendar,
+    pergunta: "Qual a sua faixa de idade?",
+    subtitulo: "Influencia o suporte articular ideal",
+    opcoes: [
+      { label: "Até 18 anos",      value: "menor18"  },
+      { label: "18 a 35 anos",     value: "18a35"    },
+      { label: "35 a 55 anos",     value: "35a55"    },
+      { label: "Acima de 55 anos", value: "acima55"  },
+    ],
+  },
+  altura_cm: {
     key: "altura_cm", tipo: "ruler", Icon: Ruler,
     pergunta: "Qual a sua altura?",
     subtitulo: "Informe sua altura",
     ruler: { min: 1.50, max: 2.00, step: 0.01, unit: "m", defaultValue: 1.75 },
   },
-  {
+  peso_kg: {
     key: "peso_kg", tipo: "ruler", Icon: Scale,
     pergunta: "Qual o seu peso?",
     subtitulo: "Informe seu peso",
     ruler: { min: 40, max: 150, step: 1, unit: "kg", defaultValue: 75 },
   },
-  {
-    key: "conforto", tipo: "opcoes", Icon: Layers,
-    pergunta: "Qual o seu nível de conforto preferido?",
-    subtitulo: "Sua preferência de firmeza",
-    opcoes: [
-      { label: "Macio", value: "macio" },
-      { label: "Intermediário", value: "intermediario" },
-      { label: "Firme", value: "firme" },
-    ],
+  altura_a: {
+    key: "altura_a", tipo: "ruler", Icon: Ruler,
+    pergunta: "Altura da Pessoa 1",
+    subtitulo: "Primeira pessoa que vai usar o colchão",
+    ruler: { min: 1.50, max: 2.00, step: 0.01, unit: "m", defaultValue: 1.75 },
   },
-  {
+  peso_a: {
+    key: "peso_a", tipo: "ruler", Icon: Scale,
+    pergunta: "Peso da Pessoa 1",
+    subtitulo: "Primeira pessoa que vai usar o colchão",
+    ruler: { min: 40, max: 150, step: 1, unit: "kg", defaultValue: 75 },
+  },
+  altura_b: {
+    key: "altura_b", tipo: "ruler", Icon: Ruler,
+    pergunta: "Altura da Pessoa 2",
+    subtitulo: "Segunda pessoa que vai usar o colchão",
+    ruler: { min: 1.50, max: 2.00, step: 0.01, unit: "m", defaultValue: 1.65 },
+  },
+  peso_b: {
+    key: "peso_b", tipo: "ruler", Icon: Scale,
+    pergunta: "Peso da Pessoa 2",
+    subtitulo: "Segunda pessoa que vai usar o colchão",
+    ruler: { min: 40, max: 150, step: 1, unit: "kg", defaultValue: 65 },
+  },
+  posicao: {
     key: "posicao", tipo: "opcoes", Icon: BedDouble,
     pergunta: "Qual posição você mais dorme?",
     subtitulo: "Posição principal ao dormir",
     opcoes: [
-      { label: "De lado", value: "lado" },
-      { label: "De costas", value: "costas" },
-      { label: "De barriga", value: "barriga" },
-      { label: "Varia durante a noite", value: "misto" },
+      { label: "De lado",              value: "lado"    },
+      { label: "De costas",            value: "costas"  },
+      { label: "De barriga",           value: "barriga" },
+      { label: "Varia durante a noite", value: "misto"   },
     ],
   },
-  {
+  dor: {
     key: "dor", tipo: "opcoes", Icon: Activity,
     pergunta: "Você sente alguma dor com frequência?",
     subtitulo: "Algum desconforto recorrente?",
     opcoes: [
-      { label: "Lombar", value: "lombar" },
-      { label: "Coluna", value: "coluna" },
-      { label: "Ombro", value: "ombro" },
+      { label: "Lombar",  value: "lombar"  },
+      { label: "Coluna",  value: "coluna"  },
+      { label: "Ombro",   value: "ombro"   },
       { label: "Nenhuma", value: "nenhuma" },
     ],
   },
-  {
+  calor: {
     key: "calor", tipo: "opcoes", Icon: Thermometer,
     pergunta: "Você sente calor ao dormir?",
     subtitulo: "Temperatura durante o sono",
     opcoes: [
-      { label: "Sim, esquento muito", value: "sim" },
+      { label: "Sim, esquento muito",    value: "sim" },
       { label: "Não, temperatura normal", value: "nao" },
     ],
   },
-  {
-    key: "tamanho", tipo: "opcoes", Icon: LayoutGrid,
-    pergunta: "Qual o tamanho desejado?",
-    subtitulo: "Qual tamanho é o ideal?",
+  conforto: {
+    key: "conforto", tipo: "opcoes", Icon: Layers,
+    pergunta: "Qual o seu nível de conforto preferido?",
+    subtitulo: "Sua preferência de firmeza",
     opcoes: [
-      { label: "Solteiro", value: "solteiro" },
-      { label: "Casal", value: "casal" },
-      { label: "Queen", value: "queen" },
-      { label: "King", value: "king" },
+      { label: "Macio",        value: "macio"        },
+      { label: "Intermediário", value: "intermediario" },
+      { label: "Firme",        value: "firme"        },
     ],
   },
-  {
+  historico: {
     key: "historico", tipo: "opcoes", Icon: History,
     pergunta: "Você está substituindo qual colchão atual?",
     subtitulo: "Seu colchão anterior",
     opcoes: [
-      { label: "Colchão de mola", value: "mola" },
-      { label: "Espuma ou viscoelástico", value: "espuma" },
-      { label: "Cama de madeira / estrado", value: "madeira" },
+      { label: "Colchão de mola",            value: "mola"    },
+      { label: "Espuma ou viscoelástico",    value: "espuma"  },
+      { label: "Cama de madeira / estrado",  value: "madeira" },
       { label: "Primeiro colchão de qualidade", value: "nenhum" },
     ],
   },
-  {
+  prioridade: {
     key: "prioridade", tipo: "opcoes", Icon: Star,
     pergunta: "O que é mais importante para você?",
     subtitulo: "O que mais importa na escolha",
     opcoes: [
-      { label: "Conforto máximo", value: "conforto" },
-      { label: "Máxima durabilidade", value: "max_durabilidade" },
-      { label: "Melhor custo-benefício", value: "custo_beneficio" },
+      { label: "Conforto máximo",       value: "conforto"        },
+      { label: "Máxima durabilidade",   value: "max_durabilidade" },
+      { label: "Melhor custo-benefício", value: "custo_beneficio"  },
     ],
   },
-];
+};
 
-const TOTAL = STEPS.length;
+// ─── ADAPTIVE FLOW ENGINE ─────────────────────────────────────────────────────
+
+const FLOW = {
+  inicio:   ["objetivo", "tamanho", "uso"],
+  solteiro: ["idade", "altura_cm", "peso_kg", "posicao", "dor", "calor", "conforto", "historico", "prioridade"],
+  casal: {
+    base:       ["pessoas"],
+    individual: ["idade", "altura_cm", "peso_kg", "posicao", "dor", "calor", "conforto", "historico", "prioridade"],
+    dupla:      ["altura_a", "peso_a", "altura_b", "peso_b", "posicao", "dor", "calor", "conforto", "historico", "prioridade"],
+  },
+};
+
+function getFlow(data: DiagnosticoData): string[] {
+  if (!data.tamanho) return [...FLOW.inicio];
+  if (data.tamanho === "solteiro") return [...FLOW.inicio, ...FLOW.solteiro];
+  // casal / queen / king
+  if (!data.pessoas) return [...FLOW.inicio, ...FLOW.casal.base];
+  if (data.pessoas === "1") return [...FLOW.inicio, ...FLOW.casal.base, ...FLOW.casal.individual];
+  if (data.pessoas === "2") return [...FLOW.inicio, ...FLOW.casal.base, ...FLOW.casal.dupla];
+  return [...FLOW.inicio];
+}
+
+// ─── CONSTANTS ───────────────────────────────────────────────────────────────
+
 const WA = "5522992410112";
 
 // ─── COMPONENT ───────────────────────────────────────────────────────────────
@@ -195,9 +243,14 @@ export default function MapaSono() {
 
   useEffect(() => { trackPageView("mapa_sono"); }, []);
 
-  const idx = typeof step === "number" ? step : -1;
-  const currentStep = idx >= 0 && idx < TOTAL ? STEPS[idx] : null;
-  const progress = typeof step === "number" ? Math.round((step / TOTAL) * 100) : step === "result" ? 100 : 0;
+  const flow        = getFlow(data);
+  const total       = flow.length;
+  const idx         = typeof step === "number" ? step : -1;
+  const currentKey  = idx >= 0 && idx < total ? flow[idx] : null;
+  const currentStep = currentKey ? STEP_DEFS[currentKey] : null;
+  const progress    = typeof step === "number"
+    ? Math.round((step / total) * 100)
+    : step === "result" ? 100 : 0;
 
   // Initialize ruler defaults when landing on a ruler step
   useEffect(() => {
@@ -215,26 +268,55 @@ export default function MapaSono() {
   }
 
   function escolher(key: keyof DiagnosticoData, value: string) {
-    const next = idx + 1;
-    const newData = { ...data, [key]: value };
+    let newData: DiagnosticoData = { ...data, [key]: value };
+
+    // Reset downstream branch data when branch points change
+    if (key === "tamanho") {
+      newData = { ...newData, pessoas: undefined, altura_a: undefined, peso_a: undefined, altura_b: undefined, peso_b: undefined };
+    }
+    if (key === "pessoas") {
+      newData = { ...newData, altura_a: undefined, peso_a: undefined, altura_b: undefined, peso_b: undefined };
+    }
+
     setData(newData);
-    if (next < TOTAL) setStep(next);
+    const newFlow = getFlow(newData);
+    const next = idx + 1;
+    if (next < newFlow.length) setStep(next);
     else enviar(newData);
   }
 
   function avancarRuler() {
     const next = idx + 1;
-    if (next < TOTAL) setStep(next);
+    if (next < flow.length) setStep(next);
     else enviar(data);
   }
 
   async function enviar(finalData: DiagnosticoData) {
     setStep("loading");
+    const isPair = finalData.pessoas === "2";
+
+    // Convert metres → cm; for two people use average
+    const altCm = isPair
+      ? Math.round(((finalData.altura_a ?? 1.70) + (finalData.altura_b ?? 1.65)) / 2 * 100)
+      : Math.round((finalData.altura_cm ?? 1.70) * 100);
+    const pesoKg = isPair
+      ? ((finalData.peso_a ?? 75) + (finalData.peso_b ?? 65)) / 2
+      : finalData.peso_kg ?? 75;
+
+    const payload = {
+      ...finalData,
+      usuario_tipo: isPair ? "casal" : "solo",
+      altura_cm: altCm,
+      peso_kg: pesoKg,
+      nome,
+      whatsapp,
+    };
+
     try {
       const res = await fetch("/api/diagnostico", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ ...finalData, nome, whatsapp }),
+        body: JSON.stringify(payload),
       });
       if (!res.ok) throw new Error();
       const r: Resultado = await res.json();
@@ -257,10 +339,8 @@ export default function MapaSono() {
   }
 
   function voltar() {
-    if (step === "result") { setStep(TOTAL - 1); return; }
-    if (typeof step === "number") {
-      setStep(step === 0 ? "welcome" : step - 1);
-    }
+    if (step === "result") { setStep(flow.length - 1); return; }
+    if (typeof step === "number") setStep(step === 0 ? "welcome" : step - 1);
   }
 
   // ── WELCOME ────────────────────────────────────────────────────────────────
@@ -279,13 +359,13 @@ export default function MapaSono() {
             O colchão ideal<br />para o seu corpo
           </h1>
           <p className="text-sm text-white/55 mb-6 leading-relaxed">
-            Diagnóstico personalizado em {TOTAL} perguntas rápidas. Receba a recomendação exata para o seu perfil.
+            Diagnóstico adaptativo — as perguntas se ajustam ao seu perfil em tempo real.
           </p>
 
           <div className="space-y-2.5 mb-6">
             {[
-              { icon: "🎯", text: `${TOTAL} cliques — sem formulários longos` },
-              { icon: "🧠", text: "Motor de decisão baseado no seu biotipo" },
+              { icon: "🎯", text: "Fluxo adaptativo — menos perguntas, mais precisão" },
+              { icon: "🧠", text: "Motor de decisão baseado no seu biotipo real" },
               { icon: "📲", text: "Resultado completo + WhatsApp direto" },
             ].map((i) => (
               <div key={i.icon} className="flex items-center gap-3 bg-white/5 border border-white/10 rounded-xl px-4 py-3">
@@ -468,16 +548,16 @@ export default function MapaSono() {
     <div className="min-h-full bg-[#0b0b0b] flex items-center justify-center p-5">
       <div className="w-full max-w-[420px]">
 
-        {/* Progress bar */}
+        {/* Progress */}
         <div className="mb-4">
           <div className="flex justify-between text-[10px] font-bold mb-1.5">
-            <span className="text-white/35">Etapa {idx + 1} de {TOTAL}</span>
+            <span className="text-white/35">Etapa {idx + 1} de {total}</span>
             <span className="text-red-500">{progress}%</span>
           </div>
           <div className="w-full h-1 bg-white/10 rounded-full overflow-hidden">
             <motion.div
               className="h-full bg-red-600 rounded-full"
-              initial={{ width: `${Math.round((idx / TOTAL) * 100)}%` }}
+              initial={{ width: `${Math.round((idx / total) * 100)}%` }}
               animate={{ width: `${progress}%` }}
               transition={{ duration: 0.35 }}
             />
@@ -486,7 +566,7 @@ export default function MapaSono() {
 
         <AnimatePresence mode="wait">
           <motion.div
-            key={idx}
+            key={`${idx}-${currentKey}`}
             initial={{ opacity: 0, x: 20 }}
             animate={{ opacity: 1, x: 0 }}
             exit={{ opacity: 0, x: -20 }}
