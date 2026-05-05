@@ -13,6 +13,7 @@ import usuariosRouter from "./usuarios";
 import followupRouter from "./followup";
 import agentRouter from "./agent";
 import wahaRouter from "./waha";
+import diagnosticoRouter from "./diagnostico";
 
 const router: IRouter = Router();
 
@@ -31,5 +32,6 @@ router.use("/agente", chatRouter);
 router.use("/followup", followupRouter);
 router.use(agentRouter);
 router.use(wahaRouter);
+router.use(diagnosticoRouter);
 
 export default router;
