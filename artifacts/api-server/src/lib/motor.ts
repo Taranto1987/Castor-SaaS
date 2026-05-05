@@ -84,13 +84,31 @@ export function selecionarProduto(
   analise: DiagnosticoAnalise
 ): ProdutoCatalogo {
   const tamanho = d.tamanho ?? "casal";
-  const candidatos = catalogo.filter(
+
+  // Exact match: tecnologia + firmeza + tamanho
+  const exact = catalogo.filter(
     (p) =>
       p.tecnologias.includes(analise.tecnologia) &&
       p.firmezas.includes(analise.firmeza_final) &&
       p.tamanhos.includes(tamanho)
   );
-  return candidatos[0] ?? fallback();
+  if (exact.length > 0) return exact[0];
+
+  // Relax tamanho constraint — keep tecnologia + firmeza
+  const byTecFirmeza = catalogo.filter(
+    (p) =>
+      p.tecnologias.includes(analise.tecnologia) &&
+      p.firmezas.includes(analise.firmeza_final)
+  );
+  if (byTecFirmeza.length > 0) return byTecFirmeza[0];
+
+  // Relax firmeza — keep tecnologia only
+  const byTec = catalogo.filter((p) =>
+    p.tecnologias.includes(analise.tecnologia)
+  );
+  if (byTec.length > 0) return byTec[0];
+
+  return fallback();
 }
 
 export function gerarSaida(

@@ -192,9 +192,8 @@ export default function MapaSono() {
     setData({});
     setResultado(null);
     setInputVal("");
-    setNome("");
-    setWhatsapp("");
     setError("");
+    // nome/whatsapp intentionally preserved — captured on welcome screen before this runs
   }
 
   function escolher(key: keyof DiagnosticoData, value: string) {
