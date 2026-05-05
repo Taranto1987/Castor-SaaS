@@ -5,3 +5,4 @@ export * from "./financeiro";
 export * from "./entradas-estoque";
 export * from "./colaboradores";
 export * from "./follow-ups";
+export * from "./traffic-manager";

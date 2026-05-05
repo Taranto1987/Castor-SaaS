@@ -14,6 +14,8 @@ import followupRouter from "./followup";
 import agentRouter from "./agent";
 import wahaRouter from "./waha";
 import diagnosticoRouter from "./diagnostico";
+import trafficManagerRouter from "./traffic-manager";
+import capiRouter from "./capi";
 
 const router: IRouter = Router();
 
@@ -33,5 +35,7 @@ router.use("/followup", followupRouter);
 router.use(agentRouter);
 router.use(wahaRouter);
 router.use(diagnosticoRouter);
+router.use(trafficManagerRouter);
+router.use(capiRouter);
 
 export default router;

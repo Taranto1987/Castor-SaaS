@@ -4,6 +4,7 @@ import { db } from "@workspace/db";
 import { produtosTable } from "@workspace/db/schema";
 import { eq } from "drizzle-orm";
 import { autoSalvarOrcamentoDaConversa } from "../lib/orcamento-utils";
+import { sendLeadEvent } from "../lib/meta-capi-client";
 
 const router: IRouter = Router();
 
@@ -260,6 +261,13 @@ async function processarLeadDaConversa(
     dados.telefone,
     dados.produtoIds
   );
+
+  // Lead qualificado com nome + telefone + produto = alta intenção de compra
+  sendLeadEvent({
+    phone: dados.telefone,
+    name: dados.nomeCliente,
+    leadScore: 90,
+  }).catch((e) => console.error("[Chat] CAPI Lead erro:", e));
 }
 
 router.post("/", async (req, res) => {
