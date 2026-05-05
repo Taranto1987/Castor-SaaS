@@ -1,5 +1,9 @@
 import { Router, type Request, type Response } from "express";
-import { runCastorAgent, runOnExistingSession } from "../lib/castor-agent";
+import {
+  createCastorSession,
+  sendCastorMessage,
+  streamCastorEvents,
+} from "../lib/castor-agent";
 
 const router = Router();
 
@@ -24,11 +28,23 @@ router.post("/webhook/waha", async (req: Request, res: Response) => {
 
     // Reutiliza sessão existente do cliente ou cria nova
     const existingSession = sessionByPhone.get(numero);
-    const result = existingSession
-      ? await runOnExistingSession(existingSession, texto)
-      : await runCastorAgent(texto);
+    const sessionId = existingSession ?? (await createCastorSession(`waha-${numero}`)).id;
+    sessionByPhone.set(numero, sessionId);
 
-    sessionByPhone.set(numero, result.sessionId);
+    await sendCastorMessage(sessionId, texto);
+
+    let text = "";
+    const stream = await streamCastorEvents(sessionId);
+    for await (const event of stream) {
+      if (event?.type === "agent.message") {
+        for (const block of (event.content ?? [])) {
+          if (block?.type === "text") text += block.text;
+        }
+      }
+      if (event?.type === "session.status_idle" || event?.type === "session.status_terminated") break;
+    }
+
+    const result = { text: text.trim() };
 
     const wahaUrl = process.env.WAHA_URL;
     const wahaSession = process.env.WAHA_SESSION_NAME ?? "castor";
