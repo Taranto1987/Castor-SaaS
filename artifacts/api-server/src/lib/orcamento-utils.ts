@@ -1,17 +1,9 @@
 import { db } from "@workspace/db";
 import { produtosTable, orcamentosTable } from "@workspace/db/schema";
 import { inArray } from "drizzle-orm";
+import { parseBRL as parsarPreco, formatBRL } from "../services/shared/currency";
 
-export function parsarPreco(valor?: string | null): number {
-  if (!valor) return 0;
-  const limpo = valor.replace(/[R$\s.]/g, "").replace(",", ".");
-  const num = parseFloat(limpo);
-  return isNaN(num) ? 0 : num;
-}
-
-export function formatBRL(valor: number): string {
-  return valor.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
-}
+export { parsarPreco, formatBRL };
 
 export const BENEFICIO_CATEGORIA: Record<string, string> = {
   "colchoes":         "🌙 Engenharia do sono — conforto e saúde para sua noite",
