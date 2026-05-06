@@ -85,7 +85,6 @@ function sendSSEMessage(res: Response, payload: Record<string, unknown>) {
 
 function buildFallbackMessage(lastUserMessage: string): string {
   const hasContext = lastUserMessage.trim().length > 0;
-
   return `${hasContext ? "Entendi seu caso. " : ""}Pra te indicar com precisão, me responde rapidinho:\n\n1) Você dorme de lado, costas ou bruços?\n2) Qual sua faixa de peso?\n3) Prefere colchão mais firme ou mais macio?\n\nCom isso eu já te passo uma recomendação inicial sem inventar preço. Se quiser, também posso te encaminhar direto pro WhatsApp da loja pra fechar com condição especial.`;
 }
 
@@ -93,6 +92,7 @@ async function getProductContext(): Promise<string> {
   try {
     const allProducts = await db
       .select({
+        id: produtosTable.id,
         nome: produtosTable.nome,
         categoria: produtosTable.categoria,
         precoPix: produtosTable.precoPix,
@@ -111,54 +111,13 @@ async function getProductContext(): Promise<string> {
       const cat = p.categoria || "outros";
       if (!grouped[cat]) grouped[cat] = [];
       grouped[cat].push(p);
-    try {
-          const allProducts = await db
-            .select({
-                      id: produtosTable.id,
-                      nome: produtosTable.nome,
-                      categoria: produtosTable.categoria,
-                      precoPix: produtosTable.precoPix,
-                      preco: produtosTable.preco,
-                      parcelamento: produtosTable.parcelamento,
-                      medidas: produtosTable.medidas,
-                      altura: produtosTable.altura,
-            })
-            .from(produtosTable)
-            .where(eq(produtosTable.disponivel, true));
-
-      if (allProducts.length === 0) return "Catálogo vazio no momento.";
-
-      const grouped: Record<string, typeof allProducts> = {};
-          for (const p of allProducts) {
-                  const cat = p.categoria || "outros";
-                  if (!grouped[cat]) grouped[cat] = [];
-                  grouped[cat].push(p);
-          }
-
-      let ctx = "## Produtos Disponíveis (use o ID ao recomendar)\n\n";
-          for (const [cat, items] of Object.entries(grouped)) {
-                  ctx += `### ${cat}\n`;
-                  for (const p of items.slice(0, 15)) {
-                            ctx += `- [ID:${p.id}] **${p.nome}**`;
-                            if (p.medidas) ctx += ` (${p.medidas})`;
-                            if (p.precoPix) ctx += ` — PIX: ${p.precoPix}`;
-                            if (p.preco) ctx += ` | Prazo: ${p.preco}`;
-                            if (p.parcelamento) ctx += ` (${p.parcelamento})`;
-                            ctx += "\n";
-                  }
-                  if (items.length > 15) ctx += ` ... e mais ${items.length - 15} produtos\n`;
-                  ctx += "\n";
-          }
-          return ctx;
-    } catch {
-          return "Catálogo temporariamente indisponível.";
     }
 
-    let ctx = "## Produtos Disponíveis\n\n";
+    let ctx = "## Produtos Disponíveis (use o ID ao recomendar)\n\n";
     for (const [cat, items] of Object.entries(grouped)) {
       ctx += `### ${cat}\n`;
       for (const p of items.slice(0, 15)) {
-        ctx += `- **${p.nome}**`;
+        ctx += `- [ID:${p.id}] **${p.nome}**`;
         if (p.medidas) ctx += ` (${p.medidas})`;
         if (p.precoPix) ctx += ` — PIX: ${p.precoPix}`;
         if (p.preco) ctx += ` | Prazo: ${p.preco}`;
@@ -186,10 +145,6 @@ interface ExtracaoLead {
   deveSalvar: boolean;
 }
 
-/**
- * Extrai dados estruturados da conversa usando Claude Haiku.
- * Chamado de forma assíncrona após o stream — não afeta latência do chat.
- */
 async function extrairDadosConversa(
   messages: ChatMessage[],
   ultimaRespostaAssistente: string
@@ -197,32 +152,25 @@ async function extrairDadosConversa(
   if (messages.length < 3) return null;
 
   const conversa = messages
-    .map((m) => `${m.role === "user" ? "Cliente" : "ThallesZzz"}: ${m.content}`)
-    .join("\n\n");
+    .map((m) => `${m.role === "user" ? "Cliente" : "Assistente"}: ${m.content}`)
+    .join("\n");
+
+  const client = getAnthropicClient();
+  if (!client) return null;
 
   try {
     const response = await client.messages.create({
       model: "claude-haiku-4-5-20251001",
-      max_tokens: 300,
+      max_tokens: 256,
+      system: `Analise a conversa e extraia dados de lead. Retorne JSON com:
+- nomeCliente: string | null
+- telefone: string | null (apenas dígitos)
+- produtoIds: number[] (IDs mencionados no formato [ID:X])
+- deveSalvar: boolean (true se tiver nome + telefone + produto)`,
       messages: [
         {
           role: "user",
-          content: `Analise esta conversa de vendas de colchões e extraia dados se presentes.
-Retorne APENAS JSON válido, sem markdown, sem explicação.
-
-Conversa:
-${conversa}
-
-Última fala do consultor:
-${ultimaRespostaAssistente.slice(0, 600)}
-
-JSON esperado:
-{
-  "nomeCliente": "primeiro nome ou nome completo do cliente, null se não informado",
-  "telefone": "apenas dígitos do número brasileiro (ex: 22999990000), null se não informado",
-  "produtoIds": [IDs numéricos exatos dos produtos recomendados na conversa, array vazio se nenhum],
-  "deveSalvar": true se e somente se temos nomeCliente não-nulo E telefone não-nulo E produtoIds não-vazio
-}`,
+          content: `Conversa:\n${conversa}\n\nÚltima resposta do assistente:\n${ultimaRespostaAssistente}`,
         },
       ],
     });
@@ -243,10 +191,6 @@ JSON esperado:
   }
 }
 
-/**
- * Pipeline assíncrono pós-stream: extrai lead e auto-salva orçamento.
- * Não bloqueia a resposta SSE — erros são silenciosos.
- */
 async function processarLeadDaConversa(
   messages: ChatMessage[],
   ultimaRespostaAssistente: string
@@ -291,9 +235,10 @@ router.post("/", async (req, res) => {
     }
 
     const productContext = await getProductContext();
+    let fullAssistantText = "";
 
     const stream = client.messages.stream({
-      model: "claude-opus-4-5",
+      model: "claude-sonnet-4-6",
       max_tokens: 1024,
       system: [
         {
@@ -310,81 +255,27 @@ router.post("/", async (req, res) => {
     });
 
     stream.on("text", (text) => {
-      sendSSEMessage(res, { content: text });
+      fullAssistantText += text;
+      res.write(`data: ${JSON.stringify({ content: text })}\n\n`);
     });
 
     await stream.finalMessage();
-    sendSSEMessage(res, { done: true });
+    res.write(`data: ${JSON.stringify({ done: true })}\n\n`);
     res.end();
+
+    setImmediate(() => {
+      processarLeadDaConversa(chatMessages, fullAssistantText).catch((err) =>
+        console.error("[Chat] Erro no processamento de lead:", err)
+      );
+    });
   } catch (error) {
     console.error("Chat error:", error);
-
     if (!res.headersSent) {
       res.status(500).json({ error: "Erro interno do chat" });
-      return;
-      const productContext = await getProductContext();
-
-      const chatMessages = messages
-            .filter((m) => m.role === "user" || m.role === "assistant")
-            .slice(-10)
-            .map((m) => ({ role: m.role, content: m.content }));
-
-      res.setHeader("Content-Type", "text/event-stream");
-          res.setHeader("Cache-Control", "no-cache");
-          res.setHeader("Connection", "keep-alive");
-
-      let fullAssistantText = "";
-
-      const stream = client.messages.stream({
-              model: "claude-sonnet-4-6",
-              max_tokens: 1024,
-              system: [
-                {
-                            type: "text",
-                            text: SYSTEM_PROMPT,
-                            cache_control: { type: "ephemeral" },
-                },
-                {
-                            type: "text",
-                            text: productContext,
-                },
-                      ],
-              messages: chatMessages,
-      });
-
-      stream.on("text", (text) => {
-              fullAssistantText += text;
-              res.write(`data: ${JSON.stringify({ content: text })}\n\n`);
-      });
-
-      await stream.finalMessage();
-          res.write(`data: ${JSON.stringify({ done: true })}\n\n`);
-          res.end();
-
-      // Extração e auto-save acontecem após fechar a resposta — sem latência para o usuário
-      setImmediate(() => {
-        processarLeadDaConversa(chatMessages, fullAssistantText).catch((err) =>
-          console.error("[Chat] Erro no processamento de lead:", err)
-        );
-      });
-    } catch (error) {
-          console.error("Chat error:", error);
-          if (!res.headersSent) {
-                  res.status(500).json({ error: "Erro interno do chat" });
-          } else {
-                  res.write(`data: ${JSON.stringify({ error: "Erro ao processar mensagem" })}\n\n`);
-                  res.end();
-          }
+    } else {
+      res.write(`data: ${JSON.stringify({ error: "Erro ao processar mensagem" })}\n\n`);
+      res.end();
     }
-
-    const rawMessages = (req.body as { messages?: ChatMessage[] })?.messages;
-    const lastUserMessage = Array.isArray(rawMessages)
-      ? [...rawMessages].reverse().find((m) => m?.role === "user")?.content ?? ""
-      : "";
-
-    sendSSEMessage(res, { content: buildFallbackMessage(lastUserMessage) });
-    sendSSEMessage(res, { done: true });
-    res.end();
   }
 });
 

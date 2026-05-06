@@ -26,50 +26,13 @@ export interface Produto {
 
 export interface OrcamentoInput {
   cliente: string;
-  whatsapp?: string;
-  produtoIds: number[];
+  produtoId: number;
   observacoes?: string;
-  descontoPix?: number;
 }
 
 export interface OrcamentoOutput {
   texto: string;
-  totalPix: string;
-  totalPrazo: string;
-  parcela12: string;
-  produtos: Produto[];
-}
-
-export interface SalvarOrcamentoInput {
-  cliente: string;
-  whatsapp?: string;
-  produtosJson: Produto[];
-  observacoes?: string;
-  descontoPix?: number;
-  totalPix?: string;
-  totalPrazo?: string;
-  texto: string;
-  vendedor?: string;
-}
-
-export interface SalvarOrcamentoOutput {
-  id: number;
-  mensagem: string;
-}
-
-export interface HistoricoItem {
-  id: number;
-  cliente: string;
-  whatsapp?: string;
-  produtosJson: Produto[];
-  observacoes?: string;
-  descontoPix?: number;
-  totalPix?: string;
-  totalPrazo?: string;
-  texto: string;
-  vendedor?: string;
-  status?: string;
-  criadoEm?: string;
+  produto: Produto;
 }
 
 export type CrawlerStatusStatus =
@@ -99,5 +62,4 @@ export type ListProdutosParams = {
 
 export type BuscarProdutosParams = {
   q: string;
-  categoria?: string;
 };

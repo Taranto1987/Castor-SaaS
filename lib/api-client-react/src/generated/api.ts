@@ -20,12 +20,9 @@ import type {
   BuscarProdutosParams,
   CrawlerStatus,
   HealthStatus,
-  HistoricoItem,
   ListProdutosParams,
   OrcamentoInput,
   OrcamentoOutput,
-  SalvarOrcamentoInput,
-  SalvarOrcamentoOutput,
   Produto,
 } from "./api.schemas";
 
@@ -702,117 +699,5 @@ export function useStatusCrawler<
     queryKey: QueryKey;
   };
 
-  return { ...query, queryKey: queryOptions.queryKey };
-}
-
-/**
- * @summary Salvar orçamento no banco
- */
-export const getSalvarOrcamentoUrl = () => {
-  return `/api/orcamento/salvar`;
-};
-
-export const salvarOrcamento = async (
-  salvarOrcamentoInput: SalvarOrcamentoInput,
-  options?: RequestInit,
-): Promise<SalvarOrcamentoOutput> => {
-  return customFetch<SalvarOrcamentoOutput>(getSalvarOrcamentoUrl(), {
-    ...options,
-    method: "POST",
-    headers: { "Content-Type": "application/json", ...options?.headers },
-    body: JSON.stringify(salvarOrcamentoInput),
-  });
-};
-
-export const useSalvarOrcamento = <
-  TError = ErrorType<unknown>,
-  TContext = unknown,
->(options?: {
-  mutation?: UseMutationOptions<
-    Awaited<ReturnType<typeof salvarOrcamento>>,
-    TError,
-    { data: BodyType<SalvarOrcamentoInput> },
-    TContext
-  >;
-  request?: SecondParameter<typeof customFetch>;
-}): UseMutationResult<
-  Awaited<ReturnType<typeof salvarOrcamento>>,
-  TError,
-  { data: BodyType<SalvarOrcamentoInput> },
-  TContext
-> => {
-  const mutationKey = ["salvarOrcamento"];
-  const { mutation: mutationOptions, request: requestOptions } = options
-    ? options.mutation &&
-      "mutationKey" in options.mutation &&
-      options.mutation.mutationKey
-      ? options
-      : { ...options, mutation: { ...options.mutation, mutationKey } }
-    : { mutation: { mutationKey }, request: undefined };
-
-  const mutationFn: MutationFunction<
-    Awaited<ReturnType<typeof salvarOrcamento>>,
-    { data: BodyType<SalvarOrcamentoInput> }
-  > = (props) => {
-    const { data } = props ?? {};
-    return salvarOrcamento(data, requestOptions);
-  };
-
-  return useMutation({ mutationFn, ...mutationOptions });
-};
-
-/**
- * @summary Listar histórico de orçamentos
- */
-export const getHistoricoOrcamentosUrl = () => {
-  return `/api/orcamento/historico`;
-};
-
-export const historicoOrcamentos = async (
-  options?: RequestInit,
-): Promise<HistoricoItem[]> => {
-  return customFetch<HistoricoItem[]>(getHistoricoOrcamentosUrl(), {
-    ...options,
-    method: "GET",
-  });
-};
-
-export const getHistoricoOrcamentosQueryOptions = <
-  TData = Awaited<ReturnType<typeof historicoOrcamentos>>,
-  TError = ErrorType<unknown>,
->(options?: {
-  query?: UseQueryOptions<
-    Awaited<ReturnType<typeof historicoOrcamentos>>,
-    TError,
-    TData
-  >;
-  request?: SecondParameter<typeof customFetch>;
-}) => {
-  const { query: queryOptions, request: requestOptions } = options ?? {};
-  const queryKey = queryOptions?.queryKey ?? [getHistoricoOrcamentosUrl()];
-  const queryFn: QueryFunction<Awaited<ReturnType<typeof historicoOrcamentos>>> = () =>
-    historicoOrcamentos(requestOptions);
-  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
-    Awaited<ReturnType<typeof historicoOrcamentos>>,
-    TError,
-    TData
-  >;
-};
-
-export function useHistoricoOrcamentos<
-  TData = Awaited<ReturnType<typeof historicoOrcamentos>>,
-  TError = ErrorType<unknown>,
->(options?: {
-  query?: UseQueryOptions<
-    Awaited<ReturnType<typeof historicoOrcamentos>>,
-    TError,
-    TData
-  >;
-  request?: SecondParameter<typeof customFetch>;
-}): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
-  const queryOptions = getHistoricoOrcamentosQueryOptions(options);
-  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
-    queryKey: QueryKey;
-  };
   return { ...query, queryKey: queryOptions.queryKey };
 }
