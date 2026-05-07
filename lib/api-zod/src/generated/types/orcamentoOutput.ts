@@ -9,5 +9,11 @@ import type { Produto } from "./produto";
 
 export interface OrcamentoOutput {
   texto: string;
-  produto: Produto;
+  totalPrecoBase?: string;
+  totalPix: string;
+  totalPrazo: string;
+  parcela12?: string;
+  descontoAplicado?: string;
+  descontoPercentual?: number;
+  produtos: Produto[];
 }

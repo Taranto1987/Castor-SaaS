@@ -43,6 +43,7 @@ export const ListProdutosResponse = zod.array(ListProdutosResponseItem);
  */
 export const BuscarProdutosQueryParams = zod.object({
   q: zod.coerce.string(),
+  categoria: zod.coerce.string().optional(),
 });
 
 export const BuscarProdutosResponseItem = zod.object({
@@ -94,27 +95,118 @@ export const GetProdutoResponse = zod.object({
  */
 export const GerarOrcamentoBody = zod.object({
   cliente: zod.string(),
-  produtoId: zod.number(),
+  whatsapp: zod.string().optional(),
+  produtoIds: zod.array(zod.number()),
   observacoes: zod.string().optional(),
+  descontoPix: zod.number().optional(),
 });
 
 export const GerarOrcamentoResponse = zod.object({
   texto: zod.string(),
-  produto: zod.object({
-    id: zod.number(),
-    nome: zod.string(),
-    sku: zod.string().optional(),
-    preco: zod.string().optional(),
-    precoPix: zod.string().optional(),
-    parcelamento: zod.string().optional(),
-    medidas: zod.string().optional(),
-    altura: zod.string().optional(),
-    categoria: zod.string(),
-    imagem: zod.string().optional(),
-    link: zod.string().optional(),
-    criadoEm: zod.string().optional(),
-  }),
+  totalPrecoBase: zod.string().optional(),
+  totalPix: zod.string(),
+  totalPrazo: zod.string(),
+  parcela12: zod.string().optional(),
+  descontoAplicado: zod.string().optional(),
+  descontoPercentual: zod.number().optional(),
+  produtos: zod.array(
+    zod.object({
+      id: zod.number(),
+      nome: zod.string(),
+      sku: zod.string().optional(),
+      preco: zod.string().optional(),
+      precoPix: zod.string().optional(),
+      parcelamento: zod.string().optional(),
+      medidas: zod.string().optional(),
+      altura: zod.string().optional(),
+      categoria: zod.string(),
+      imagem: zod.string().optional(),
+      link: zod.string().optional(),
+      criadoEm: zod.string().optional(),
+    }),
+  ),
 });
+
+/**
+ * @summary Salvar orçamento no banco de dados
+ */
+export const SalvarOrcamentoBody = zod.object({
+  cliente: zod.string(),
+  whatsapp: zod.string().optional(),
+  produtosJson: zod
+    .array(
+      zod.object({
+        id: zod.number(),
+        nome: zod.string(),
+        sku: zod.string().optional(),
+        preco: zod.string().optional(),
+        precoPix: zod.string().optional(),
+        parcelamento: zod.string().optional(),
+        medidas: zod.string().optional(),
+        altura: zod.string().optional(),
+        categoria: zod.string(),
+        imagem: zod.string().optional(),
+        link: zod.string().optional(),
+        criadoEm: zod.string().optional(),
+      }),
+    )
+    .optional(),
+  observacoes: zod.string().optional(),
+  descontoPix: zod.number().optional(),
+  totalPix: zod.string().optional(),
+  totalPrazo: zod.string().optional(),
+  texto: zod.string(),
+  vendedor: zod.string().optional(),
+  precoBaseTotal: zod.string().optional(),
+  descontoAplicado: zod.string().optional(),
+});
+
+export const SalvarOrcamentoResponse = zod.object({
+  id: zod.number(),
+  mensagem: zod.string(),
+});
+
+/**
+ * @summary Listar histórico de orçamentos
+ */
+export const HistoricoOrcamentosQueryParams = zod.object({
+  page: zod.coerce.number().optional(),
+});
+
+export const HistoricoOrcamentosResponseItem = zod.object({
+  id: zod.number(),
+  cliente: zod.string(),
+  whatsapp: zod.string().optional(),
+  status: zod.string(),
+  vendedor: zod.string().optional(),
+  totalPix: zod.string().optional(),
+  totalPrazo: zod.string().optional(),
+  descontoPix: zod.number().optional(),
+  observacoes: zod.string().optional(),
+  texto: zod.string(),
+  produtosJson: zod
+    .array(
+      zod.object({
+        id: zod.number(),
+        nome: zod.string(),
+        sku: zod.string().optional(),
+        preco: zod.string().optional(),
+        precoPix: zod.string().optional(),
+        parcelamento: zod.string().optional(),
+        medidas: zod.string().optional(),
+        altura: zod.string().optional(),
+        categoria: zod.string(),
+        imagem: zod.string().optional(),
+        link: zod.string().optional(),
+        criadoEm: zod.string().optional(),
+      }),
+    )
+    .optional(),
+  criadoEm: zod.string().optional(),
+});
+export const HistoricoOrcamentosResponse = zod.array(
+  HistoricoOrcamentosResponseItem,
+);
 
 /**
  * @summary Iniciar coleta de produtos do site Castor
