@@ -2,6 +2,7 @@ import { pgTable, serial, text, timestamp, integer, numeric, boolean } from "dri
 
 export const despesasTable = pgTable("despesas", {
   id: serial("id").primaryKey(),
+  lojaId: integer("loja_id").default(1),
   valor: numeric("valor", { precision: 12, scale: 2 }).notNull(),
   categoria: text("categoria").notNull(),
   descricao: text("descricao"),
@@ -17,6 +18,7 @@ export type Despesa = typeof despesasTable.$inferSelect;
 
 export const despesasRecorrentesTable = pgTable("despesas_recorrentes", {
   id: serial("id").primaryKey(),
+  lojaId: integer("loja_id").default(1),
   valor: numeric("valor", { precision: 12, scale: 2 }).notNull(),
   categoria: text("categoria").notNull(),
   descricao: text("descricao"),
@@ -29,6 +31,7 @@ export type DespesaRecorrente = typeof despesasRecorrentesTable.$inferSelect;
 
 export const comissoesConfigTable = pgTable("comissoes_config", {
   id: serial("id").primaryKey(),
+  lojaId: integer("loja_id").default(1),
   vendedor: text("vendedor").notNull().unique(),
   percentual: numeric("percentual", { precision: 5, scale: 2 }).notNull().default("2.00"),
   criadoEm: timestamp("criado_em").defaultNow(),
@@ -38,6 +41,7 @@ export type ComissaoConfig = typeof comissoesConfigTable.$inferSelect;
 
 export const metasTable = pgTable("metas", {
   id: serial("id").primaryKey(),
+  lojaId: integer("loja_id").default(1),
   mes: integer("mes").notNull(),
   ano: integer("ano").notNull(),
   valor: numeric("valor", { precision: 12, scale: 2 }).notNull(),

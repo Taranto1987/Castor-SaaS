@@ -35,7 +35,8 @@ router.post("/", async (req, res) => {
     res.setHeader("Cache-Control", "no-cache");
     res.setHeader("Connection", "keep-alive");
 
-    const lastUserMessage = [...chatMessages].reverse().find((m) => m.role === "user")?.content ?? "";
+    const lastUserMessage =
+      [...chatMessages].reverse().find((m) => m.role === "user")?.content ?? "";
     const client = getAnthropicClient();
 
     if (!client) {

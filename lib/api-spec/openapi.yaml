@@ -62,6 +62,11 @@ paths:
           required: true
           schema:
             type: string
+        - name: categoria
+          in: query
+          required: false
+          schema:
+            type: string
       responses:
         "200":
           description: Produtos encontrados
@@ -123,6 +128,44 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/OrcamentoOutput"
+  /orcamento/salvar:
+    post:
+      operationId: salvarOrcamento
+      tags: [orcamento]
+      summary: Salvar orçamento no banco de dados
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SalvarOrcamentoInput"
+      responses:
+        "200":
+          description: Orçamento salvo
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SalvarOrcamentoOutput"
+  /orcamento/historico:
+    get:
+      operationId: historicoOrcamentos
+      tags: [orcamento]
+      summary: Listar histórico de orçamentos
+      parameters:
+        - name: page
+          in: query
+          required: false
+          schema:
+            type: number
+      responses:
+        "200":
+          description: Lista de orçamentos
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/HistoricoItem"
   /crawler/iniciar:
     post:
       operationId: iniciarCrawler
@@ -193,23 +236,119 @@ components:
       properties:
         cliente:
           type: string
-        produtoId:
-          type: number
+        whatsapp:
+          type: string
+        produtoIds:
+          type: array
+          items:
+            type: number
         observacoes:
           type: string
+        descontoPix:
+          type: number
       required:
         - cliente
-        - produtoId
+        - produtoIds
     OrcamentoOutput:
       type: object
       properties:
         texto:
           type: string
-        produto:
-          $ref: "#/components/schemas/Produto"
+        totalPrecoBase:
+          type: string
+        totalPix:
+          type: string
+        totalPrazo:
+          type: string
+        parcela12:
+          type: string
+        descontoAplicado:
+          type: string
+        descontoPercentual:
+          type: number
+        produtos:
+          type: array
+          items:
+            $ref: "#/components/schemas/Produto"
       required:
         - texto
-        - produto
+        - totalPix
+        - totalPrazo
+        - produtos
+    SalvarOrcamentoInput:
+      type: object
+      properties:
+        cliente:
+          type: string
+        whatsapp:
+          type: string
+        produtosJson:
+          type: array
+          items:
+            $ref: "#/components/schemas/Produto"
+        observacoes:
+          type: string
+        descontoPix:
+          type: number
+        totalPix:
+          type: string
+        totalPrazo:
+          type: string
+        texto:
+          type: string
+        vendedor:
+          type: string
+        precoBaseTotal:
+          type: string
+        descontoAplicado:
+          type: string
+      required:
+        - cliente
+        - texto
+    SalvarOrcamentoOutput:
+      type: object
+      properties:
+        id:
+          type: number
+        mensagem:
+          type: string
+      required:
+        - id
+        - mensagem
+    HistoricoItem:
+      type: object
+      properties:
+        id:
+          type: number
+        cliente:
+          type: string
+        whatsapp:
+          type: string
+        status:
+          type: string
+        vendedor:
+          type: string
+        totalPix:
+          type: string
+        totalPrazo:
+          type: string
+        descontoPix:
+          type: number
+        observacoes:
+          type: string
+        texto:
+          type: string
+        produtosJson:
+          type: array
+          items:
+            $ref: "#/components/schemas/Produto"
+        criadoEm:
+          type: string
+      required:
+        - id
+        - cliente
+        - status
+        - texto
     CrawlerStatus:
       type: object
       properties:

@@ -34,22 +34,27 @@ export interface OrcamentoInput {
 
 export interface OrcamentoOutput {
   texto: string;
+  totalPrecoBase?: string;
   totalPix: string;
   totalPrazo: string;
-  parcela12: string;
+  parcela12?: string;
+  descontoAplicado?: string;
+  descontoPercentual?: number;
   produtos: Produto[];
 }
 
 export interface SalvarOrcamentoInput {
   cliente: string;
   whatsapp?: string;
-  produtosJson: Produto[];
+  produtosJson?: Produto[];
   observacoes?: string;
   descontoPix?: number;
   totalPix?: string;
   totalPrazo?: string;
   texto: string;
   vendedor?: string;
+  precoBaseTotal?: string;
+  descontoAplicado?: string;
 }
 
 export interface SalvarOrcamentoOutput {
@@ -61,14 +66,14 @@ export interface HistoricoItem {
   id: number;
   cliente: string;
   whatsapp?: string;
-  produtosJson: Produto[];
-  observacoes?: string;
-  descontoPix?: number;
+  status: string;
+  vendedor?: string;
   totalPix?: string;
   totalPrazo?: string;
+  descontoPix?: number;
+  observacoes?: string;
   texto: string;
-  vendedor?: string;
-  status?: string;
+  produtosJson?: Produto[];
   criadoEm?: string;
 }
 
@@ -100,4 +105,8 @@ export type ListProdutosParams = {
 export type BuscarProdutosParams = {
   q: string;
   categoria?: string;
+};
+
+export type HistoricoOrcamentosParams = {
+  page?: number;
 };

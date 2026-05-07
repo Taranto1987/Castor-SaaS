@@ -6,7 +6,7 @@
  * OpenAPI spec version: 0.1.0
  */
 
-export type BuscarProdutosParams = {
-  q: string;
-  categoria?: string;
-};
+export interface SalvarOrcamentoOutput {
+  id: number;
+  mensagem: string;
+}
