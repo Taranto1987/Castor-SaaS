@@ -5,6 +5,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { Analytics } from "@vercel/analytics/react";
 
 import { AuthProvider, useAuth } from "@/contexts/AuthContext";
+import { LojaProvider } from "@/contexts/LojaContext";
 import ErrorBoundary from "@/components/ErrorBoundary";
 import LoginScreen from "@/components/LoginScreen";
 import PublicLayout from "@/components/PublicLayout";
@@ -122,15 +123,17 @@ function App() {
   return (
     <QueryClientProvider client={queryClient}>
       <TooltipProvider>
-        <AuthProvider>
-          <WouterRouter base={import.meta.env.BASE_URL.replace(/\/$/, "")}>
-            <ErrorBoundary>
-              <AppRoutes />
-            </ErrorBoundary>
-          </WouterRouter>
-          <Toaster />
-          <Analytics />
-        </AuthProvider>
+        <LojaProvider>
+          <AuthProvider>
+            <WouterRouter base={import.meta.env.BASE_URL.replace(/\/$/, "")}>
+              <ErrorBoundary>
+                <AppRoutes />
+              </ErrorBoundary>
+            </WouterRouter>
+            <Toaster />
+            <Analytics />
+          </AuthProvider>
+        </LojaProvider>
       </TooltipProvider>
     </QueryClientProvider>
   );

@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { requireAuth } from "../middlewares/auth";
+import { requireAuth, resolveLojaId } from "../middlewares/auth";
 import { findProdutosByIds, saveOrcamento, findHistorico, findOrcamentoById, fecharVendaTransaction } from "../services/orcamento/repository";
 import { gerarTextoOrcamento } from "../services/orcamento/generator";
 import type { AuthRequest } from "../middlewares/auth";
@@ -13,8 +13,9 @@ router.post("/", async (req, res) => {
       res.status(400).json({ error: "Cliente e pelo menos um produto são obrigatórios" });
       return;
     }
+    const lojaId = resolveLojaId(req);
     const ids = produtoIds.map((id: unknown) => parseInt(String(id)));
-    const results = await findProdutosByIds(ids);
+    const results = await findProdutosByIds(ids, lojaId);
     if (results.length === 0) { res.status(404).json({ error: "Nenhum produto encontrado" }); return; }
     const ordenados = ids.map((id) => results.find((p) => p.id === id)).filter(Boolean) as typeof results;
 
@@ -33,7 +34,8 @@ router.post("/salvar", requireAuth, async (req: AuthRequest, res) => {
   try {
     const { cliente, whatsapp, produtosJson, observacoes, descontoPix, totalPix, totalPrazo, texto, vendedor, precoBaseTotal, descontoAplicado } = req.body;
     if (!cliente || !texto) { res.status(400).json({ error: "Dados insuficientes para salvar" }); return; }
-    const row = await saveOrcamento({ cliente, whatsapp, produtosJson, observacoes, descontoPix, totalPix, totalPrazo, texto, vendedor, precoBaseTotal, descontoAplicado });
+    const lojaId = req.session?.lojaId ?? resolveLojaId(req);
+    const row = await saveOrcamento({ lojaId, cliente, whatsapp, produtosJson, observacoes, descontoPix, totalPix, totalPrazo, texto, vendedor, precoBaseTotal, descontoAplicado });
     res.json({ id: row.id, mensagem: "Orçamento salvo com sucesso!" });
   } catch {
     res.status(500).json({ error: "Erro interno" });
@@ -44,7 +46,7 @@ router.get("/historico", requireAuth, async (req: AuthRequest, res) => {
   try {
     const session = req.session!;
     const page = Math.max(0, parseInt(String(req.query.page ?? "0")) || 0);
-    res.json(await findHistorico(session.papel, session.nome, page));
+    res.json(await findHistorico(session.papel, session.nome, page, session.lojaId));
   } catch {
     res.status(500).json({ error: "Erro interno" });
   }

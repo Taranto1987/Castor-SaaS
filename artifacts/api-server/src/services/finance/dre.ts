@@ -11,10 +11,10 @@ import {
 } from "./repository";
 import type { DREResult, EvolucaoMes, ResumoDiario, Alerta } from "./types";
 
-export async function calcularDRE(mes: number, ano: number): Promise<DREResult> {
+export async function calcularDRE(mes: number, ano: number, lojaId = 1): Promise<DREResult> {
   const { inicio, fim } = getMonthRange(mes, ano);
 
-  const vendas = await findVendasPeriodo(inicio, fim);
+  const vendas = await findVendasPeriodo(inicio, fim, lojaId);
   let receitaBruta = 0;
   let custoProdutos = 0;
   for (const v of vendas) {
@@ -29,7 +29,7 @@ export async function calcularDRE(mes: number, ano: number): Promise<DREResult> 
 
   const lucroBruto = receitaBruta - custoProdutos;
 
-  const despesas = await findDespesasConfirmadas(inicio, fim);
+  const despesas = await findDespesasConfirmadas(inicio, fim, lojaId);
   const despesasPorCategoria: Record<string, number> = {};
   let totalDespesas = 0;
   for (const d of despesas) {
@@ -38,7 +38,7 @@ export async function calcularDRE(mes: number, ano: number): Promise<DREResult> 
     despesasPorCategoria[d.categoria] = (despesasPorCategoria[d.categoria] || 0) + val;
   }
 
-  const configs = await findComissoesConfig();
+  const configs = await findComissoesConfig(lojaId);
   const configMap: Record<string, number> = {};
   for (const c of configs) configMap[c.vendedor] = parseFloat(c.percentual);
 
@@ -56,10 +56,10 @@ export async function calcularDRE(mes: number, ano: number): Promise<DREResult> 
   };
 }
 
-export async function calcularComissoes(mes: number, ano: number) {
+export async function calcularComissoes(mes: number, ano: number, lojaId = 1) {
   const { inicio, fim } = getMonthRange(mes, ano);
-  const vendas = await findVendasPeriodo(inicio, fim);
-  const configs = await findComissoesConfig();
+  const vendas = await findVendasPeriodo(inicio, fim, lojaId);
+  const configs = await findComissoesConfig(lojaId);
   const configMap: Record<string, number> = {};
   for (const c of configs) configMap[c.vendedor] = parseFloat(c.percentual);
 
@@ -80,15 +80,15 @@ export async function calcularComissoes(mes: number, ano: number) {
   return { resultado, totalComissoes, mes, ano };
 }
 
-export async function calcularResumoDiario(): Promise<ResumoDiario> {
+export async function calcularResumoDiario(lojaId = 1): Promise<ResumoDiario> {
   const hoje = new Date();
   const inicioHoje = new Date(hoje.getFullYear(), hoje.getMonth(), hoje.getDate());
   const fimHoje = new Date(hoje.getFullYear(), hoje.getMonth(), hoje.getDate(), 23, 59, 59, 999);
 
-  const vendasHoje = await findVendasPeriodo(inicioHoje, fimHoje);
-  const orcamentosHoje = await findOrcamentosPeriodo(inicioHoje, fimHoje);
-  const pendentes = await findOrcamentosPendentes();
-  const despesasHoje = await findDespesasConfirmadas(inicioHoje, fimHoje);
+  const vendasHoje = await findVendasPeriodo(inicioHoje, fimHoje, lojaId);
+  const orcamentosHoje = await findOrcamentosPeriodo(inicioHoje, fimHoje, lojaId);
+  const pendentes = await findOrcamentosPendentes(lojaId);
+  const despesasHoje = await findDespesasConfirmadas(inicioHoje, fimHoje, lojaId);
 
   let totalFaturado = 0;
   for (const v of vendasHoje) totalFaturado += parseBRL(v.totalPix);
@@ -140,7 +140,7 @@ export async function calcularResumoDiario(): Promise<ResumoDiario> {
   };
 }
 
-export async function calcularEvolucao(qtdMeses: number): Promise<EvolucaoMes[]> {
+export async function calcularEvolucao(qtdMeses: number, lojaId = 1): Promise<EvolucaoMes[]> {
   const now = new Date();
   const resultado: EvolucaoMes[] = [];
 
@@ -149,11 +149,11 @@ export async function calcularEvolucao(qtdMeses: number): Promise<EvolucaoMes[]>
     const { mes: m, ano: a } = parseMesAno(String(d.getMonth() + 1), String(d.getFullYear()));
     const { inicio, fim } = getMonthRange(m, a);
 
-    const vendas = await findVendasPeriodo(inicio, fim);
+    const vendas = await findVendasPeriodo(inicio, fim, lojaId);
     let faturamento = 0;
     for (const v of vendas) faturamento += parseBRL(v.totalPix);
 
-    const despesasMes = await findDespesasConfirmadas(inicio, fim);
+    const despesasMes = await findDespesasConfirmadas(inicio, fim, lojaId);
     let totalDesp = 0;
     for (const dp of despesasMes) totalDesp += parseFloat(dp.valor);
 
@@ -167,14 +167,14 @@ export async function calcularEvolucao(qtdMeses: number): Promise<EvolucaoMes[]>
   return resultado;
 }
 
-export async function calcularAlertas(operacao: string): Promise<Alerta[]> {
+export async function calcularAlertas(operacao: string, lojaId = 1): Promise<Alerta[]> {
   const now = new Date();
   const { mes: m, ano: a } = parseMesAno();
   const { inicio, fim } = getMonthRange(m, a);
   const alertas: Alerta[] = [];
 
   const meta = await findMeta(m, a, operacao);
-  const vendas = await findVendasPeriodo(inicio, fim);
+  const vendas = await findVendasPeriodo(inicio, fim, lojaId);
   let totalVendido = 0;
   for (const v of vendas) totalVendido += parseBRL(v.totalPix);
 
@@ -191,7 +191,7 @@ export async function calcularAlertas(operacao: string): Promise<Alerta[]> {
     }
   }
 
-  const pendentes = await findOrcamentosPendentes();
+  const pendentes = await findOrcamentosPendentes(lojaId);
   const parados3dias = pendentes.filter((p) => {
     if (!p.criadoEm) return false;
     return Math.floor((Date.now() - new Date(p.criadoEm).getTime()) / 86_400_000) >= 3;
@@ -200,12 +200,12 @@ export async function calcularAlertas(operacao: string): Promise<Alerta[]> {
     alertas.push({ tipo: "followup", titulo: `${parados3dias.length} orçamento(s) parado(s)`, descricao: `Orçamentos sem follow-up há mais de 3 dias.` });
   }
 
-  const despesasMes = await findDespesasConfirmadas(inicio, fim);
+  const despesasMes = await findDespesasConfirmadas(inicio, fim, lojaId);
   let totalDesp = 0;
   for (const d of despesasMes) totalDesp += parseFloat(d.valor);
 
   const { inicio: prevInicio, fim: prevFim } = getMonthRange(m === 1 ? 12 : m - 1, m === 1 ? a - 1 : a);
-  const despMesAnt = await findDespesasConfirmadas(prevInicio, prevFim);
+  const despMesAnt = await findDespesasConfirmadas(prevInicio, prevFim, lojaId);
   let totalDespAnt = 0;
   for (const d of despMesAnt) totalDespAnt += parseFloat(d.valor);
 
@@ -217,7 +217,7 @@ export async function calcularAlertas(operacao: string): Promise<Alerta[]> {
     });
   }
 
-  const produtos = await findProdutosDisponiveis();
+  const produtos = await findProdutosDisponiveis(lojaId);
   const lowMargin: string[] = [];
   for (const p of produtos) {
     const custo = parseBRL(p.custoBRL);

@@ -310,6 +310,14 @@ export async function customFetch<T = unknown>(
     } catch {}
   }
 
+  // Injeta lojaId para páginas públicas (quando não há token de sessão autenticado)
+  if (!headers.has("x-loja-id")) {
+    try {
+      const lojaId = typeof sessionStorage !== "undefined" ? sessionStorage.getItem("castor_loja_id") : null;
+      if (lojaId) headers.set("x-loja-id", lojaId);
+    } catch {}
+  }
+
   const response = await fetch(input, { ...init, method, headers });
 
   if (!response.ok) {

@@ -1,8 +1,8 @@
 import { db } from "@workspace/db";
 import { produtosTable } from "@workspace/db/schema";
-import { eq } from "drizzle-orm";
+import { eq, and } from "drizzle-orm";
 
-export async function getProductContext(): Promise<string> {
+export async function getProductContext(lojaId = 1): Promise<string> {
   try {
     const allProducts = await db
       .select({
@@ -16,7 +16,7 @@ export async function getProductContext(): Promise<string> {
         altura: produtosTable.altura,
       })
       .from(produtosTable)
-      .where(eq(produtosTable.disponivel, true));
+      .where(and(eq(produtosTable.disponivel, true), eq(produtosTable.lojaId, lojaId)));
 
     if (allProducts.length === 0) return "Catálogo vazio no momento.";
 

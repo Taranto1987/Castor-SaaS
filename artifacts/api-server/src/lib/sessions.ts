@@ -8,6 +8,7 @@ export interface Session {
   nome: string;
   papel: string;
   operacao: string;
+  lojaId: number;
   wa: string;
   waRaw: string;
   tom: string;
@@ -15,6 +16,11 @@ export interface Session {
   assinatura: string;
   criadoEm: number;
 }
+
+const LOJA_BY_OPERACAO: Record<string, number> = {
+  cabo_frio: 1,
+  araruama: 2,
+};
 
 const sessions = new Map<string, Session>();
 const SESSION_TTL_MS = 24 * 60 * 60 * 1000;
@@ -70,6 +76,7 @@ const SEED_USERS = [
     nome: "Nete Rafaele",
     papel: "vendedor",
     operacao: "araruama",
+    lojaId: 2,
     wa: "(22) 98824-9183",
     waRaw: "5522988249183",
     tom: "proximo",
@@ -81,6 +88,7 @@ const SEED_USERS = [
     nome: "Pedro Paulo",
     papel: "vendedor",
     operacao: "araruama",
+    lojaId: 2,
     wa: "(22) 2665-6035",
     waRaw: "5522266560035",
     tom: "tecnico",
@@ -107,10 +115,18 @@ export async function seedColaboradores(): Promise<void> {
       .from(colaboradoresTable)
       .limit(1);
 
-    if (existing.length > 0) return; // Já populado
+    if (existing.length === 0) {
+      await db.insert(colaboradoresTable).values(SEED_USERS).onConflictDoNothing();
+      console.log("[Sessions] Colaboradores seedados no banco de dados.");
+    }
 
-    await db.insert(colaboradoresTable).values(SEED_USERS).onConflictDoNothing();
-    console.log("[Sessions] Colaboradores seedados no banco de dados.");
+    // Fix lojaId for araruama collaborators that were seeded before geo-routing
+    for (const [operacao, lojaId] of Object.entries(LOJA_BY_OPERACAO)) {
+      await db
+        .update(colaboradoresTable)
+        .set({ lojaId })
+        .where(eq(colaboradoresTable.operacao, operacao));
+    }
   } catch (err) {
     console.error("[Sessions] Erro ao seedar colaboradores:", err);
   }
@@ -141,6 +157,7 @@ export async function createSession(code: string): Promise<Session | null> {
     nome: colaborador.nome,
     papel: colaborador.papel,
     operacao: colaborador.operacao,
+    lojaId: colaborador.lojaId ?? LOJA_BY_OPERACAO[colaborador.operacao] ?? 1,
     wa: colaborador.wa ?? "",
     waRaw: colaborador.waRaw ?? "",
     tom: colaborador.tom ?? "direto",

@@ -1,6 +1,21 @@
 import type { Request, Response, NextFunction } from "express";
 import { getSession, isDono, type Session } from "../lib/sessions";
 
+/** Resolve lojaId from session → x-loja-id header → default 1 (Cabo Frio). */
+export function resolveLojaId(req: Request): number {
+  const token = (req.headers["x-session-token"] || "") as string;
+  if (token) {
+    const session = getSession(token);
+    if (session) return session.lojaId;
+  }
+  const header = req.headers["x-loja-id"];
+  if (header) {
+    const id = parseInt(String(header), 10);
+    if (!isNaN(id) && id > 0) return id;
+  }
+  return 1;
+}
+
 export interface AuthRequest extends Request {
   session?: Session;
 }
