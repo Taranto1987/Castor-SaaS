@@ -9,6 +9,74 @@ export interface HealthStatus {
   status: string;
 }
 
+export type SessionPapel = (typeof SessionPapel)[keyof typeof SessionPapel];
+
+export const SessionPapel = {
+  dono: "dono",
+  vendedor: "vendedor",
+  entrega: "entrega",
+  financeiro: "financeiro",
+} as const;
+
+export interface Session {
+  token: string;
+  nome: string;
+  papel: SessionPapel;
+  operacao: string;
+  wa?: string;
+  waRaw?: string;
+  tom?: string;
+  header?: string;
+  assinatura?: string;
+}
+
+export type UsuarioPapel = (typeof UsuarioPapel)[keyof typeof UsuarioPapel];
+
+export const UsuarioPapel = {
+  dono: "dono",
+  vendedor: "vendedor",
+  entrega: "entrega",
+  financeiro: "financeiro",
+} as const;
+
+export interface Usuario {
+  id: number;
+  codigo: string;
+  nome: string;
+  papel: UsuarioPapel;
+  operacao: string;
+  wa?: string | null;
+  waRaw?: string | null;
+  tom?: string | null;
+  header?: string | null;
+  assinatura?: string | null;
+  ativo: boolean;
+  ultimoAcesso?: string | null;
+  criadoEm?: string | null;
+}
+
+export type CriarUsuarioInputPapel =
+  (typeof CriarUsuarioInputPapel)[keyof typeof CriarUsuarioInputPapel];
+
+export const CriarUsuarioInputPapel = {
+  dono: "dono",
+  vendedor: "vendedor",
+  entrega: "entrega",
+  financeiro: "financeiro",
+} as const;
+
+export interface CriarUsuarioInput {
+  codigo: string;
+  nome: string;
+  papel: CriarUsuarioInputPapel;
+  operacao: string;
+  wa?: string;
+  waRaw?: string;
+  tom?: string;
+  header?: string;
+  assinatura?: string;
+}
+
 export interface Produto {
   id: number;
   nome: string;
@@ -97,6 +165,303 @@ export interface CrawlerStatus {
   finalizadoEm?: string;
 }
 
+export type EntregaStatus = (typeof EntregaStatus)[keyof typeof EntregaStatus];
+
+export const EntregaStatus = {
+  pendente: "pendente",
+  em_rota: "em_rota",
+  entregue: "entregue",
+  cancelado: "cancelado",
+} as const;
+
+export interface Entrega {
+  id: number;
+  orcamentoId?: number | null;
+  cliente: string;
+  whatsapp?: string | null;
+  endereco?: string | null;
+  produtos?: string | null;
+  status: EntregaStatus;
+  vendedor?: string | null;
+  observacoes?: string | null;
+  dataEntrega?: string | null;
+  criadoEm?: string;
+  atualizadoEm?: string;
+}
+
+export interface CriarEntregaInput {
+  orcamentoId?: number;
+  cliente: string;
+  whatsapp?: string;
+  endereco?: string;
+  produtos?: string;
+  status?: string;
+  vendedor?: string;
+  observacoes?: string;
+  dataEntrega?: string;
+}
+
+export type DashboardDataRankingVendedoresItem = {
+  vendedor: string;
+  total: number;
+  count: number;
+};
+
+export type DashboardDataEvolucaoSemanalItem = { [key: string]: unknown };
+
+export interface DashboardData {
+  totalOrcamentos: number;
+  vendidos: number;
+  taxaConversao: number;
+  ticketMedio?: number;
+  faturamentoTotal: number;
+  totalProdutos: number;
+  entregasPendentes?: number;
+  entregasEmRota?: number;
+  entregasEntregues?: number;
+  rankingVendedores?: DashboardDataRankingVendedoresItem[];
+  evolucaoSemanal?: DashboardDataEvolucaoSemanalItem[];
+}
+
+export interface Despesa {
+  id: number;
+  lojaId?: number;
+  valor: string;
+  categoria: string;
+  descricao?: string | null;
+  comprovante?: string | null;
+  recorrente: boolean;
+  recorrenteId?: number | null;
+  confirmada: boolean;
+  data: string;
+  criadoEm?: string;
+}
+
+export interface CriarDespesaInput {
+  valor: number;
+  categoria: string;
+  descricao?: string;
+  comprovante?: string;
+  recorrente?: boolean;
+  data?: string;
+}
+
+export interface DespesaRecorrente {
+  id: number;
+  valor: string;
+  categoria: string;
+  descricao?: string | null;
+  ativo: boolean;
+  diaVencimento: number;
+  criadoEm?: string;
+}
+
+export interface CriarDespesaRecorrenteInput {
+  valor: number;
+  categoria: string;
+  descricao?: string;
+  diaVencimento?: number;
+}
+
+export interface Comissao {
+  vendedor: string;
+  totalVendas: number;
+  percentual: number;
+  valorComissao: number;
+  quantidadeVendas: number;
+}
+
+export interface ComissaoConfig {
+  id: number;
+  vendedor: string;
+  percentual: number;
+  criadoEm?: string;
+}
+
+export type DREDataDespesasPorCategoriaItem = {
+  categoria: string;
+  total: number;
+};
+
+export interface DREData {
+  mes: number;
+  ano: number;
+  receitaBruta: number;
+  despesaTotal: number;
+  comissoesTotal?: number;
+  lucroLiquido: number;
+  margemLiquida?: number;
+  despesasPorCategoria?: DREDataDespesasPorCategoriaItem[];
+}
+
+export interface ResumoDiario {
+  vendas: number;
+  orcamentos: number;
+  faturamento: number;
+  despesas: number;
+}
+
+export interface Meta {
+  id: number;
+  mes: number;
+  ano: number;
+  metaFaturamento?: number;
+  metaVendas?: number;
+  criadoEm?: string;
+}
+
+export interface SaveMetaInput {
+  mes: number;
+  ano: number;
+  metaFaturamento?: number;
+  metaVendas?: number;
+}
+
+export type AlertaSeveridade =
+  (typeof AlertaSeveridade)[keyof typeof AlertaSeveridade];
+
+export const AlertaSeveridade = {
+  info: "info",
+  aviso: "aviso",
+  critico: "critico",
+} as const;
+
+export interface Alerta {
+  tipo: string;
+  mensagem: string;
+  severidade: AlertaSeveridade;
+}
+
+export interface EvolucaoMes {
+  mes: string;
+  faturamento: number;
+  despesas: number;
+  lucro: number;
+}
+
+export type ChatMessageRole =
+  (typeof ChatMessageRole)[keyof typeof ChatMessageRole];
+
+export const ChatMessageRole = {
+  user: "user",
+  assistant: "assistant",
+} as const;
+
+export interface ChatMessage {
+  role: ChatMessageRole;
+  content: string;
+}
+
+export interface ChatInput {
+  /** @minItems 1 */
+  messages: ChatMessage[];
+}
+
+export interface AgentInput {
+  message: string;
+  session_id?: string;
+}
+
+export type AgentRunOutputDataStatus =
+  (typeof AgentRunOutputDataStatus)[keyof typeof AgentRunOutputDataStatus];
+
+export const AgentRunOutputDataStatus = {
+  idle: "idle",
+  running: "running",
+  terminated: "terminated",
+} as const;
+
+export type AgentRunOutputData = {
+  session_id: string;
+  output: string;
+  status: AgentRunOutputDataStatus;
+};
+
+export interface AgentRunOutput {
+  success: boolean;
+  data?: AgentRunOutputData;
+}
+
+export type FollowUpPendenteTipo =
+  (typeof FollowUpPendenteTipo)[keyof typeof FollowUpPendenteTipo];
+
+export const FollowUpPendenteTipo = {
+  dia3: "dia3",
+  dia7: "dia7",
+  dia14: "dia14",
+} as const;
+
+export interface FollowUpPendente {
+  id: number;
+  tipo: FollowUpPendenteTipo;
+  mensagem: string;
+  waLink?: string | null;
+  geradoEm: string;
+  orcamentoId: number;
+  cliente: string;
+  whatsapp?: string | null;
+  vendedor?: string | null;
+  totalPix?: string | null;
+  status: string;
+}
+
+export interface ItemExtraido {
+  nome: string;
+  quantidade: number;
+  sku?: string | null;
+  precoCusto?: string | null;
+}
+
+export interface ItemMatchado {
+  extraido: ItemExtraido;
+  produtoId?: number | null;
+  produtoNome?: string | null;
+  confianca: number;
+}
+
+export interface ItemConfirmar {
+  produtoId: number;
+  quantidade: number;
+  precoCusto?: string;
+  nomeExtraido: string;
+  skuExtraido?: string;
+}
+
+export interface EntradaEstoque {
+  id: number;
+  fornecedor?: string | null;
+  imagemNota?: string | null;
+  totalItens: number;
+  criadoEm?: string;
+}
+
+export interface DiagnosticoOutput {
+  recomendacao: string;
+  produto?: string;
+  justificativa?: string;
+  waLink?: string;
+  [key: string]: unknown;
+}
+
+export type SessionTokenParameter = string;
+
+export type LoginBody = {
+  code: string;
+};
+
+export type Logout200 = {
+  ok: boolean;
+};
+
+export type TrocarSenhaUsuarioBody = {
+  /** @minLength 3 */
+  novoCodigo: string;
+};
+
+export type ToggleAtivoUsuarioBody = {
+  ativo: boolean;
+};
+
 export type ListProdutosParams = {
   categoria?: string;
   limite?: number;
@@ -110,3 +475,107 @@ export type BuscarProdutosParams = {
 export type HistoricoOrcamentosParams = {
   page?: number;
 };
+
+export type UpdateStatusEntregaBodyStatus =
+  (typeof UpdateStatusEntregaBodyStatus)[keyof typeof UpdateStatusEntregaBodyStatus];
+
+export const UpdateStatusEntregaBodyStatus = {
+  pendente: "pendente",
+  em_rota: "em_rota",
+  entregue: "entregue",
+  cancelado: "cancelado",
+} as const;
+
+export type UpdateStatusEntregaBody = {
+  status: UpdateStatusEntregaBodyStatus;
+};
+
+export type DeleteEntrega200 = {
+  ok: boolean;
+};
+
+export type GetDashboardParams = {
+  vendedor?: string;
+  papel?: string;
+};
+
+export type ListDespesasParams = {
+  mes?: number;
+  ano?: number;
+  categoria?: string;
+};
+
+export type DeleteDespesa200 = {
+  ok: boolean;
+};
+
+export type UploadComprovanteBody = {
+  comprovante: string;
+};
+
+export type DeleteDespesaRecorrente200 = {
+  ok: boolean;
+};
+
+export type GerarRecorrentesBody = {
+  mes?: number;
+  ano?: number;
+};
+
+export type GerarRecorrentes200 = {
+  geradas: number;
+};
+
+export type ListComissoesParams = {
+  mes?: number;
+  ano?: number;
+};
+
+export type SaveComissaoConfigBody = {
+  vendedor: string;
+  percentual: number;
+};
+
+export type GetDREParams = {
+  mes?: number;
+  ano?: number;
+};
+
+export type ListMetasParams = {
+  mes?: number;
+  ano?: number;
+};
+
+export type MarcarFollowUpExecutado200 = {
+  mensagem: string;
+  id: number;
+};
+
+export type ExtrairNotaBody = {
+  imagem: Blob;
+};
+
+export type ExtrairNota200 = {
+  itens: ItemExtraido[];
+  entradaId: number;
+};
+
+export type MatchItensEstoqueBody = {
+  itens: ItemExtraido[];
+};
+
+export type ConfirmarEntradaEstoqueBody = {
+  entradaId: number;
+  itens: ItemConfirmar[];
+};
+
+export type ConfirmarEntradaEstoque200 = {
+  ok: boolean;
+  atualizados: number;
+};
+
+export type BuscarProdutosEstoqueParams = {
+  q: string;
+};
+
+export type ProcessarDiagnosticoBody = { [key: string]: unknown };

@@ -9,10 +9,30 @@ servers:
 tags:
   - name: health
     description: Health operations
+  - name: auth
+    description: Autenticação e sessão
+  - name: usuarios
+    description: Gerenciamento de usuários (dono)
   - name: produtos
     description: Produtos Castor
   - name: orcamento
     description: Gerador de orçamento
+  - name: entregas
+    description: Logística de entregas
+  - name: dashboard
+    description: Métricas e dashboard
+  - name: financeiro
+    description: Despesas, comissões e DRE
+  - name: chat
+    description: Chat ThallesZzz (SSE)
+  - name: agent
+    description: Castor AI Agent (Managed)
+  - name: followup
+    description: Follow-ups automáticos de orçamentos
+  - name: entrada-estoque
+    description: Entrada de estoque via nota fiscal
+  - name: diagnostico
+    description: Diagnóstico de colchão
 paths:
   /healthz:
     get:
@@ -26,6 +46,170 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/HealthStatus"
+
+  # ── Auth ──────────────────────────────────────────────────────────────────
+  /auth/login:
+    post:
+      operationId: login
+      tags: [auth]
+      summary: Autenticar com código de acesso
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                code:
+                  type: string
+              required: [code]
+      responses:
+        "200":
+          description: Sessão criada
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Session"
+        "401":
+          description: Código inválido
+
+  /auth/me:
+    get:
+      operationId: getMe
+      tags: [auth]
+      summary: Dados do usuário autenticado
+      parameters:
+        - $ref: "#/components/parameters/SessionToken"
+      responses:
+        "200":
+          description: Dados da sessão
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Session"
+        "401":
+          description: Sessão inválida
+
+  /auth/logout:
+    post:
+      operationId: logout
+      tags: [auth]
+      summary: Encerrar sessão
+      parameters:
+        - $ref: "#/components/parameters/SessionToken"
+      responses:
+        "200":
+          description: Sessão encerrada
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  ok:
+                    type: boolean
+                required: [ok]
+
+  # ── Usuários ──────────────────────────────────────────────────────────────
+  /usuarios:
+    get:
+      operationId: listUsuarios
+      tags: [usuarios]
+      summary: Listar usuários (dono)
+      parameters:
+        - $ref: "#/components/parameters/SessionToken"
+      responses:
+        "200":
+          description: Lista de usuários
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Usuario"
+    post:
+      operationId: criarUsuario
+      tags: [usuarios]
+      summary: Criar usuário (dono)
+      parameters:
+        - $ref: "#/components/parameters/SessionToken"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CriarUsuarioInput"
+      responses:
+        "200":
+          description: Usuário criado
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Usuario"
+        "409":
+          description: Código já em uso
+
+  /usuarios/{id}/senha:
+    patch:
+      operationId: trocarSenhaUsuario
+      tags: [usuarios]
+      summary: Trocar código de acesso (dono)
+      parameters:
+        - $ref: "#/components/parameters/SessionToken"
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: number
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                novoCodigo:
+                  type: string
+                  minLength: 3
+              required: [novoCodigo]
+      responses:
+        "200":
+          description: Código atualizado
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Usuario"
+
+  /usuarios/{id}/ativo:
+    patch:
+      operationId: toggleAtivoUsuario
+      tags: [usuarios]
+      summary: Ativar/desativar usuário (dono)
+      parameters:
+        - $ref: "#/components/parameters/SessionToken"
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: number
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                ativo:
+                  type: boolean
+              required: [ativo]
+      responses:
+        "200":
+          description: Status atualizado
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Usuario"
+
+  # ── Produtos ──────────────────────────────────────────────────────────────
   /produtos:
     get:
       operationId: listProdutos
@@ -110,6 +294,8 @@ paths:
                 $ref: "#/components/schemas/Produto"
         "404":
           description: Produto não encontrado
+
+  # ── Orçamento ─────────────────────────────────────────────────────────────
   /orcamento:
     post:
       operationId: gerarOrcamento
@@ -166,6 +352,8 @@ paths:
                 type: array
                 items:
                   $ref: "#/components/schemas/HistoricoItem"
+
+  # ── Crawler ───────────────────────────────────────────────────────────────
   /crawler/iniciar:
     post:
       operationId: iniciarCrawler
@@ -191,15 +379,930 @@ paths:
               schema:
                 $ref: "#/components/schemas/CrawlerStatus"
 
+  # ── Entregas ──────────────────────────────────────────────────────────────
+  /entregas:
+    get:
+      operationId: listEntregas
+      tags: [entregas]
+      summary: Listar entregas
+      parameters:
+        - $ref: "#/components/parameters/SessionToken"
+      responses:
+        "200":
+          description: Lista de entregas
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Entrega"
+    post:
+      operationId: criarEntrega
+      tags: [entregas]
+      summary: Criar entrega
+      parameters:
+        - $ref: "#/components/parameters/SessionToken"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CriarEntregaInput"
+      responses:
+        "200":
+          description: Entrega criada
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Entrega"
+
+  /entregas/{id}/status:
+    patch:
+      operationId: updateStatusEntrega
+      tags: [entregas]
+      summary: Atualizar status da entrega
+      parameters:
+        - $ref: "#/components/parameters/SessionToken"
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: number
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                status:
+                  type: string
+                  enum: [pendente, em_rota, entregue, cancelado]
+              required: [status]
+      responses:
+        "200":
+          description: Status atualizado
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Entrega"
+
+  /entregas/{id}:
+    patch:
+      operationId: updateEntrega
+      tags: [entregas]
+      summary: Atualizar dados da entrega
+      parameters:
+        - $ref: "#/components/parameters/SessionToken"
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: number
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CriarEntregaInput"
+      responses:
+        "200":
+          description: Entrega atualizada
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Entrega"
+    delete:
+      operationId: deleteEntrega
+      tags: [entregas]
+      summary: Remover entrega
+      parameters:
+        - $ref: "#/components/parameters/SessionToken"
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: number
+      responses:
+        "200":
+          description: Entrega removida
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  ok:
+                    type: boolean
+                required: [ok]
+
+  # ── Dashboard ─────────────────────────────────────────────────────────────
+  /dashboard:
+    get:
+      operationId: getDashboard
+      tags: [dashboard]
+      summary: Métricas gerais do negócio
+      parameters:
+        - $ref: "#/components/parameters/SessionToken"
+        - name: vendedor
+          in: query
+          required: false
+          schema:
+            type: string
+        - name: papel
+          in: query
+          required: false
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Dados do dashboard
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DashboardData"
+
+  # ── Financeiro ────────────────────────────────────────────────────────────
+  /financeiro/categorias-despesa:
+    get:
+      operationId: listCategoriasDespesa
+      tags: [financeiro]
+      summary: Listar categorias de despesa disponíveis
+      parameters:
+        - $ref: "#/components/parameters/SessionToken"
+      responses:
+        "200":
+          description: Lista de categorias
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: string
+
+  /financeiro/despesas:
+    get:
+      operationId: listDespesas
+      tags: [financeiro]
+      summary: Listar despesas do mês
+      parameters:
+        - $ref: "#/components/parameters/SessionToken"
+        - name: mes
+          in: query
+          schema:
+            type: number
+        - name: ano
+          in: query
+          schema:
+            type: number
+        - name: categoria
+          in: query
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Lista de despesas
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Despesa"
+    post:
+      operationId: criarDespesa
+      tags: [financeiro]
+      summary: Criar despesa
+      parameters:
+        - $ref: "#/components/parameters/SessionToken"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CriarDespesaInput"
+      responses:
+        "200":
+          description: Despesa criada
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Despesa"
+
+  /financeiro/despesas/{id}:
+    put:
+      operationId: updateDespesa
+      tags: [financeiro]
+      summary: Atualizar despesa
+      parameters:
+        - $ref: "#/components/parameters/SessionToken"
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: number
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CriarDespesaInput"
+      responses:
+        "200":
+          description: Despesa atualizada
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Despesa"
+    delete:
+      operationId: deleteDespesa
+      tags: [financeiro]
+      summary: Remover despesa
+      parameters:
+        - $ref: "#/components/parameters/SessionToken"
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: number
+      responses:
+        "200":
+          description: Despesa removida
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  ok:
+                    type: boolean
+                required: [ok]
+
+  /financeiro/despesas/{id}/comprovante:
+    post:
+      operationId: uploadComprovante
+      tags: [financeiro]
+      summary: Anexar comprovante URL a uma despesa
+      parameters:
+        - $ref: "#/components/parameters/SessionToken"
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: number
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                comprovante:
+                  type: string
+              required: [comprovante]
+      responses:
+        "200":
+          description: Comprovante salvo
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Despesa"
+
+  /financeiro/despesas-recorrentes:
+    get:
+      operationId: listDespesasRecorrentes
+      tags: [financeiro]
+      summary: Listar despesas recorrentes
+      parameters:
+        - $ref: "#/components/parameters/SessionToken"
+      responses:
+        "200":
+          description: Lista de despesas recorrentes
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/DespesaRecorrente"
+    post:
+      operationId: criarDespesaRecorrente
+      tags: [financeiro]
+      summary: Criar despesa recorrente
+      parameters:
+        - $ref: "#/components/parameters/SessionToken"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CriarDespesaRecorrenteInput"
+      responses:
+        "200":
+          description: Despesa recorrente criada
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DespesaRecorrente"
+
+  /financeiro/despesas-recorrentes/{id}:
+    delete:
+      operationId: deleteDespesaRecorrente
+      tags: [financeiro]
+      summary: Remover despesa recorrente
+      parameters:
+        - $ref: "#/components/parameters/SessionToken"
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: number
+      responses:
+        "200":
+          description: Despesa recorrente removida
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  ok:
+                    type: boolean
+                required: [ok]
+
+  /financeiro/gerar-recorrentes:
+    post:
+      operationId: gerarRecorrentes
+      tags: [financeiro]
+      summary: Gerar despesas recorrentes para o mês
+      parameters:
+        - $ref: "#/components/parameters/SessionToken"
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                mes:
+                  type: number
+                ano:
+                  type: number
+      responses:
+        "200":
+          description: Despesas geradas
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  geradas:
+                    type: number
+                required: [geradas]
+
+  /financeiro/comissoes:
+    get:
+      operationId: listComissoes
+      tags: [financeiro]
+      summary: Listar comissões do mês
+      parameters:
+        - $ref: "#/components/parameters/SessionToken"
+        - name: mes
+          in: query
+          schema:
+            type: number
+        - name: ano
+          in: query
+          schema:
+            type: number
+      responses:
+        "200":
+          description: Lista de comissões
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Comissao"
+
+  /financeiro/comissoes-config:
+    get:
+      operationId: getComissoesConfig
+      tags: [financeiro]
+      summary: Obter configuração de comissões
+      parameters:
+        - $ref: "#/components/parameters/SessionToken"
+      responses:
+        "200":
+          description: Configuração atual
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/ComissaoConfig"
+    post:
+      operationId: saveComissaoConfig
+      tags: [financeiro]
+      summary: Salvar configuração de comissão por vendedor
+      parameters:
+        - $ref: "#/components/parameters/SessionToken"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                vendedor:
+                  type: string
+                percentual:
+                  type: number
+              required: [vendedor, percentual]
+      responses:
+        "200":
+          description: Configuração salva
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ComissaoConfig"
+
+  /financeiro/dre:
+    get:
+      operationId: getDRE
+      tags: [financeiro]
+      summary: DRE (Demonstrativo de Resultado) do mês
+      parameters:
+        - $ref: "#/components/parameters/SessionToken"
+        - name: mes
+          in: query
+          schema:
+            type: number
+        - name: ano
+          in: query
+          schema:
+            type: number
+      responses:
+        "200":
+          description: DRE calculado
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DREData"
+
+  /financeiro/resumo-diario:
+    get:
+      operationId: getResumoDiario
+      tags: [financeiro]
+      summary: Resumo financeiro do dia corrente
+      parameters:
+        - $ref: "#/components/parameters/SessionToken"
+      responses:
+        "200":
+          description: Resumo do dia
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ResumoDiario"
+
+  /financeiro/metas:
+    get:
+      operationId: listMetas
+      tags: [financeiro]
+      summary: Listar metas do mês
+      parameters:
+        - name: mes
+          in: query
+          schema:
+            type: number
+        - name: ano
+          in: query
+          schema:
+            type: number
+      responses:
+        "200":
+          description: Metas do mês
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Meta"
+    post:
+      operationId: saveMeta
+      tags: [financeiro]
+      summary: Salvar meta mensal
+      parameters:
+        - $ref: "#/components/parameters/SessionToken"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SaveMetaInput"
+      responses:
+        "200":
+          description: Meta salva
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Meta"
+
+  /financeiro/alertas:
+    get:
+      operationId: getAlertas
+      tags: [financeiro]
+      summary: Alertas financeiros ativos
+      parameters:
+        - $ref: "#/components/parameters/SessionToken"
+      responses:
+        "200":
+          description: Lista de alertas
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Alerta"
+
+  /financeiro/evolucao:
+    get:
+      operationId: getEvolucao
+      tags: [financeiro]
+      summary: Evolução de vendas e despesas dos últimos meses
+      parameters:
+        - $ref: "#/components/parameters/SessionToken"
+      responses:
+        "200":
+          description: Dados de evolução
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/EvolucaoMes"
+
+  # ── Chat (SSE) ────────────────────────────────────────────────────────────
+  /chat:
+    post:
+      operationId: enviarMensagemChat
+      tags: [chat]
+      summary: Enviar mensagem ao ThallesZzz (SSE streaming)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ChatInput"
+      responses:
+        "200":
+          description: Stream SSE com chunks de texto
+          content:
+            text/event-stream:
+              schema:
+                type: string
+
+  # ── Agent (Managed) ───────────────────────────────────────────────────────
+  /agent/run:
+    post:
+      operationId: runAgent
+      tags: [agent]
+      summary: Executar turno do Castor AI Agent (síncrono)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AgentInput"
+      responses:
+        "200":
+          description: Resposta do agente
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AgentRunOutput"
+
+  /agent/stream:
+    post:
+      operationId: streamAgent
+      tags: [agent]
+      summary: Executar turno do Castor AI Agent (SSE streaming)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AgentInput"
+      responses:
+        "200":
+          description: Stream SSE de eventos do agente
+          content:
+            text/event-stream:
+              schema:
+                type: string
+
+  # ── Follow-up ─────────────────────────────────────────────────────────────
+  /followup/pendentes:
+    get:
+      operationId: listFollowUpsPendentes
+      tags: [followup]
+      summary: Listar follow-ups pendentes de execução
+      parameters:
+        - $ref: "#/components/parameters/SessionToken"
+      responses:
+        "200":
+          description: Follow-ups pendentes
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/FollowUpPendente"
+
+  /followup/{id}/executado:
+    post:
+      operationId: marcarFollowUpExecutado
+      tags: [followup]
+      summary: Marcar follow-up como executado
+      parameters:
+        - $ref: "#/components/parameters/SessionToken"
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: number
+      responses:
+        "200":
+          description: Follow-up marcado
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  mensagem:
+                    type: string
+                  id:
+                    type: number
+                required: [mensagem, id]
+
+  # ── Entrada de Estoque ────────────────────────────────────────────────────
+  /entrada-estoque/extrair:
+    post:
+      operationId: extrairNota
+      tags: [entrada-estoque]
+      summary: Extrair itens de nota fiscal via Gemini Vision
+      parameters:
+        - $ref: "#/components/parameters/SessionToken"
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              properties:
+                imagem:
+                  type: string
+                  format: binary
+              required: [imagem]
+      responses:
+        "200":
+          description: Itens extraídos da nota
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  itens:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/ItemExtraido"
+                  entradaId:
+                    type: number
+                required: [itens, entradaId]
+
+  /entrada-estoque/match:
+    post:
+      operationId: matchItensEstoque
+      tags: [entrada-estoque]
+      summary: Correlacionar itens extraídos com produtos do catálogo
+      parameters:
+        - $ref: "#/components/parameters/SessionToken"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                itens:
+                  type: array
+                  items:
+                    $ref: "#/components/schemas/ItemExtraido"
+              required: [itens]
+      responses:
+        "200":
+          description: Itens correlacionados
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/ItemMatchado"
+
+  /entrada-estoque/confirmar:
+    post:
+      operationId: confirmarEntradaEstoque
+      tags: [entrada-estoque]
+      summary: Confirmar entrada de estoque e atualizar saldos
+      parameters:
+        - $ref: "#/components/parameters/SessionToken"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                entradaId:
+                  type: number
+                itens:
+                  type: array
+                  items:
+                    $ref: "#/components/schemas/ItemConfirmar"
+              required: [entradaId, itens]
+      responses:
+        "200":
+          description: Estoque atualizado
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  ok:
+                    type: boolean
+                  atualizados:
+                    type: number
+                required: [ok, atualizados]
+
+  /entrada-estoque/historico:
+    get:
+      operationId: historicoEntradas
+      tags: [entrada-estoque]
+      summary: Histórico de entradas de estoque
+      parameters:
+        - $ref: "#/components/parameters/SessionToken"
+      responses:
+        "200":
+          description: Entradas recentes
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/EntradaEstoque"
+
+  /entrada-estoque/produtos/buscar:
+    get:
+      operationId: buscarProdutosEstoque
+      tags: [entrada-estoque]
+      summary: Buscar produtos para correlação de estoque
+      parameters:
+        - $ref: "#/components/parameters/SessionToken"
+        - name: q
+          in: query
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Produtos encontrados
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Produto"
+
+  # ── Diagnóstico ───────────────────────────────────────────────────────────
+  /diagnostico:
+    post:
+      operationId: processarDiagnostico
+      tags: [diagnostico]
+      summary: Processar diagnóstico de colchão (SleepMapAI)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: true
+      responses:
+        "200":
+          description: Resultado do diagnóstico
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DiagnosticoOutput"
+
 components:
+  parameters:
+    SessionToken:
+      name: x-session-token
+      in: header
+      required: false
+      schema:
+        type: string
+
   schemas:
     HealthStatus:
       type: object
       properties:
         status:
           type: string
-      required:
-        - status
+      required: [status]
+
+    Session:
+      type: object
+      properties:
+        token:
+          type: string
+        nome:
+          type: string
+        papel:
+          type: string
+          enum: [dono, vendedor, entrega, financeiro]
+        operacao:
+          type: string
+        wa:
+          type: string
+        waRaw:
+          type: string
+        tom:
+          type: string
+        header:
+          type: string
+        assinatura:
+          type: string
+      required: [token, nome, papel, operacao]
+
+    Usuario:
+      type: object
+      properties:
+        id:
+          type: number
+        codigo:
+          type: string
+        nome:
+          type: string
+        papel:
+          type: string
+          enum: [dono, vendedor, entrega, financeiro]
+        operacao:
+          type: string
+        wa:
+          type: string
+          nullable: true
+        waRaw:
+          type: string
+          nullable: true
+        tom:
+          type: string
+          nullable: true
+        header:
+          type: string
+          nullable: true
+        assinatura:
+          type: string
+          nullable: true
+        ativo:
+          type: boolean
+        ultimoAcesso:
+          type: string
+          nullable: true
+        criadoEm:
+          type: string
+          nullable: true
+      required: [id, codigo, nome, papel, operacao, ativo]
+
+    CriarUsuarioInput:
+      type: object
+      properties:
+        codigo:
+          type: string
+        nome:
+          type: string
+        papel:
+          type: string
+          enum: [dono, vendedor, entrega, financeiro]
+        operacao:
+          type: string
+        wa:
+          type: string
+        waRaw:
+          type: string
+        tom:
+          type: string
+        header:
+          type: string
+        assinatura:
+          type: string
+      required: [codigo, nome, papel, operacao]
+
     Produto:
       type: object
       properties:
@@ -227,10 +1330,8 @@ components:
           type: string
         criadoEm:
           type: string
-      required:
-        - id
-        - nome
-        - categoria
+      required: [id, nome, categoria]
+
     OrcamentoInput:
       type: object
       properties:
@@ -246,9 +1347,8 @@ components:
           type: string
         descontoPix:
           type: number
-      required:
-        - cliente
-        - produtoIds
+      required: [cliente, produtoIds]
+
     OrcamentoOutput:
       type: object
       properties:
@@ -270,11 +1370,8 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/Produto"
-      required:
-        - texto
-        - totalPix
-        - totalPrazo
-        - produtos
+      required: [texto, totalPix, totalPrazo, produtos]
+
     SalvarOrcamentoInput:
       type: object
       properties:
@@ -302,9 +1399,8 @@ components:
           type: string
         descontoAplicado:
           type: string
-      required:
-        - cliente
-        - texto
+      required: [cliente, texto]
+
     SalvarOrcamentoOutput:
       type: object
       properties:
@@ -312,9 +1408,8 @@ components:
           type: number
         mensagem:
           type: string
-      required:
-        - id
-        - mensagem
+      required: [id, mensagem]
+
     HistoricoItem:
       type: object
       properties:
@@ -344,11 +1439,8 @@ components:
             $ref: "#/components/schemas/Produto"
         criadoEm:
           type: string
-      required:
-        - id
-        - cliente
-        - status
-        - texto
+      required: [id, cliente, status, texto]
+
     CrawlerStatus:
       type: object
       properties:
@@ -367,9 +1459,468 @@ components:
           type: string
         finalizadoEm:
           type: string
+      required: [status, mensagem, totalProdutos, produtosColetados, erros]
+
+    Entrega:
+      type: object
+      properties:
+        id:
+          type: number
+        orcamentoId:
+          type: number
+          nullable: true
+        cliente:
+          type: string
+        whatsapp:
+          type: string
+          nullable: true
+        endereco:
+          type: string
+          nullable: true
+        produtos:
+          type: string
+          nullable: true
+        status:
+          type: string
+          enum: [pendente, em_rota, entregue, cancelado]
+        vendedor:
+          type: string
+          nullable: true
+        observacoes:
+          type: string
+          nullable: true
+        dataEntrega:
+          type: string
+          nullable: true
+        criadoEm:
+          type: string
+        atualizadoEm:
+          type: string
+      required: [id, cliente, status]
+
+    CriarEntregaInput:
+      type: object
+      properties:
+        orcamentoId:
+          type: number
+        cliente:
+          type: string
+        whatsapp:
+          type: string
+        endereco:
+          type: string
+        produtos:
+          type: string
+        status:
+          type: string
+        vendedor:
+          type: string
+        observacoes:
+          type: string
+        dataEntrega:
+          type: string
+      required: [cliente]
+
+    DashboardData:
+      type: object
+      properties:
+        totalOrcamentos:
+          type: number
+        vendidos:
+          type: number
+        taxaConversao:
+          type: number
+        ticketMedio:
+          type: number
+        faturamentoTotal:
+          type: number
+        totalProdutos:
+          type: number
+        entregasPendentes:
+          type: number
+        entregasEmRota:
+          type: number
+        entregasEntregues:
+          type: number
+        rankingVendedores:
+          type: array
+          items:
+            type: object
+            properties:
+              vendedor:
+                type: string
+              total:
+                type: number
+              count:
+                type: number
+            required: [vendedor, total, count]
+        evolucaoSemanal:
+          type: array
+          items:
+            type: object
       required:
-        - status
-        - mensagem
+        - totalOrcamentos
+        - vendidos
+        - taxaConversao
+        - faturamentoTotal
         - totalProdutos
-        - produtosColetados
-        - erros
+
+    Despesa:
+      type: object
+      properties:
+        id:
+          type: number
+        lojaId:
+          type: number
+        valor:
+          type: string
+        categoria:
+          type: string
+        descricao:
+          type: string
+          nullable: true
+        comprovante:
+          type: string
+          nullable: true
+        recorrente:
+          type: boolean
+        recorrenteId:
+          type: number
+          nullable: true
+        confirmada:
+          type: boolean
+        data:
+          type: string
+        criadoEm:
+          type: string
+      required: [id, valor, categoria, recorrente, confirmada, data]
+
+    CriarDespesaInput:
+      type: object
+      properties:
+        valor:
+          type: number
+        categoria:
+          type: string
+        descricao:
+          type: string
+        comprovante:
+          type: string
+        recorrente:
+          type: boolean
+        data:
+          type: string
+      required: [valor, categoria]
+
+    DespesaRecorrente:
+      type: object
+      properties:
+        id:
+          type: number
+        valor:
+          type: string
+        categoria:
+          type: string
+        descricao:
+          type: string
+          nullable: true
+        ativo:
+          type: boolean
+        diaVencimento:
+          type: number
+        criadoEm:
+          type: string
+      required: [id, valor, categoria, ativo, diaVencimento]
+
+    CriarDespesaRecorrenteInput:
+      type: object
+      properties:
+        valor:
+          type: number
+        categoria:
+          type: string
+        descricao:
+          type: string
+        diaVencimento:
+          type: number
+      required: [valor, categoria]
+
+    Comissao:
+      type: object
+      properties:
+        vendedor:
+          type: string
+        totalVendas:
+          type: number
+        percentual:
+          type: number
+        valorComissao:
+          type: number
+        quantidadeVendas:
+          type: number
+      required: [vendedor, totalVendas, percentual, valorComissao, quantidadeVendas]
+
+    ComissaoConfig:
+      type: object
+      properties:
+        id:
+          type: number
+        vendedor:
+          type: string
+        percentual:
+          type: number
+        criadoEm:
+          type: string
+      required: [id, vendedor, percentual]
+
+    DREData:
+      type: object
+      properties:
+        mes:
+          type: number
+        ano:
+          type: number
+        receitaBruta:
+          type: number
+        despesaTotal:
+          type: number
+        comissoesTotal:
+          type: number
+        lucroLiquido:
+          type: number
+        margemLiquida:
+          type: number
+        despesasPorCategoria:
+          type: array
+          items:
+            type: object
+            properties:
+              categoria:
+                type: string
+              total:
+                type: number
+            required: [categoria, total]
+      required: [mes, ano, receitaBruta, despesaTotal, lucroLiquido]
+
+    ResumoDiario:
+      type: object
+      properties:
+        vendas:
+          type: number
+        orcamentos:
+          type: number
+        faturamento:
+          type: number
+        despesas:
+          type: number
+      required: [vendas, orcamentos, faturamento, despesas]
+
+    Meta:
+      type: object
+      properties:
+        id:
+          type: number
+        mes:
+          type: number
+        ano:
+          type: number
+        metaFaturamento:
+          type: number
+        metaVendas:
+          type: number
+        criadoEm:
+          type: string
+      required: [id, mes, ano]
+
+    SaveMetaInput:
+      type: object
+      properties:
+        mes:
+          type: number
+        ano:
+          type: number
+        metaFaturamento:
+          type: number
+        metaVendas:
+          type: number
+      required: [mes, ano]
+
+    Alerta:
+      type: object
+      properties:
+        tipo:
+          type: string
+        mensagem:
+          type: string
+        severidade:
+          type: string
+          enum: [info, aviso, critico]
+      required: [tipo, mensagem, severidade]
+
+    EvolucaoMes:
+      type: object
+      properties:
+        mes:
+          type: string
+        faturamento:
+          type: number
+        despesas:
+          type: number
+        lucro:
+          type: number
+      required: [mes, faturamento, despesas, lucro]
+
+    ChatMessage:
+      type: object
+      properties:
+        role:
+          type: string
+          enum: [user, assistant]
+        content:
+          type: string
+      required: [role, content]
+
+    ChatInput:
+      type: object
+      properties:
+        messages:
+          type: array
+          items:
+            $ref: "#/components/schemas/ChatMessage"
+          minItems: 1
+      required: [messages]
+
+    AgentInput:
+      type: object
+      properties:
+        message:
+          type: string
+        session_id:
+          type: string
+      required: [message]
+
+    AgentRunOutput:
+      type: object
+      properties:
+        success:
+          type: boolean
+        data:
+          type: object
+          properties:
+            session_id:
+              type: string
+            output:
+              type: string
+            status:
+              type: string
+              enum: [idle, running, terminated]
+          required: [session_id, output, status]
+      required: [success]
+
+    FollowUpPendente:
+      type: object
+      properties:
+        id:
+          type: number
+        tipo:
+          type: string
+          enum: [dia3, dia7, dia14]
+        mensagem:
+          type: string
+        waLink:
+          type: string
+          nullable: true
+        geradoEm:
+          type: string
+        orcamentoId:
+          type: number
+        cliente:
+          type: string
+        whatsapp:
+          type: string
+          nullable: true
+        vendedor:
+          type: string
+          nullable: true
+        totalPix:
+          type: string
+          nullable: true
+        status:
+          type: string
+      required: [id, tipo, mensagem, geradoEm, orcamentoId, cliente, status]
+
+    ItemExtraido:
+      type: object
+      properties:
+        nome:
+          type: string
+        quantidade:
+          type: number
+        sku:
+          type: string
+          nullable: true
+        precoCusto:
+          type: string
+          nullable: true
+      required: [nome, quantidade]
+
+    ItemMatchado:
+      type: object
+      properties:
+        extraido:
+          $ref: "#/components/schemas/ItemExtraido"
+        produtoId:
+          type: number
+          nullable: true
+        produtoNome:
+          type: string
+          nullable: true
+        confianca:
+          type: number
+      required: [extraido, confianca]
+
+    ItemConfirmar:
+      type: object
+      properties:
+        produtoId:
+          type: number
+        quantidade:
+          type: number
+        precoCusto:
+          type: string
+        nomeExtraido:
+          type: string
+        skuExtraido:
+          type: string
+      required: [produtoId, quantidade, nomeExtraido]
+
+    EntradaEstoque:
+      type: object
+      properties:
+        id:
+          type: number
+        fornecedor:
+          type: string
+          nullable: true
+        imagemNota:
+          type: string
+          nullable: true
+        totalItens:
+          type: number
+        criadoEm:
+          type: string
+      required: [id, totalItens]
+
+    DiagnosticoOutput:
+      type: object
+      properties:
+        recomendacao:
+          type: string
+        produto:
+          type: string
+        justificativa:
+          type: string
+        waLink:
+          type: string
+      additionalProperties: true
+      required: [recomendacao]
