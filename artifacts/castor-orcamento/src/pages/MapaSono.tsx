@@ -260,7 +260,7 @@ function calcularResultado(p: UserProfile): Resultado {
 
   if (p.posicao === "lado" || p.posicao === "brucos") scoreEspuma += 1;
 
-  let estrategia = { continuidade: false, migracao: false, upgrade: false };
+  const estrategia = { continuidade: false, migracao: false, upgrade: false };
   if (p.historico === "mola")   { scoreMola   += 2; estrategia.continuidade = true; }
   if (p.historico === "espuma") { scoreEspuma += 1; estrategia.continuidade = true; }
   if (p.historico === "madeira"){ scoreEspuma += 3; estrategia.migracao     = true; }

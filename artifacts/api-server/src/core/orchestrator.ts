@@ -49,7 +49,7 @@ export async function orquestrarMensagem({
       modelo,
     });
     resposta = validarResposta(resposta);
-  } catch (err) {
+  } catch (_err) {
     // Fail-safe: API instável ou guardrail ativado
     resposta =
       "Desculpe, tive um problema ao processar sua mensagem. Um vendedor entrará em contato em breve!";

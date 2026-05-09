@@ -1,7 +1,11 @@
 import app from "./app";
+import { validateEnv } from "./utils/env.js";
 import { iniciarSchedulerRecorrentes } from "./lib/recorrentes-scheduler";
 import { seedColaboradores } from "./lib/sessions";
 import { iniciarJobInteligente } from "./jobs/inteligente.js";
+
+// Must run before anything else — exits with code 1 if required vars are missing
+validateEnv();
 
 const rawPort = process.env["PORT"];
 

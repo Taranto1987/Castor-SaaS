@@ -54,7 +54,7 @@ router.post("/", async (req, res) => {
     const nomeLojaHeader = tenantCfg.nome.toUpperCase();
     const whatsappLoja = formatarTelefone(tenantCfg.whatsapp);
 
-    const { cliente, whatsapp, produtoIds, observacoes, descontoPix = 0 } = req.body;
+    const { cliente, produtoIds, observacoes, descontoPix = 0 } = req.body;
 
     if (!cliente || !produtoIds || !Array.isArray(produtoIds) || produtoIds.length === 0) {
       res.status(400).json({ error: "Cliente e pelo menos um produto são obrigatórios" });
