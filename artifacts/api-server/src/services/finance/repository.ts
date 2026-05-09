@@ -45,17 +45,26 @@ export async function updateDespesa(id: number, updates: Partial<{
   comprovante: string | null;
   confirmada: boolean;
   data: Date;
-}>) {
-  const [row] = await db.update(despesasTable).set(updates).where(eq(despesasTable.id, id)).returning();
+}>, lojaId?: number) {
+  const where = lojaId
+    ? and(eq(despesasTable.id, id), eq(despesasTable.lojaId, lojaId))
+    : eq(despesasTable.id, id);
+  const [row] = await db.update(despesasTable).set(updates).where(where).returning();
   return row ?? null;
 }
 
-export async function deleteDespesa(id: number) {
-  await db.delete(despesasTable).where(eq(despesasTable.id, id));
+export async function deleteDespesa(id: number, lojaId?: number) {
+  const where = lojaId
+    ? and(eq(despesasTable.id, id), eq(despesasTable.lojaId, lojaId))
+    : eq(despesasTable.id, id);
+  await db.delete(despesasTable).where(where);
 }
 
-export async function updateDespesaComprovante(id: number, base64: string) {
-  const [row] = await db.update(despesasTable).set({ comprovante: base64 }).where(eq(despesasTable.id, id)).returning();
+export async function updateDespesaComprovante(id: number, base64: string, lojaId?: number) {
+  const where = lojaId
+    ? and(eq(despesasTable.id, id), eq(despesasTable.lojaId, lojaId))
+    : eq(despesasTable.id, id);
+  const [row] = await db.update(despesasTable).set({ comprovante: base64 }).where(where).returning();
   return row ?? null;
 }
 

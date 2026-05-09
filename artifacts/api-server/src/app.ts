@@ -20,16 +20,16 @@ app.use(cors({
 app.use(express.json({ limit: "5mb" }));
 app.use(express.urlencoded({ extended: true, limit: "5mb" }));
 
-// Security: Rate limit on login endpoint
-const loginLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 20, // 20 requests per windowMs
-  message: "Too many login attempts, please try again later",
-  standardHeaders: true,
-  legacyHeaders: false,
-});
+function makeLimiter(max: number, windowMs = 15 * 60 * 1000, message = "Too many requests, try again later") {
+  return rateLimit({ windowMs, max, message, standardHeaders: true, legacyHeaders: false });
+}
 
-app.use("/api/auth/login", loginLimiter);
+// Auth endpoints — strict limits to prevent brute force and token enumeration
+app.use("/api/auth/login",          makeLimiter(20));           // 20/15min
+app.use("/api/auth/esqueci-senha",  makeLimiter(5));            // 5/15min — prevent email enumeration abuse
+app.use("/api/auth/redefinir-senha", makeLimiter(10));          // 10/15min — prevent token brute force
+app.use("/api/auth/alterar-senha",  makeLimiter(10));           // 10/15min
+app.use("/api/usuarios/aceitar-convite", makeLimiter(10));      // 10/15min — prevent invite token brute force
 app.use("/api", router);
 
 export default app;

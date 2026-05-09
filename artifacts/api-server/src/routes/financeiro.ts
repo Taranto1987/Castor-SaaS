@@ -1,5 +1,8 @@
 import { Router } from "express";
-import { requireDono, resolveLojaId } from "../middlewares/auth";
+import { resolveLojaId } from "../middlewares/auth";
+import { requireFinanceiro } from "../lib/rbac";
+// requireDono alias → requireFinanceiro: ADMIN+GERENTE+FINANCEIRO acessam módulo financeiro
+const requireDono = requireFinanceiro;
 import {
   findDespesas,
   createDespesa,
@@ -70,7 +73,8 @@ router.put("/despesas/:id", requireDono, async (req, res) => {
     if (comprovante !== undefined) updates.comprovante = comprovante;
     if (confirmada !== undefined) updates.confirmada = confirmada;
     if (data !== undefined) updates.data = new Date(data);
-    const row = await updateDespesa(id, updates);
+    const lojaId = resolveLojaId(req);
+    const row = await updateDespesa(id, updates, lojaId);
     if (!row) { res.status(404).json({ error: "Despesa não encontrada" }); return; }
     res.json(row);
   } catch {
@@ -82,7 +86,7 @@ router.delete("/despesas/:id", requireDono, async (req, res) => {
   try {
     const id = parseInt(req.params.id as string);
     if (isNaN(id)) { res.status(400).json({ error: "ID inválido" }); return; }
-    await deleteDespesa(id);
+    await deleteDespesa(id, resolveLojaId(req));
     res.json({ ok: true });
   } catch {
     res.status(500).json({ error: "Erro interno" });
@@ -93,6 +97,7 @@ router.post("/despesas/:id/comprovante", requireDono, async (req, res) => {
   try {
     const id = parseInt(req.params.id as string);
     if (isNaN(id)) { res.status(400).json({ error: "ID inválido" }); return; }
+    const lojaId = resolveLojaId(req);
     const chunks: Buffer[] = [];
     req.on("data", (chunk: Buffer) => chunks.push(chunk));
     req.on("end", async () => {
@@ -100,7 +105,7 @@ router.post("/despesas/:id/comprovante", requireDono, async (req, res) => {
       if (buffer.length === 0) { res.status(400).json({ error: "Arquivo vazio" }); return; }
       if (buffer.length > 5 * 1024 * 1024) { res.status(400).json({ error: "Arquivo muito grande (max 5MB)" }); return; }
       const base64 = `data:image/jpeg;base64,${buffer.toString("base64")}`;
-      const row = await updateDespesaComprovante(id, base64);
+      const row = await updateDespesaComprovante(id, base64, lojaId);
       if (!row) { res.status(404).json({ error: "Despesa não encontrada" }); return; }
       res.json({ id: row.id, comprovante: "uploaded" });
     });
