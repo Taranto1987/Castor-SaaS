@@ -37,11 +37,13 @@ function operacaoToLocation(operacao: string) {
 
 // ─── TYPE ─────────────────────────────────────────────────────────────────────
 
-export type AuthUser = ColaboradorConfig & { codigo: string; sessionToken?: string };
+export type AuthUser = ColaboradorConfig & { codigo: string; email?: string; sessionToken?: string };
+
+type LoginParams = { email: string; senha: string } | { code: string };
 
 type AuthContextType = {
   user: AuthUser | null;
-  login: (codigo: string) => Promise<boolean>;
+  login: (params: LoginParams | string) => Promise<boolean>;
   logout: () => void;
   isAuthenticated: boolean;
 };
@@ -58,32 +60,42 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   });
 
-  async function login(codigo: string): Promise<boolean> {
+  async function login(params: LoginParams | string): Promise<boolean> {
     try {
+      // Normaliza: aceita string legada (código) ou objeto { email, senha } / { code }
+      let body: Record<string, string>;
+      if (typeof params === "string") {
+        body = { code: params.trim().toUpperCase() };
+      } else if ("email" in params) {
+        body = { email: params.email.trim(), senha: params.senha };
+      } else {
+        body = { code: params.code.trim().toUpperCase() };
+      }
+
       const res = await fetch("/api/auth/login", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ code: codigo.trim().toUpperCase() }),
+        body: JSON.stringify(body),
       });
 
       if (!res.ok) return false;
 
       const data = await res.json();
-      // data = { token, nome, papel, operacao, wa, waRaw, tom, header, assinatura }
 
       const location = operacaoToLocation(data.operacao ?? "cabo_frio");
 
       const authUser: AuthUser = {
-        codigo:     codigo.trim().toUpperCase(),
+        codigo:       "code" in body ? body.code : (data.email ?? ""),
+        email:        data.email ?? undefined,
         sessionToken: data.token,
-        nome:       data.nome,
-        papel:      data.papel as Papel,
-        operacao:   (data.operacao ?? "cabo_frio") as Operacao,
-        wa:         data.wa ?? "",
-        waRaw:      data.waRaw ?? "",
-        tom:        (data.tom ?? "direto") as Tom,
-        header:     data.header ?? "",
-        assinatura: data.assinatura ?? "",
+        nome:         data.nome,
+        papel:        (data.papel ?? data.cargo) as Papel,
+        operacao:     (data.operacao ?? "cabo_frio") as Operacao,
+        wa:           data.wa ?? "",
+        waRaw:        data.waRaw ?? "",
+        tom:          (data.tom ?? "direto") as Tom,
+        header:       data.header ?? "",
+        assinatura:   data.assinatura ?? "",
         ...location,
       };
 
