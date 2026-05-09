@@ -2,7 +2,7 @@ import { createContext, useContext, useState, ReactNode } from "react";
 
 const SESSION_KEY = "castor_auth_user";
 
-export type Papel    = "dono" | "vendedor" | "entrega" | "financeiro";
+export type Papel    = "dono" | "vendedor" | "entrega" | "financeiro" | "ADMIN" | "GERENTE" | "VENDEDOR" | "FINANCEIRO" | "ENTREGA";
 export type Operacao = "cabo_frio" | "araruama";
 export type Tom      = "especialista" | "acolhedor" | "direto" | "proximo" | "tecnico";
 
