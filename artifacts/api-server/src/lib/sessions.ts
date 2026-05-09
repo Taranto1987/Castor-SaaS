@@ -41,6 +41,14 @@ const CARGO_TO_PAPEL: Record<string, string> = {
 const sessions = new Map<string, Session>();
 const SESSION_TTL_MS = 24 * 60 * 60 * 1000;
 
+// Pre-computed dummy hash — used for constant-time comparison when user is not found,
+// preventing email enumeration via timing differences.
+let _dummyHash: string | null = null;
+async function getDummyHash(): Promise<string> {
+  if (!_dummyHash) _dummyHash = await bcrypt.hash("__dummy_timing_guard__", 10);
+  return _dummyHash;
+}
+
 // ─── Seed ─────────────────────────────────────────────────────────────────────
 
 const SEED_USUARIOS = [
@@ -231,7 +239,11 @@ export async function createSessionByEmail(
     .where(eq(usuariosTable.email, email.toLowerCase().trim()))
     .limit(1);
 
-  if (!usuario || !usuario.ativo || !usuario.senhaHash) return null;
+  if (!usuario || !usuario.ativo || !usuario.senhaHash) {
+    // Constant-time path: prevent timing-based email enumeration
+    await bcrypt.compare(senha, await getDummyHash());
+    return null;
+  }
 
   const senhaCorreta = await bcrypt.compare(senha, usuario.senhaHash);
   if (!senhaCorreta) return null;

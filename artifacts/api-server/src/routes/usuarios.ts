@@ -235,11 +235,14 @@ router.post("/aceitar-convite", async (req, res) => {
       return;
     }
 
+    const usuario = await findUsuarioById(convite.usuarioId);
+
     const novoHash = await bcrypt.hash(novaSenha, 10);
     await updateUsuarioSenha(convite.usuarioId, novoHash);
     await marcarConviteUsado(convite.id);
 
     await registrarAudit({
+      lojaId: usuario?.lojaId ?? undefined,
       usuarioId: convite.usuarioId,
       acao: "ACCEPT_INVITE",
       ip: clientIp(req),

@@ -141,7 +141,7 @@ router.post("/alterar-senha", requireAuth, async (req, res) => {
   }
 
   const { senhaAtual, novaSenha } = req.body;
-  if (!senhaAtual || !novaSenha || typeof novaSenha !== "string") {
+  if (!senhaAtual || typeof senhaAtual !== "string" || !novaSenha || typeof novaSenha !== "string") {
     res.status(400).json({ error: "senhaAtual e novaSenha são obrigatórios" });
     return;
   }
@@ -203,13 +203,12 @@ router.post("/esqueci-senha", async (req, res) => {
     ip: clientIp(req),
   });
 
-  // Em produção: enviar email com link. Por ora, retorna o token para o admin.
-  res.json({
-    ok: true,
-    message: "Token gerado. Compartilhe o link com o usuário.",
-    // token exposto apenas em ambiente dev para facilitar testes
-    ...(process.env.NODE_ENV !== "production" && { resetToken: reset.token }),
-  });
+  // TODO: enviar email com link em produção.
+  if (process.env.NODE_ENV !== "production") {
+    console.log(`[DEV] Reset token for ${email}: /redefinir-senha?token=${reset.token}`);
+  }
+
+  res.json({ ok: true, message: "Se o email estiver cadastrado, o token foi gerado." });
 });
 
 /**
@@ -233,12 +232,15 @@ router.post("/redefinir-senha", async (req, res) => {
     return;
   }
 
+  const usuario = await findUsuarioById(resetRec.usuarioId);
+
   const novoHash = await bcrypt.hash(novaSenha, 10);
   await updateUsuarioSenha(resetRec.usuarioId, novoHash);
   await marcarResetTokenUsado(resetRec.id);
   destroyAllUserSessions(resetRec.usuarioId);
 
   await registrarAudit({
+    lojaId: usuario?.lojaId ?? undefined,
     usuarioId: resetRec.usuarioId,
     acao: "RESET_PASSWORD",
     ip: clientIp(req),
