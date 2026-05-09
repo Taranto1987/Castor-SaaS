@@ -3,6 +3,7 @@ import { produtosTable } from "./produtos";
 
 export const entradasEstoqueTable = pgTable("entradas_estoque", {
   id: serial("id").primaryKey(),
+  tenantId: text("tenant_id").notNull().default("default"),
   fornecedor: text("fornecedor"),
   imagemNota: text("imagem_nota"),
   totalItens: integer("total_itens").notNull().default(0),

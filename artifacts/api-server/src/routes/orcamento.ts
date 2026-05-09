@@ -1,9 +1,18 @@
 import { Router, type IRouter, type Request, type Response, type NextFunction } from "express";
 import { db } from "@workspace/db";
 import { produtosTable, orcamentosTable, entregasTable } from "@workspace/db/schema";
-import { inArray, desc, eq, SQL } from "drizzle-orm";
+import { inArray, desc, eq, and, SQL } from "drizzle-orm";
 import { str } from "../utils/params.js";
 import { getSession } from "../lib/sessions";
+import type { TenantRequest } from "../middleware/tenant.js";
+import { TENANTS } from "../config/tenants.js";
+
+function formatarTelefone(raw: string): string {
+  if (!raw) return "";
+  const num = raw.startsWith("55") ? raw.slice(2) : raw;
+  if (num.length === 11) return `(${num.slice(0, 2)}) ${num.slice(2, 7)}-${num.slice(7)}`;
+  return num;
+}
 
 function requireAuth(req: Request, res: Response, next: NextFunction) {
   const token = (req.headers["x-session-token"] || "") as string;
@@ -40,6 +49,11 @@ const BENEFICIO_DEFAULT = "✨ Qualidade Castor — fabricante líder em sono sa
 
 router.post("/", async (req, res) => {
   try {
+    const tenant = (req as TenantRequest).tenant ?? "default";
+    const tenantCfg = TENANTS[tenant as keyof typeof TENANTS] ?? TENANTS.default;
+    const nomeLojaHeader = tenantCfg.nome.toUpperCase();
+    const whatsappLoja = formatarTelefone(tenantCfg.whatsapp);
+
     const { cliente, whatsapp, produtoIds, observacoes, descontoPix = 0 } = req.body;
 
     if (!cliente || !produtoIds || !Array.isArray(produtoIds) || produtoIds.length === 0) {
@@ -99,7 +113,7 @@ router.post("/", async (req, res) => {
 
     const linhas: string[] = [
       "━━━━━━━━━━━━━━━━━━━━━━",
-      "🇧🇷 CASTOR CABO FRIO",
+      `🇧🇷 ${nomeLojaHeader}`,
       "━━━━━━━━━━━━━━━━━━━━━━",
       "",
       `Cliente: ${cliente}`,
@@ -141,9 +155,11 @@ router.post("/", async (req, res) => {
     linhas.push("👉 Gostou? Me confirma um *quero* e finalizo tudo agora pelo WhatsApp! 🛏️✨");
     linhas.push("");
     linhas.push("━━━━━━━━━━━━━━━━━━━━━━");
-    linhas.push("");
-    linhas.push("📞 WhatsApp Loja");
-    linhas.push("(22) 99241-0112");
+    if (whatsappLoja) {
+      linhas.push("");
+      linhas.push("📞 WhatsApp Loja");
+      linhas.push(whatsappLoja);
+    }
 
     const texto = linhas.join("\n");
 
@@ -179,6 +195,7 @@ router.post("/", async (req, res) => {
 
 router.post("/salvar", async (req, res) => {
   try {
+    const tenant = (req as TenantRequest).tenant ?? "default";
     const {
       cliente, whatsapp, produtosJson, observacoes, descontoPix,
       totalPix, totalPrazo, texto, vendedor,
@@ -191,6 +208,7 @@ router.post("/salvar", async (req, res) => {
     }
 
     const inserted = await db.insert(orcamentosTable).values({
+      tenantId: tenant,
       cliente,
       whatsapp: whatsapp || null,
       produtosJson: produtosJson || [],
@@ -214,6 +232,7 @@ router.post("/salvar", async (req, res) => {
 
 router.get("/historico", requireAuth, async (req, res) => {
   try {
+    const tenant = (req as TenantRequest).tenant ?? "default";
     const session = (req as any).session as { nome: string; papel: string };
     const page = Math.max(0, parseInt(String(req.query.page ?? "0")) || 0);
     const limit = 50;
@@ -233,9 +252,14 @@ router.get("/historico", requireAuth, async (req, res) => {
       criadoEm: orcamentosTable.criadoEm,
     };
 
-    const filtro: SQL | undefined = session.papel !== "dono"
+    const tenantCond = eq(orcamentosTable.tenantId, tenant);
+    const vendedorCond: SQL | undefined = session.papel !== "dono"
       ? eq(orcamentosTable.vendedor, session.nome)
       : undefined;
+
+    const filtro: SQL | undefined = vendedorCond
+      ? and(tenantCond, vendedorCond)
+      : tenantCond;
 
     const historico = await db.select(cols).from(orcamentosTable)
       .where(filtro)
@@ -252,6 +276,7 @@ router.get("/historico", requireAuth, async (req, res) => {
 // ── Fechar venda: marca orçamento como vendido e cria entrega ──────────────
 router.post("/:id/fechar", requireAuth, async (req, res) => {
   try {
+    const tenant = (req as TenantRequest).tenant ?? "default";
     const id = parseInt(str(req.params.id));
     const { endereco, observacoes, dataEntrega } = req.body;
 
@@ -260,7 +285,8 @@ router.post("/:id/fechar", requireAuth, async (req, res) => {
       return;
     }
 
-    const [orc] = await db.select().from(orcamentosTable).where(eq(orcamentosTable.id, id));
+    const [orc] = await db.select().from(orcamentosTable)
+      .where(and(eq(orcamentosTable.id, id), eq(orcamentosTable.tenantId, tenant)));
     if (!orc) {
       res.status(404).json({ error: "Orçamento não encontrado" });
       return;
@@ -302,6 +328,7 @@ router.post("/:id/fechar", requireAuth, async (req, res) => {
       }
 
       const [entrega] = await tx.insert(entregasTable).values({
+        tenantId: tenant,
         orcamentoId: id,
         cliente: orc.cliente,
         whatsapp: orc.whatsapp || null,

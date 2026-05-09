@@ -1,14 +1,24 @@
-import { Router, type IRouter } from "express";
+import { Router, type IRouter, type Request, type Response, type NextFunction } from "express";
 import { db } from "@workspace/db";
 import { orcamentosTable } from "@workspace/db/schema";
 import { and, eq, lt } from "drizzle-orm";
 import { enviarWhatsApp } from "../services/whatsapp.js";
+import { getSession, isDono } from "../lib/sessions.js";
 import type { TenantRequest } from "../middleware/tenant.js";
 
 const router: IRouter = Router();
 
+function requireDono(req: Request, res: Response, next: NextFunction) {
+  const token = (req.headers["x-session-token"] || "") as string;
+  if (!token) { res.status(401).json({ error: "Autenticação necessária" }); return; }
+  const session = getSession(token);
+  if (!session) { res.status(401).json({ error: "Sessão inválida ou expirada" }); return; }
+  if (!isDono(session)) { res.status(403).json({ error: "Acesso restrito ao dono" }); return; }
+  next();
+}
+
 // POST /api/followup/trigger — dispara follow-ups para orçamentos pendentes há mais de 24h
-router.post("/trigger", async (req: TenantRequest, res) => {
+router.post("/trigger", requireDono, async (req: TenantRequest, res) => {
   const tenant = req.tenant ?? "default";
   const limite = new Date(Date.now() - 24 * 60 * 60 * 1000);
 

@@ -1,14 +1,33 @@
-import { Router, type IRouter } from "express";
+import { Router, type IRouter, type Request, type Response, type NextFunction } from "express";
 import { db } from "@workspace/db";
 import { entregasTable } from "@workspace/db/schema";
-import { eq, desc } from "drizzle-orm";
+import { eq, and, desc } from "drizzle-orm";
+import { getSession } from "../lib/sessions";
+import type { TenantRequest } from "../middleware/tenant.js";
 
 const router: IRouter = Router();
 
+function requireAuth(req: Request, res: Response, next: NextFunction) {
+  const token = (req.headers["x-session-token"] || "") as string;
+  if (!token) { res.status(401).json({ error: "Autenticação necessária" }); return; }
+  const session = getSession(token);
+  if (!session) { res.status(401).json({ error: "Sessão inválida ou expirada" }); return; }
+  (req as any).session = session;
+  next();
+}
+
+router.use(requireAuth);
+
 router.get("/", async (req, res) => {
   try {
+    const tenant = (req as TenantRequest).tenant ?? "default";
     const { vendedor, papel } = req.query as { vendedor?: string; papel?: string };
-    const allEntregas = await db.select().from(entregasTable).orderBy(desc(entregasTable.criadoEm));
+
+    const allEntregas = await db
+      .select()
+      .from(entregasTable)
+      .where(eq(entregasTable.tenantId, tenant))
+      .orderBy(desc(entregasTable.criadoEm));
 
     if (vendedor && papel === "vendedor") {
       res.json(allEntregas.filter(e => e.vendedor === vendedor));
@@ -23,12 +42,14 @@ router.get("/", async (req, res) => {
 
 router.post("/", async (req, res) => {
   try {
+    const tenant = (req as TenantRequest).tenant ?? "default";
     const { orcamentoId, cliente, whatsapp, endereco, produtos, vendedor, observacoes, dataEntrega } = req.body;
     if (!cliente) {
       res.status(400).json({ error: "Cliente é obrigatório" });
       return;
     }
     const inserted = await db.insert(entregasTable).values({
+      tenantId: tenant,
       orcamentoId: orcamentoId || null,
       cliente,
       whatsapp: whatsapp || null,
@@ -48,7 +69,8 @@ router.post("/", async (req, res) => {
 
 router.patch("/:id/status", async (req, res) => {
   try {
-    const id = parseInt(req.params.id);
+    const tenant = (req as unknown as TenantRequest).tenant ?? "default";
+    const id = parseInt(req.params.id as string);
     const { status } = req.body;
     const validos = ["pendente", "em_rota", "entregue", "cancelado"];
     if (!validos.includes(status)) {
@@ -57,7 +79,7 @@ router.patch("/:id/status", async (req, res) => {
     }
     const updated = await db.update(entregasTable)
       .set({ status, atualizadoEm: new Date() })
-      .where(eq(entregasTable.id, id))
+      .where(and(eq(entregasTable.id, id), eq(entregasTable.tenantId, tenant)))
       .returning();
     if (updated.length === 0) {
       res.status(404).json({ error: "Entrega não encontrada" });
@@ -72,11 +94,12 @@ router.patch("/:id/status", async (req, res) => {
 
 router.patch("/:id", async (req, res) => {
   try {
-    const id = parseInt(req.params.id);
+    const tenant = (req as unknown as TenantRequest).tenant ?? "default";
+    const id = parseInt(req.params.id as string);
     const { endereco, observacoes, dataEntrega, vendedor } = req.body;
     const updated = await db.update(entregasTable)
       .set({ endereco, observacoes, dataEntrega, vendedor, atualizadoEm: new Date() })
-      .where(eq(entregasTable.id, id))
+      .where(and(eq(entregasTable.id, id), eq(entregasTable.tenantId, tenant)))
       .returning();
     if (updated.length === 0) {
       res.status(404).json({ error: "Entrega não encontrada" });
@@ -91,8 +114,10 @@ router.patch("/:id", async (req, res) => {
 
 router.delete("/:id", async (req, res) => {
   try {
-    const id = parseInt(req.params.id);
-    await db.delete(entregasTable).where(eq(entregasTable.id, id));
+    const tenant = (req as unknown as TenantRequest).tenant ?? "default";
+    const id = parseInt(req.params.id as string);
+    await db.delete(entregasTable)
+      .where(and(eq(entregasTable.id, id), eq(entregasTable.tenantId, tenant)));
     res.json({ ok: true });
   } catch (error) {
     console.error("Erro ao deletar entrega:", error);

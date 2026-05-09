@@ -2,6 +2,7 @@ import { pgTable, serial, text, timestamp, integer, numeric, boolean } from "dri
 
 export const despesasTable = pgTable("despesas", {
   id: serial("id").primaryKey(),
+  tenantId: text("tenant_id").notNull().default("default"),
   valor: numeric("valor", { precision: 12, scale: 2 }).notNull(),
   categoria: text("categoria").notNull(),
   descricao: text("descricao"),
@@ -17,6 +18,7 @@ export type Despesa = typeof despesasTable.$inferSelect;
 
 export const despesasRecorrentesTable = pgTable("despesas_recorrentes", {
   id: serial("id").primaryKey(),
+  tenantId: text("tenant_id").notNull().default("default"),
   valor: numeric("valor", { precision: 12, scale: 2 }).notNull(),
   categoria: text("categoria").notNull(),
   descricao: text("descricao"),

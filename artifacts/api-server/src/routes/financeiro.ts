@@ -10,6 +10,7 @@ import {
 } from "@workspace/db/schema";
 import { desc, eq, and, gte, lte } from "drizzle-orm";
 import { getSession, isDono } from "../lib/sessions";
+import type { TenantRequest } from "../middleware/tenant.js";
 
 const router: IRouter = Router();
 
@@ -69,6 +70,7 @@ router.get("/categorias-despesa", requireDono, (_req, res) => {
 
 router.get("/despesas", requireDono, async (req, res) => {
   try {
+    const tenant = (req as TenantRequest).tenant ?? "default";
     const { mes, ano, categoria } = req.query as {
       mes?: string;
       ano?: string;
@@ -81,6 +83,7 @@ router.get("/despesas", requireDono, async (req, res) => {
     const { inicio, fim } = getMonthRange(m, a);
 
     const conditions = [
+      eq(despesasTable.tenantId, tenant),
       gte(despesasTable.data, inicio),
       lte(despesasTable.data, fim),
     ];
@@ -103,6 +106,7 @@ router.get("/despesas", requireDono, async (req, res) => {
 
 router.post("/despesas", requireDono, async (req, res) => {
   try {
+    const tenant = (req as TenantRequest).tenant ?? "default";
     const { valor, categoria, descricao, comprovante, recorrente, data } =
       req.body;
 
@@ -116,6 +120,7 @@ router.post("/despesas", requireDono, async (req, res) => {
     const [inserted] = await db
       .insert(despesasTable)
       .values({
+        tenantId: tenant,
         valor: String(valor),
         categoria,
         descricao: descricao || null,
@@ -182,12 +187,13 @@ router.delete("/despesas/:id", requireDono, async (req, res) => {
   }
 });
 
-router.get("/despesas-recorrentes", requireDono, async (_req, res) => {
+router.get("/despesas-recorrentes", requireDono, async (req, res) => {
   try {
+    const tenant = (req as TenantRequest).tenant ?? "default";
     const recorrentes = await db
       .select()
       .from(despesasRecorrentesTable)
-      .where(eq(despesasRecorrentesTable.ativo, true))
+      .where(and(eq(despesasRecorrentesTable.tenantId, tenant), eq(despesasRecorrentesTable.ativo, true)))
       .orderBy(despesasRecorrentesTable.descricao);
     res.json(recorrentes);
   } catch (error) {
@@ -198,6 +204,7 @@ router.get("/despesas-recorrentes", requireDono, async (_req, res) => {
 
 router.post("/despesas-recorrentes", requireDono, async (req, res) => {
   try {
+    const tenant = (req as TenantRequest).tenant ?? "default";
     const { valor, categoria, descricao, diaVencimento } = req.body;
     if (!valor || !categoria) {
       res
@@ -209,6 +216,7 @@ router.post("/despesas-recorrentes", requireDono, async (req, res) => {
     const [inserted] = await db
       .insert(despesasRecorrentesTable)
       .values({
+        tenantId: tenant,
         valor: String(valor),
         categoria,
         descricao: descricao || null,
@@ -240,6 +248,7 @@ router.delete("/despesas-recorrentes/:id", requireDono, async (req, res) => {
 
 router.post("/gerar-recorrentes", requireDono, async (req, res) => {
   try {
+    const tenant = (req as TenantRequest).tenant ?? "default";
     const { mes, ano } = req.body;
     const now = new Date();
     const m = mes || now.getMonth() + 1;
@@ -248,7 +257,7 @@ router.post("/gerar-recorrentes", requireDono, async (req, res) => {
     const recorrentes = await db
       .select()
       .from(despesasRecorrentesTable)
-      .where(eq(despesasRecorrentesTable.ativo, true));
+      .where(and(eq(despesasRecorrentesTable.tenantId, tenant), eq(despesasRecorrentesTable.ativo, true)));
 
     const { inicio, fim } = getMonthRange(m, a);
     const existentes = await db
@@ -256,6 +265,7 @@ router.post("/gerar-recorrentes", requireDono, async (req, res) => {
       .from(despesasTable)
       .where(
         and(
+          eq(despesasTable.tenantId, tenant),
           eq(despesasTable.recorrente, true),
           gte(despesasTable.data, inicio),
           lte(despesasTable.data, fim)
@@ -282,7 +292,7 @@ router.post("/gerar-recorrentes", requireDono, async (req, res) => {
     }
 
     if (novas.length > 0) {
-      await db.insert(despesasTable).values(novas);
+      await db.insert(despesasTable).values(novas.map(n => ({ ...n, tenantId: tenant })));
     }
 
     res.json({ geradas: novas.length });
@@ -343,6 +353,7 @@ router.post("/comissoes", requireDono, async (req, res) => {
 
 router.get("/comissoes/calculo", requireDono, async (req, res) => {
   try {
+    const tenant = (req as TenantRequest).tenant ?? "default";
     const { mes, ano } = req.query as { mes?: string; ano?: string };
     const now = new Date();
     const m = mes ? parseInt(mes) : now.getMonth() + 1;
@@ -354,6 +365,7 @@ router.get("/comissoes/calculo", requireDono, async (req, res) => {
       .from(orcamentosTable)
       .where(
         and(
+          eq(orcamentosTable.tenantId, tenant),
           eq(orcamentosTable.status, "vendido"),
           gte(orcamentosTable.criadoEm, inicio),
           lte(orcamentosTable.criadoEm, fim)
@@ -407,6 +419,7 @@ router.get("/comissoes/calculo", requireDono, async (req, res) => {
 
 router.get("/dre", requireDono, async (req, res) => {
   try {
+    const tenant = (req as TenantRequest).tenant ?? "default";
     const { mes, ano } = req.query as { mes?: string; ano?: string };
     const now = new Date();
     const m = mes ? parseInt(mes) : now.getMonth() + 1;
@@ -418,6 +431,7 @@ router.get("/dre", requireDono, async (req, res) => {
       .from(orcamentosTable)
       .where(
         and(
+          eq(orcamentosTable.tenantId, tenant),
           eq(orcamentosTable.status, "vendido"),
           gte(orcamentosTable.criadoEm, inicio),
           lte(orcamentosTable.criadoEm, fim)
@@ -444,6 +458,7 @@ router.get("/dre", requireDono, async (req, res) => {
       .from(despesasTable)
       .where(
         and(
+          eq(despesasTable.tenantId, tenant),
           gte(despesasTable.data, inicio),
           lte(despesasTable.data, fim),
           eq(despesasTable.confirmada, true)
@@ -492,8 +507,9 @@ router.get("/dre", requireDono, async (req, res) => {
   }
 });
 
-router.get("/resumo-diario", requireDono, async (_req, res) => {
+router.get("/resumo-diario", requireDono, async (req, res) => {
   try {
+    const tenant = (req as TenantRequest).tenant ?? "default";
     const hoje = new Date();
     const inicioHoje = new Date(
       hoje.getFullYear(),
@@ -515,6 +531,7 @@ router.get("/resumo-diario", requireDono, async (_req, res) => {
       .from(orcamentosTable)
       .where(
         and(
+          eq(orcamentosTable.tenantId, tenant),
           eq(orcamentosTable.status, "vendido"),
           gte(orcamentosTable.criadoEm, inicioHoje),
           lte(orcamentosTable.criadoEm, fimHoje)
@@ -526,6 +543,7 @@ router.get("/resumo-diario", requireDono, async (_req, res) => {
       .from(orcamentosTable)
       .where(
         and(
+          eq(orcamentosTable.tenantId, tenant),
           gte(orcamentosTable.criadoEm, inicioHoje),
           lte(orcamentosTable.criadoEm, fimHoje)
         )
@@ -541,6 +559,7 @@ router.get("/resumo-diario", requireDono, async (_req, res) => {
       .from(despesasTable)
       .where(
         and(
+          eq(despesasTable.tenantId, tenant),
           gte(despesasTable.data, inicioHoje),
           lte(despesasTable.data, fimHoje)
         )
@@ -554,7 +573,7 @@ router.get("/resumo-diario", requireDono, async (_req, res) => {
     const pendentes = await db
       .select()
       .from(orcamentosTable)
-      .where(eq(orcamentosTable.status, "pendente"));
+      .where(and(eq(orcamentosTable.tenantId, tenant), eq(orcamentosTable.status, "pendente")));
 
     const pendentesAntigos = pendentes.filter((p) => {
       if (!p.criadoEm) return false;
@@ -700,8 +719,9 @@ router.post("/metas", requireDono, async (req, res) => {
 
 router.get("/alertas", requireDono, async (req, res) => {
   try {
+    const tenant = (req as TenantRequest).tenant ?? "default";
     const { operacao: operacaoParam } = req.query as { operacao?: string };
-    const operacao = operacaoParam || "cabo_frio";
+    const operacao = operacaoParam || tenant.replace("-", "_");
     const now = new Date();
     const m = now.getMonth() + 1;
     const a = now.getFullYear();
@@ -724,6 +744,7 @@ router.get("/alertas", requireDono, async (req, res) => {
       .from(orcamentosTable)
       .where(
         and(
+          eq(orcamentosTable.tenantId, tenant),
           eq(orcamentosTable.status, "vendido"),
           gte(orcamentosTable.criadoEm, inicio),
           lte(orcamentosTable.criadoEm, fim)
@@ -754,7 +775,7 @@ router.get("/alertas", requireDono, async (req, res) => {
     const pendentes = await db
       .select()
       .from(orcamentosTable)
-      .where(eq(orcamentosTable.status, "pendente"));
+      .where(and(eq(orcamentosTable.tenantId, tenant), eq(orcamentosTable.status, "pendente")));
 
     const parados3dias = pendentes.filter((p) => {
       if (!p.criadoEm) return false;
@@ -777,6 +798,7 @@ router.get("/alertas", requireDono, async (req, res) => {
       .from(despesasTable)
       .where(
         and(
+          eq(despesasTable.tenantId, tenant),
           gte(despesasTable.data, inicio),
           lte(despesasTable.data, fim),
           eq(despesasTable.confirmada, true)
@@ -792,6 +814,7 @@ router.get("/alertas", requireDono, async (req, res) => {
       .from(despesasTable)
       .where(
         and(
+          eq(despesasTable.tenantId, tenant),
           gte(despesasTable.data, mesAnterior.inicio),
           lte(despesasTable.data, mesAnterior.fim),
           eq(despesasTable.confirmada, true)
@@ -838,6 +861,7 @@ router.get("/alertas", requireDono, async (req, res) => {
 
 router.get("/evolucao", requireDono, async (req, res) => {
   try {
+    const tenant = (req as TenantRequest).tenant ?? "default";
     const { meses: mesesParam } = req.query as { meses?: string };
     const qtd = Math.min(parseInt(mesesParam || "6"), 12);
     const now = new Date();
@@ -861,6 +885,7 @@ router.get("/evolucao", requireDono, async (req, res) => {
         .from(orcamentosTable)
         .where(
           and(
+            eq(orcamentosTable.tenantId, tenant),
             eq(orcamentosTable.status, "vendido"),
             gte(orcamentosTable.criadoEm, inicio),
             lte(orcamentosTable.criadoEm, fim)
@@ -875,6 +900,7 @@ router.get("/evolucao", requireDono, async (req, res) => {
         .from(despesasTable)
         .where(
           and(
+            eq(despesasTable.tenantId, tenant),
             gte(despesasTable.data, inicio),
             lte(despesasTable.data, fim),
             eq(despesasTable.confirmada, true)
