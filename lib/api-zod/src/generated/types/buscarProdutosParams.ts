@@ -8,4 +8,5 @@
 
 export type BuscarProdutosParams = {
   q: string;
+  categoria?: string;
 };

@@ -64,11 +64,11 @@ export default function Catalogo() {
   const { data: categoriasData } = useListCategorias();
   const { data: listData, isLoading: isLoadingList } = useListProdutos(
     { categoria: activeCategory !== "Todas" ? activeCategory : undefined },
-    { query: { enabled: !isSearching } }
+    { query: { enabled: !isSearching } as any }
   );
   const { data: searchData, isLoading: isLoadingSearch } = useBuscarProdutos(
     { q: debouncedSearch },
-    { query: { enabled: isSearching } }
+    { query: { enabled: isSearching } as any }
   );
 
   const categorias = ["Todas", ...(categoriasData || [])];

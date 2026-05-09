@@ -96,3 +96,63 @@ Castor-SaaS is a SaaS platform for a mattress store chain. Key business features
 - **Clientes** — CRM aggregated by phone/name with conversion tracking
 - **Crawler** — headless Playwright scraper to auto-update the product catalog from the supplier website
 - **Chat (ThallesZzz)** — AI sales assistant on public pages, SSE streaming
+
+## Deploy — Railway (Production) — 30/04/2026
+
+### REGRA ABSOLUTA — PROJETO UNICO (CFO RULE)
+
+**PROIBICOES IMUTAVEIS — qualquer violacao e erro critico de execucao:**
+- NUNCA criar novo projeto Railway
+- NUNCA criar novo ambiente Railway
+- NUNCA duplicar servicos (backend, banco, frontend)
+- NUNCA iniciar infraestrutura fora do projeto `diligent-endurance`
+
+**ANTES de qualquer criacao de servico:**
+1. Verificar se ja existe no projeto `diligent-endurance`
+2. Se existir → reutilizar obrigatoriamente
+3. Se nao existir → criar DENTRO de `diligent-endurance` apenas
+
+**Deploy automatico:** APENAS via branch `main`. Feature branches nao fazem deploy no Railway.
+
+---
+
+### Servicos no projeto diligent-endurance
+| Service | Tipo | URL |
+|---|---|---|
+| Postgres | Railway Postgres | (internal) |
+| evolution-api | api-server Castor | https://evolution-api-production-405f.up.railway.app |
+| eloquent-laughter | Evolution API v2.2.3 | https://eloquent-laughter-production-a0b7.up.railway.app |
+
+### Env vars configuradas no api-server (Railway)
+- DATABASE_URL — auto Railway Postgres
+- DATABASE_PROVIDER=postgresql
+- PORT=3000
+- NODE_ENV=production
+- ANTHROPIC_API_KEY — inserir manualmente
+- AI_INTEGRATIONS_GEMINI_BASE_URL=https://api.openai.com/v1
+- AI_INTEGRATIONS_OPENAI_BASE_URL=https://api.openai.com/v1
+- CASTOR_AGENT_ID=agent_011CaUZvcdTX3LxfnopZE9Cw
+- CASTOR_ENVIRONMENT_ID=env_0111U769QLZaYYpabKFRacWM
+
+Faltam (adicionar via +New Variable no Railway):
+- OPENAI_API_KEY
+- AI_INTEGRATIONS_GEMINI_API_KEY
+- AI_INTEGRATIONS_OPENAI_API_KEY
+
+ZAPI_TOKEN: sem implementacao no codigo — nao necessario.
+
+### Configuracoes criticas do service
+- Pre-deploy: pnpm --filter @workspace/db run push
+- Start: pnpm --filter @workspace/api-server start
+- Public port: 3000 (nao 8080)
+
+### WhatsApp
+Links wa.me manuais. Sem envio automatico implementado.
+
+### Frontend Vercel
+- castor-saa-s-castor-orcamento.vercel.app
+- VITE_API_URL deve apontar ao backend Railway
+
+### Seguranca
+- Rotacionar ANTHROPIC_API_KEY em console.anthropic.com
+- Nunca usar Raw Editor Railway com chaves sensiveis

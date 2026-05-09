@@ -10,9 +10,11 @@ import authRouter from "./auth";
 import entradaEstoqueRouter from "./entrada-estoque";
 import chatRouter from "./chat";
 import usuariosRouter from "./usuarios";
-import webhookWhatsAppRouter from "./webhook-whatsapp";
 import followupRouter from "./followup";
 import agentRouter from "./agent";
+import wahaRouter from "./waha";
+import diagnosticoRouter from "./diagnostico";
+import lojaRouter from "./loja";
 
 const router: IRouter = Router();
 
@@ -27,8 +29,11 @@ router.use("/dashboard", dashboardRouter);
 router.use("/financeiro", financeiroRouter);
 router.use("/entrada-estoque", entradaEstoqueRouter);
 router.use("/chat", chatRouter);
-router.use("/webhook/whatsapp", webhookWhatsAppRouter);
+router.use("/agente", chatRouter);
 router.use("/followup", followupRouter);
-router.use("/agente", agentRouter);
+router.use(agentRouter);
+router.use(wahaRouter);
+router.use(diagnosticoRouter);
+router.use(lojaRouter);
 
 export default router;

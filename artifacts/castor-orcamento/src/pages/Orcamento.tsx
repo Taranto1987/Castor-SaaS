@@ -119,8 +119,6 @@ export default function Orcamento() {
         totalPrazo: quoteResult.totalPrazo,
         texto: textoPersonalizado,
         vendedor: user?.nome ?? undefined,
-        precoBaseTotal: (quoteResult as any).totalPrecoBase ?? undefined,
-        descontoAplicado: (quoteResult as any).descontoAplicado ?? undefined,
       }
     }, {
       onSuccess: () => {

@@ -2,40 +2,42 @@ import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
-  Users, UserPlus, KeyRound, ShieldOff, ShieldCheck,
-  X, Eye, EyeOff, Clock, CheckCircle2, AlertCircle,
+  Users, UserPlus, RefreshCw, ShieldOff, ShieldCheck,
+  X, Copy, CheckCircle2, AlertCircle, Clock, Link2, KeyRound,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/contexts/AuthContext";
 
-// ─── Types ───────────────────────────────────────────────────────────────────
+// ─── Types ────────────────────────────────────────────────────────────────────
 
 interface Usuario {
   id: number;
-  codigo: string;
   nome: string;
-  papel: string;
+  email: string;
+  cargo: string;
+  lojaId: number;
   operacao: string;
-  wa: string | null;
   ativo: boolean;
-  ultimoAcesso: string | null;
+  ultimoLogin: string | null;
   criadoEm: string | null;
 }
 
-// ─── Helpers ─────────────────────────────────────────────────────────────────
+// ─── Helpers ──────────────────────────────────────────────────────────────────
 
-const PAPEL_LABEL: Record<string, string> = {
-  dono:       "Dono",
-  vendedor:   "Vendedor",
-  entrega:    "Entrega",
-  financeiro: "Financeiro",
+const CARGO_LABEL: Record<string, string> = {
+  ADMIN:      "Admin",
+  GERENTE:    "Gerente",
+  VENDEDOR:   "Vendedor",
+  FINANCEIRO: "Financeiro",
+  ENTREGA:    "Entrega",
 };
 
-const PAPEL_COLOR: Record<string, string> = {
-  dono:       "bg-violet-100 text-violet-700 border-violet-200",
-  vendedor:   "bg-emerald-100 text-emerald-700 border-emerald-200",
-  entrega:    "bg-orange-100 text-orange-700 border-orange-200",
-  financeiro: "bg-blue-100 text-blue-700 border-blue-200",
+const CARGO_COLOR: Record<string, string> = {
+  ADMIN:      "bg-violet-100 text-violet-700 border-violet-200",
+  GERENTE:    "bg-indigo-100 text-indigo-700 border-indigo-200",
+  VENDEDOR:   "bg-emerald-100 text-emerald-700 border-emerald-200",
+  FINANCEIRO: "bg-blue-100 text-blue-700 border-blue-200",
+  ENTREGA:    "bg-orange-100 text-orange-700 border-orange-200",
 };
 
 const OPERACAO_LABEL: Record<string, string> = {
@@ -43,29 +45,31 @@ const OPERACAO_LABEL: Record<string, string> = {
   araruama:  "Araruama",
 };
 
-function formatDate(iso: string | null) {
-  if (!iso) return "—";
-  const d = new Date(iso);
-  return d.toLocaleString("pt-BR", {
-    day: "2-digit", month: "2-digit", year: "2-digit",
-    hour: "2-digit", minute: "2-digit",
-  });
-}
-
 function relativeDate(iso: string | null) {
   if (!iso) return null;
   const diff = Date.now() - new Date(iso).getTime();
   const mins = Math.floor(diff / 60_000);
-  if (mins < 2)   return "agora mesmo";
-  if (mins < 60)  return `há ${mins} min`;
+  if (mins < 2)  return "agora mesmo";
+  if (mins < 60) return `há ${mins} min`;
   const hrs = Math.floor(mins / 60);
-  if (hrs < 24)   return `há ${hrs}h`;
+  if (hrs < 24)  return `há ${hrs}h`;
   const days = Math.floor(hrs / 24);
-  if (days < 7)   return `há ${days} dia${days > 1 ? "s" : ""}`;
-  return formatDate(iso);
+  return days < 7 ? `há ${days} dia${days > 1 ? "s" : ""}` :
+    new Date(iso).toLocaleDateString("pt-BR");
 }
 
-// ─── Modals ──────────────────────────────────────────────────────────────────
+function useCopy() {
+  const [copied, setCopied] = useState(false);
+  const copy = (text: string) => {
+    navigator.clipboard.writeText(text).then(() => {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    });
+  };
+  return { copied, copy };
+}
+
+// ─── Modal wrapper ────────────────────────────────────────────────────────────
 
 function ModalWrapper({ children, onClose }: { children: React.ReactNode; onClose: () => void }) {
   return (
@@ -85,16 +89,55 @@ function ModalWrapper({ children, onClose }: { children: React.ReactNode; onClos
   );
 }
 
+// ─── Invite result display ────────────────────────────────────────────────────
+
+function ConviteResult({ link, onClose }: { link: string; onClose: () => void }) {
+  const { copied, copy } = useCopy();
+  const fullLink = `${window.location.origin}${link}`;
+  return (
+    <div className="p-6 space-y-4">
+      <div className="flex items-center gap-3">
+        <div className="w-10 h-10 rounded-xl bg-emerald-100 flex items-center justify-center">
+          <CheckCircle2 className="w-5 h-5 text-emerald-600" />
+        </div>
+        <div>
+          <h2 className="text-lg font-extrabold text-slate-900">Usuário criado!</h2>
+          <p className="text-xs text-slate-400">Compartilhe o link de convite com o funcionário.</p>
+        </div>
+      </div>
+      <div className="bg-slate-50 rounded-xl p-3 border border-slate-200">
+        <p className="text-xs text-slate-500 mb-2 font-semibold">Link de convite (expira em 72h)</p>
+        <div className="flex items-center gap-2">
+          <code className="flex-1 text-xs font-mono text-slate-700 break-all">{fullLink}</code>
+          <button
+            onClick={() => copy(fullLink)}
+            className="shrink-0 p-2 rounded-lg bg-white border border-slate-200 hover:bg-slate-100 transition-all"
+          >
+            {copied ? <CheckCircle2 className="w-4 h-4 text-emerald-500" /> : <Copy className="w-4 h-4 text-slate-400" />}
+          </button>
+        </div>
+      </div>
+      <p className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-xl px-3 py-2">
+        O funcionário acessará este link para definir sua própria senha.
+      </p>
+      <button
+        onClick={onClose}
+        className="w-full py-2.5 rounded-xl bg-slate-900 text-white text-sm font-bold hover:bg-slate-700 transition-all"
+      >
+        Fechar
+      </button>
+    </div>
+  );
+}
+
+// ─── Create user modal ────────────────────────────────────────────────────────
+
 function CreateUserModal({ onClose, token }: { onClose: () => void; token: string }) {
   const qc = useQueryClient();
   const [form, setForm] = useState({
-    nome: "",
-    codigo: "",
-    papel: "vendedor",
-    operacao: "cabo_frio",
-    wa: "",
+    nome: "", email: "", cargo: "VENDEDOR", operacao: "cabo_frio", wa: "",
   });
-  const [showCodigo, setShowCodigo] = useState(false);
+  const [conviteLink, setConviteLink] = useState<string | null>(null);
   const [erro, setErro] = useState("");
 
   const mutation = useMutation({
@@ -106,28 +149,30 @@ function CreateUserModal({ onClose, token }: { onClose: () => void; token: strin
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Erro ao criar usuário");
-      return data;
+      return data as { usuario: Usuario; convite: { link: string } };
     },
-    onSuccess: () => {
+    onSuccess: (data) => {
       qc.invalidateQueries({ queryKey: ["usuarios"] });
-      onClose();
+      setConviteLink(data.convite.link);
     },
     onError: (e: Error) => setErro(e.message),
   });
 
   const set = (k: string, v: string) => { setForm(f => ({ ...f, [k]: v })); setErro(""); };
 
+  if (conviteLink) return <ModalWrapper onClose={onClose}><ConviteResult link={conviteLink} onClose={onClose} /></ModalWrapper>;
+
   return (
     <ModalWrapper onClose={onClose}>
-      <div className="p-6 space-y-5">
+      <div className="p-6 space-y-4">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-xl bg-emerald-100 flex items-center justify-center">
               <UserPlus className="w-5 h-5 text-emerald-600" />
             </div>
             <div>
-              <h2 className="text-lg font-extrabold text-slate-900">Novo usuário</h2>
-              <p className="text-xs text-slate-400">Preencha os dados de acesso</p>
+              <h2 className="text-lg font-extrabold text-slate-900">Novo funcionário</h2>
+              <p className="text-xs text-slate-400">Um convite será gerado para ele definir a senha.</p>
             </div>
           </div>
           <button onClick={onClose} className="w-8 h-8 rounded-lg bg-slate-100 hover:bg-slate-200 flex items-center justify-center">
@@ -136,9 +181,8 @@ function CreateUserModal({ onClose, token }: { onClose: () => void; token: strin
         </div>
 
         <div className="space-y-3">
-          {/* Nome */}
           <div>
-            <label className="text-xs font-bold text-slate-600 block mb-1">Nome de exibição</label>
+            <label className="text-xs font-bold text-slate-600 block mb-1">Nome completo</label>
             <input
               className="w-full border border-slate-200 rounded-xl px-3 py-2.5 text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-emerald-500/30"
               placeholder="Ex: Marcela Taranto"
@@ -147,43 +191,27 @@ function CreateUserModal({ onClose, token }: { onClose: () => void; token: strin
               autoFocus
             />
           </div>
-
-          {/* Código (senha) */}
           <div>
-            <label className="text-xs font-bold text-slate-600 block mb-1">
-              Código de acesso <span className="font-normal text-slate-400">(a senha que o usuário vai digitar)</span>
-            </label>
-            <div className="relative">
-              <input
-                className="w-full border border-slate-200 rounded-xl px-3 py-2.5 pr-10 text-sm font-mono font-semibold uppercase focus:outline-none focus:ring-2 focus:ring-emerald-500/30 tracking-widest"
-                placeholder="Ex: MARCELA2025"
-                type={showCodigo ? "text" : "password"}
-                value={form.codigo}
-                onChange={e => set("codigo", e.target.value.toUpperCase())}
-              />
-              <button
-                type="button"
-                onClick={() => setShowCodigo(v => !v)}
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
-              >
-                {showCodigo ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-              </button>
-            </div>
+            <label className="text-xs font-bold text-slate-600 block mb-1">Email</label>
+            <input
+              type="email"
+              className="w-full border border-slate-200 rounded-xl px-3 py-2.5 text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-emerald-500/30"
+              placeholder="marcela@castor.com.br"
+              value={form.email}
+              onChange={e => set("email", e.target.value)}
+            />
           </div>
-
-          {/* Papel + Operação */}
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="text-xs font-bold text-slate-600 block mb-1">Papel</label>
+              <label className="text-xs font-bold text-slate-600 block mb-1">Cargo</label>
               <select
                 className="w-full border border-slate-200 rounded-xl px-3 py-2.5 text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-emerald-500/30 bg-white"
-                value={form.papel}
-                onChange={e => set("papel", e.target.value)}
+                value={form.cargo}
+                onChange={e => set("cargo", e.target.value)}
               >
-                <option value="vendedor">Vendedor</option>
-                <option value="entrega">Entrega</option>
-                <option value="financeiro">Financeiro</option>
-                <option value="dono">Dono</option>
+                {Object.entries(CARGO_LABEL).map(([v, l]) => (
+                  <option key={v} value={v}>{l}</option>
+                ))}
               </select>
             </div>
             <div>
@@ -198,8 +226,6 @@ function CreateUserModal({ onClose, token }: { onClose: () => void; token: strin
               </select>
             </div>
           </div>
-
-          {/* WhatsApp (opcional) */}
           <div>
             <label className="text-xs font-bold text-slate-600 block mb-1">
               WhatsApp <span className="font-normal text-slate-400">(opcional)</span>
@@ -220,18 +246,15 @@ function CreateUserModal({ onClose, token }: { onClose: () => void; token: strin
         )}
 
         <div className="flex gap-2 pt-1">
-          <button
-            onClick={onClose}
-            className="flex-1 py-2.5 rounded-xl border border-slate-200 text-sm font-bold text-slate-500 hover:bg-slate-50"
-          >
+          <button onClick={onClose} className="flex-1 py-2.5 rounded-xl border border-slate-200 text-sm font-bold text-slate-500 hover:bg-slate-50">
             Cancelar
           </button>
           <button
             onClick={() => mutation.mutate()}
-            disabled={!form.nome.trim() || !form.codigo.trim() || mutation.isPending}
-            className="flex-1 py-2.5 rounded-xl bg-emerald-600 text-white text-sm font-bold hover:bg-emerald-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+            disabled={!form.nome.trim() || !form.email.trim() || mutation.isPending}
+            className="flex-1 py-2.5 rounded-xl bg-emerald-600 text-white text-sm font-bold hover:bg-emerald-700 disabled:opacity-50 transition-all"
           >
-            {mutation.isPending ? "Criando…" : "Criar usuário"}
+            {mutation.isPending ? "Criando…" : "Criar e gerar convite"}
           </button>
         </div>
       </div>
@@ -239,42 +262,38 @@ function CreateUserModal({ onClose, token }: { onClose: () => void; token: strin
   );
 }
 
-function TrocaSenhaModal({ usuario, onClose, token }: { usuario: Usuario; onClose: () => void; token: string }) {
+// ─── Change cargo modal ───────────────────────────────────────────────────────
+
+function CargoModal({ usuario, onClose, token }: { usuario: Usuario; onClose: () => void; token: string }) {
   const qc = useQueryClient();
-  const [novoCodigo, setNovoCodigo] = useState("");
-  const [show, setShow] = useState(false);
+  const [cargo, setCargo] = useState(usuario.cargo);
   const [erro, setErro] = useState("");
-  const [ok, setOk] = useState(false);
 
   const mutation = useMutation({
     mutationFn: async () => {
-      const res = await fetch(`/api/usuarios/${usuario.id}/senha`, {
+      const res = await fetch(`/api/usuarios/${usuario.id}/cargo`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json", "x-session-token": token },
-        body: JSON.stringify({ novoCodigo }),
+        body: JSON.stringify({ cargo }),
       });
       const data = await res.json();
-      if (!res.ok) throw new Error(data.error || "Erro ao trocar código");
+      if (!res.ok) throw new Error(data.error || "Erro");
       return data;
     },
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ["usuarios"] });
-      setOk(true);
-      setTimeout(onClose, 1200);
-    },
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ["usuarios"] }); onClose(); },
     onError: (e: Error) => setErro(e.message),
   });
 
   return (
     <ModalWrapper onClose={onClose}>
-      <div className="p-6 space-y-5">
+      <div className="p-6 space-y-4">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-amber-100 flex items-center justify-center">
-              <KeyRound className="w-5 h-5 text-amber-600" />
+            <div className="w-10 h-10 rounded-xl bg-indigo-100 flex items-center justify-center">
+              <ShieldCheck className="w-5 h-5 text-indigo-600" />
             </div>
             <div>
-              <h2 className="text-lg font-extrabold text-slate-900">Trocar código</h2>
+              <h2 className="text-lg font-extrabold text-slate-900">Alterar cargo</h2>
               <p className="text-xs text-slate-400">{usuario.nome}</p>
             </div>
           </div>
@@ -282,72 +301,39 @@ function TrocaSenhaModal({ usuario, onClose, token }: { usuario: Usuario; onClos
             <X className="w-4 h-4 text-slate-500" />
           </button>
         </div>
-
-        {ok ? (
-          <div className="flex items-center justify-center gap-2 py-6 text-emerald-600 font-bold">
-            <CheckCircle2 className="w-6 h-6" /> Código atualizado!
-          </div>
-        ) : (
-          <>
-            <div>
-              <label className="text-xs font-bold text-slate-600 block mb-1">Novo código de acesso</label>
-              <div className="relative">
-                <input
-                  className="w-full border border-slate-200 rounded-xl px-3 py-2.5 pr-10 text-sm font-mono font-semibold uppercase focus:outline-none focus:ring-2 focus:ring-amber-500/30 tracking-widest"
-                  placeholder="Mínimo 3 caracteres"
-                  type={show ? "text" : "password"}
-                  value={novoCodigo}
-                  onChange={e => { setNovoCodigo(e.target.value.toUpperCase()); setErro(""); }}
-                  autoFocus
-                  onKeyDown={e => e.key === "Enter" && mutation.mutate()}
-                />
-                <button
-                  type="button"
-                  onClick={() => setShow(v => !v)}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
-                >
-                  {show ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                </button>
-              </div>
-            </div>
-
-            {erro && (
-              <p className="flex items-center gap-2 text-sm text-red-600 font-semibold bg-red-50 rounded-xl px-3 py-2">
-                <AlertCircle className="w-4 h-4 shrink-0" /> {erro}
-              </p>
-            )}
-
-            <div className="flex gap-2">
-              <button onClick={onClose} className="flex-1 py-2.5 rounded-xl border border-slate-200 text-sm font-bold text-slate-500 hover:bg-slate-50">
-                Cancelar
-              </button>
-              <button
-                onClick={() => mutation.mutate()}
-                disabled={novoCodigo.trim().length < 3 || mutation.isPending}
-                className="flex-1 py-2.5 rounded-xl bg-amber-500 text-white text-sm font-bold hover:bg-amber-600 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
-              >
-                {mutation.isPending ? "Salvando…" : "Salvar código"}
-              </button>
-            </div>
-          </>
-        )}
+        <select
+          className="w-full border border-slate-200 rounded-xl px-3 py-2.5 text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-indigo-500/30 bg-white"
+          value={cargo}
+          onChange={e => setCargo(e.target.value)}
+        >
+          {Object.entries(CARGO_LABEL).map(([v, l]) => (
+            <option key={v} value={v}>{l}</option>
+          ))}
+        </select>
+        {erro && <p className="text-sm text-red-600 font-semibold bg-red-50 rounded-xl px-3 py-2">{erro}</p>}
+        <div className="flex gap-2">
+          <button onClick={onClose} className="flex-1 py-2.5 rounded-xl border border-slate-200 text-sm font-bold text-slate-500 hover:bg-slate-50">Cancelar</button>
+          <button
+            onClick={() => mutation.mutate()}
+            disabled={cargo === usuario.cargo || mutation.isPending}
+            className="flex-1 py-2.5 rounded-xl bg-indigo-600 text-white text-sm font-bold hover:bg-indigo-700 disabled:opacity-50 transition-all"
+          >
+            {mutation.isPending ? "Salvando…" : "Salvar cargo"}
+          </button>
+        </div>
       </div>
     </ModalWrapper>
   );
 }
 
-// ─── User Card ────────────────────────────────────────────────────────────────
+// ─── User card ────────────────────────────────────────────────────────────────
 
 function UserCard({
-  u,
-  token,
-  onTrocaSenha,
-}: {
-  u: Usuario;
-  token: string;
-  onTrocaSenha: (u: Usuario) => void;
-}) {
+  u, token,
+  onCargo,
+}: { u: Usuario; token: string; onCargo: (u: Usuario) => void }) {
   const qc = useQueryClient();
+  const { copied, copy } = useCopy();
   const [confirmDesativar, setConfirmDesativar] = useState(false);
 
   const toggleAtivo = useMutation({
@@ -360,13 +346,32 @@ function UserCard({
       if (!res.ok) throw new Error("Erro");
       return res.json();
     },
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ["usuarios"] });
-      setConfirmDesativar(false);
-    },
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ["usuarios"] }); setConfirmDesativar(false); },
   });
 
-  const rel = relativeDate(u.ultimoAcesso);
+  const gerarConvite = useMutation({
+    mutationFn: async () => {
+      const res = await fetch(`/api/usuarios/${u.id}/convite`, {
+        method: "POST",
+        headers: { "x-session-token": token },
+      });
+      if (!res.ok) throw new Error("Erro");
+      return res.json() as Promise<{ link: string }>;
+    },
+    onSuccess: (data) => copy(`${window.location.origin}${data.link}`),
+  });
+
+  const gerarReset = useMutation({
+    mutationFn: async () => {
+      const res = await fetch(`/api/usuarios/${u.id}/redefinir-senha`, {
+        method: "POST",
+        headers: { "x-session-token": token },
+      });
+      if (!res.ok) throw new Error("Erro");
+      return res.json() as Promise<{ link: string }>;
+    },
+    onSuccess: (data) => copy(`${window.location.origin}${data.link}`),
+  });
 
   return (
     <motion.div
@@ -379,7 +384,6 @@ function UserCard({
       )}
     >
       <div className="flex items-start justify-between gap-3">
-        {/* Avatar + info */}
         <div className="flex items-center gap-3 min-w-0">
           <div className={cn(
             "w-10 h-10 rounded-xl flex items-center justify-center text-base font-black shrink-0",
@@ -393,64 +397,72 @@ function UserCard({
                 {u.nome}
               </p>
               {!u.ativo && (
-                <span className="text-[10px] font-bold bg-slate-100 text-slate-400 px-1.5 py-0.5 rounded-full border border-slate-200">
-                  Desativado
-                </span>
+                <span className="text-[10px] font-bold bg-slate-100 text-slate-400 px-1.5 py-0.5 rounded-full border border-slate-200">Desativado</span>
               )}
             </div>
+            <p className="text-[11px] text-slate-400 truncate">{u.email}</p>
             <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
-              <span className={cn(
-                "text-[11px] font-bold px-1.5 py-0.5 rounded-full border",
-                PAPEL_COLOR[u.papel] ?? "bg-slate-100 text-slate-600 border-slate-200"
-              )}>
-                {PAPEL_LABEL[u.papel] ?? u.papel}
+              <span className={cn("text-[11px] font-bold px-1.5 py-0.5 rounded-full border", CARGO_COLOR[u.cargo] ?? "bg-slate-100 text-slate-600 border-slate-200")}>
+                {CARGO_LABEL[u.cargo] ?? u.cargo}
               </span>
               <span className="text-[11px] text-slate-400 font-medium">
                 {OPERACAO_LABEL[u.operacao] ?? u.operacao}
               </span>
-              {u.wa && (
-                <span className="text-[11px] text-slate-400">{u.wa}</span>
-              )}
             </div>
           </div>
         </div>
 
-        {/* Actions */}
-        <div className="flex items-center gap-1.5 shrink-0">
+        <div className="flex items-center gap-1 shrink-0">
           <button
-            onClick={() => onTrocaSenha(u)}
-            title="Trocar código de acesso"
+            onClick={() => onCargo(u)}
+            title="Alterar cargo"
+            className="p-2 rounded-lg text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 transition-all"
+          >
+            <ShieldCheck className="w-4 h-4" />
+          </button>
+          <button
+            onClick={() => gerarReset.mutate()}
+            title={copied ? "Link copiado!" : "Gerar link de reset de senha"}
+            disabled={gerarReset.isPending}
             className="p-2 rounded-lg text-slate-400 hover:text-amber-600 hover:bg-amber-50 transition-all"
           >
-            <KeyRound className="w-4 h-4" />
+            {copied && gerarReset.isSuccess
+              ? <CheckCircle2 className="w-4 h-4 text-emerald-500" />
+              : <KeyRound className="w-4 h-4" />}
+          </button>
+          <button
+            onClick={() => gerarConvite.mutate()}
+            title={copied && gerarConvite.isSuccess ? "Link copiado!" : "Reenviar convite"}
+            disabled={gerarConvite.isPending}
+            className="p-2 rounded-lg text-slate-400 hover:text-emerald-600 hover:bg-emerald-50 transition-all"
+          >
+            {copied && gerarConvite.isSuccess
+              ? <CheckCircle2 className="w-4 h-4 text-emerald-500" />
+              : <Link2 className="w-4 h-4" />}
           </button>
           <button
             onClick={() => u.ativo ? setConfirmDesativar(true) : toggleAtivo.mutate()}
-            title={u.ativo ? "Desativar acesso" : "Reativar acesso"}
+            title={u.ativo ? "Desativar" : "Reativar"}
             disabled={toggleAtivo.isPending}
             className={cn(
               "p-2 rounded-lg transition-all",
-              u.ativo
-                ? "text-slate-400 hover:text-red-600 hover:bg-red-50"
-                : "text-slate-400 hover:text-emerald-600 hover:bg-emerald-50"
+              u.ativo ? "text-slate-400 hover:text-red-600 hover:bg-red-50" : "text-slate-400 hover:text-emerald-600 hover:bg-emerald-50"
             )}
           >
-            {u.ativo ? <ShieldOff className="w-4 h-4" /> : <ShieldCheck className="w-4 h-4" />}
+            {u.ativo ? <ShieldOff className="w-4 h-4" /> : <RefreshCw className="w-4 h-4" />}
           </button>
         </div>
       </div>
 
-      {/* Último acesso */}
       <div className="mt-3 pt-3 border-t border-slate-50 flex items-center gap-1.5">
         <Clock className="w-3.5 h-3.5 text-slate-300 shrink-0" />
         <span className="text-[11px] text-slate-400">
-          {u.ultimoAcesso
-            ? <>Último acesso: <span className="font-semibold text-slate-500">{rel}</span></>
-            : "Nunca acessou"}
+          {u.ultimoLogin
+            ? <>Último login: <span className="font-semibold text-slate-500">{relativeDate(u.ultimoLogin)}</span></>
+            : "Nunca fez login"}
         </span>
       </div>
 
-      {/* Confirm desativar */}
       <AnimatePresence>
         {confirmDesativar && (
           <motion.div
@@ -461,15 +473,10 @@ function UserCard({
           >
             <div className="mt-3 pt-3 border-t border-red-100 space-y-2">
               <p className="text-xs text-red-700 font-semibold">
-                Desativar <strong>{u.nome}</strong>? O histórico de orçamentos é mantido.
+                Desativar <strong>{u.nome}</strong>? As sessões ativas serão encerradas.
               </p>
               <div className="flex gap-2">
-                <button
-                  onClick={() => setConfirmDesativar(false)}
-                  className="flex-1 py-1.5 rounded-lg border border-slate-200 text-xs font-bold text-slate-500 hover:bg-slate-50"
-                >
-                  Cancelar
-                </button>
+                <button onClick={() => setConfirmDesativar(false)} className="flex-1 py-1.5 rounded-lg border border-slate-200 text-xs font-bold text-slate-500 hover:bg-slate-50">Cancelar</button>
                 <button
                   onClick={() => toggleAtivo.mutate()}
                   disabled={toggleAtivo.isPending}
@@ -493,14 +500,12 @@ export default function Usuarios() {
   const token = user?.sessionToken ?? "";
 
   const [showCreate, setShowCreate] = useState(false);
-  const [trocaSenha, setTrocaSenha] = useState<Usuario | null>(null);
+  const [cargoModal, setCargoModal] = useState<Usuario | null>(null);
 
   const { data: usuarios = [], isLoading } = useQuery<Usuario[]>({
     queryKey: ["usuarios"],
     queryFn: async () => {
-      const res = await fetch("/api/usuarios", {
-        headers: { "x-session-token": token },
-      });
+      const res = await fetch("/api/usuarios", { headers: { "x-session-token": token } });
       if (!res.ok) throw new Error("Erro");
       return res.json();
     },
@@ -512,26 +517,19 @@ export default function Usuarios() {
 
   return (
     <div className="max-w-2xl mx-auto space-y-6 pb-20">
-      {/* Header */}
       <div className="flex items-start justify-between">
         <div>
-          <h1 className="text-3xl font-display font-extrabold text-slate-900 tracking-tight">
-            Usuários
-          </h1>
-          <p className="text-slate-500 mt-1 text-sm">
-            Gerencie o acesso da equipe ao sistema.
-          </p>
+          <h1 className="text-3xl font-display font-extrabold text-slate-900 tracking-tight">Usuários</h1>
+          <p className="text-slate-500 mt-1 text-sm">Gerencie a equipe e permissões de acesso.</p>
         </div>
         <button
           onClick={() => setShowCreate(true)}
           className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-bold shadow-sm transition-all"
         >
-          <UserPlus className="w-4 h-4" />
-          Novo usuário
+          <UserPlus className="w-4 h-4" /> Novo funcionário
         </button>
       </div>
 
-      {/* Stats bar */}
       {!isLoading && (
         <div className="grid grid-cols-3 gap-3">
           {[
@@ -550,36 +548,26 @@ export default function Usuarios() {
       {isLoading ? (
         <div className="flex items-center justify-center py-20 text-slate-400 gap-3">
           <Users className="w-6 h-6 animate-pulse" />
-          <span className="font-medium">Carregando usuários…</span>
+          <span className="font-medium">Carregando…</span>
         </div>
       ) : (
         <>
-          {/* Ativos */}
           {ativos.length > 0 && (
             <div className="space-y-3">
               <h2 className="text-xs font-bold text-slate-400 uppercase tracking-wider px-1 flex items-center gap-2">
-                <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500" />
-                Ativos ({ativos.length})
+                <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500" /> Ativos ({ativos.length})
               </h2>
-              {ativos.map(u => (
-                <UserCard key={u.id} u={u} token={token} onTrocaSenha={setTrocaSenha} />
-              ))}
+              {ativos.map(u => <UserCard key={u.id} u={u} token={token} onCargo={setCargoModal} />)}
             </div>
           )}
-
-          {/* Inativos */}
           {inativos.length > 0 && (
             <div className="space-y-3">
               <h2 className="text-xs font-bold text-slate-400 uppercase tracking-wider px-1 flex items-center gap-2">
-                <ShieldOff className="w-3.5 h-3.5" />
-                Inativos ({inativos.length})
+                <ShieldOff className="w-3.5 h-3.5" /> Inativos ({inativos.length})
               </h2>
-              {inativos.map(u => (
-                <UserCard key={u.id} u={u} token={token} onTrocaSenha={setTrocaSenha} />
-              ))}
+              {inativos.map(u => <UserCard key={u.id} u={u} token={token} onCargo={setCargoModal} />)}
             </div>
           )}
-
           {usuarios.length === 0 && (
             <div className="text-center py-16 text-slate-400">
               <Users className="w-10 h-10 mx-auto mb-3 opacity-30" />
@@ -590,16 +578,8 @@ export default function Usuarios() {
       )}
 
       <AnimatePresence>
-        {showCreate && (
-          <CreateUserModal onClose={() => setShowCreate(false)} token={token} />
-        )}
-        {trocaSenha && (
-          <TrocaSenhaModal
-            usuario={trocaSenha}
-            onClose={() => setTrocaSenha(null)}
-            token={token}
-          />
-        )}
+        {showCreate && <CreateUserModal onClose={() => setShowCreate(false)} token={token} />}
+        {cargoModal && <CargoModal usuario={cargoModal} onClose={() => setCargoModal(null)} token={token} />}
       </AnimatePresence>
     </div>
   );

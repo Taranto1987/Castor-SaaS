@@ -8,6 +8,8 @@
 
 export interface OrcamentoInput {
   cliente: string;
-  produtoId: number;
+  whatsapp?: string;
+  produtoIds: number[];
   observacoes?: string;
+  descontoPix?: number;
 }

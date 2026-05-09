@@ -1,12 +1,19 @@
 {
-    "$schema": "https://railway.app/railway.schema.json",
-    "build": {
-          "builder": "DOCKERFILE"
-    },
-    "deploy": {
-          "releaseCommand": "pnpm --filter @workspace/db run migrate",
-          "startCommand": "node artifacts/api-server/dist/index.cjs",
-          "restartPolicyType": "ON_FAILURE",
-          "restartPolicyMaxRetries": 10
-    }
+  "$schema": "https://railway.app/railway.schema.json",
+  "$comments": {
+    "PROJETO_UNICO": "diligent-endurance — ÚNICO projeto Railway autorizado",
+    "SERVICO": "evolution-api — serviço de produção (NÃO duplicar)",
+    "URL": "https://evolution-api-production-405f.up.railway.app",
+    "REGRA_CFO": "É PROIBIDO criar novos projetos, ambientes ou serviços Railway fora deste projeto",
+    "DEPLOY": "Deploy automático APENAS via branch main — feature branches NÃO fazem deploy"
+  },
+  "build": {
+    "builder": "NIXPACKS"
+  },
+  "deploy": {
+    "releaseCommand": "pnpm --filter @workspace/db run migrate",
+    "startCommand": "pnpm --filter @workspace/api-server start",
+    "restartPolicyType": "ON_FAILURE",
+    "restartPolicyMaxRetries": 10
+  }
 }

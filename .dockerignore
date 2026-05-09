@@ -1,0 +1,16 @@
+.git
+.github
+node_modules
+**/node_modules
+dist
+**/*.log
+.env*
+attached_assets
+footer.png
+replit.md
+fix.patch
+long senha
+.replit
+.replitignore
+.cache
+.local

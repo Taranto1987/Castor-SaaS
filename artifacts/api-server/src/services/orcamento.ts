@@ -1,6 +1,12 @@
 import { db } from "@workspace/db";
 import { orcamentosTable } from "@workspace/db/schema";
 import type { TenantKey } from "../config/tenants.js";
+
+const TENANT_LOJA: Record<TenantKey, number> = {
+  "cabo-frio": 1,
+  "araruama": 2,
+  "default": 1,
+};
 import type { ProdutoResumido } from "./produtos.js";
 
 interface CriarOrcamentoParams {
@@ -30,7 +36,7 @@ export async function criarOrcamento({
   const [orcamento] = await db
     .insert(orcamentosTable)
     .values({
-      tenantId: tenant,
+      lojaId: TENANT_LOJA[tenant] ?? 1,
       cliente,
       whatsapp: telefone,
       produtosJson: produtos,

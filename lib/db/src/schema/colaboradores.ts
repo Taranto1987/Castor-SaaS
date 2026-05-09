@@ -1,7 +1,8 @@
-import { pgTable, serial, text, boolean, timestamp } from "drizzle-orm/pg-core";
+import { pgTable, serial, text, boolean, timestamp, integer } from "drizzle-orm/pg-core";
 
 export const colaboradoresTable = pgTable("colaboradores", {
   id: serial("id").primaryKey(),
+  lojaId: integer("loja_id").default(1),
   // O código É a senha de acesso (login). Admin pode alterá-lo para trocar a senha.
   codigo: text("codigo").notNull().unique(),
   nome: text("nome").notNull(),

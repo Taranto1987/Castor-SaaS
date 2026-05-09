@@ -15,6 +15,178 @@ export const HealthCheckResponse = zod.object({
 });
 
 /**
+ * @summary Autenticar com código de acesso
+ */
+export const LoginBody = zod.object({
+  code: zod.string(),
+});
+
+export const LoginResponse = zod.object({
+  token: zod.string(),
+  nome: zod.string(),
+  papel: zod.enum(["dono", "vendedor", "entrega", "financeiro"]),
+  operacao: zod.string(),
+  wa: zod.string().optional(),
+  waRaw: zod.string().optional(),
+  tom: zod.string().optional(),
+  header: zod.string().optional(),
+  assinatura: zod.string().optional(),
+});
+
+/**
+ * @summary Dados do usuário autenticado
+ */
+export const GetMeHeader = zod.object({
+  "x-session-token": zod.string().optional(),
+});
+
+export const GetMeResponse = zod.object({
+  token: zod.string(),
+  nome: zod.string(),
+  papel: zod.enum(["dono", "vendedor", "entrega", "financeiro"]),
+  operacao: zod.string(),
+  wa: zod.string().optional(),
+  waRaw: zod.string().optional(),
+  tom: zod.string().optional(),
+  header: zod.string().optional(),
+  assinatura: zod.string().optional(),
+});
+
+/**
+ * @summary Encerrar sessão
+ */
+export const LogoutHeader = zod.object({
+  "x-session-token": zod.string().optional(),
+});
+
+export const LogoutResponse = zod.object({
+  ok: zod.boolean(),
+});
+
+/**
+ * @summary Listar usuários (dono)
+ */
+export const ListUsuariosHeader = zod.object({
+  "x-session-token": zod.string().optional(),
+});
+
+export const ListUsuariosResponseItem = zod.object({
+  id: zod.number(),
+  codigo: zod.string(),
+  nome: zod.string(),
+  papel: zod.enum(["dono", "vendedor", "entrega", "financeiro"]),
+  operacao: zod.string(),
+  wa: zod.string().nullish(),
+  waRaw: zod.string().nullish(),
+  tom: zod.string().nullish(),
+  header: zod.string().nullish(),
+  assinatura: zod.string().nullish(),
+  ativo: zod.boolean(),
+  ultimoAcesso: zod.string().nullish(),
+  criadoEm: zod.string().nullish(),
+});
+export const ListUsuariosResponse = zod.array(ListUsuariosResponseItem);
+
+/**
+ * @summary Criar usuário (dono)
+ */
+export const CriarUsuarioHeader = zod.object({
+  "x-session-token": zod.string().optional(),
+});
+
+export const CriarUsuarioBody = zod.object({
+  codigo: zod.string(),
+  nome: zod.string(),
+  papel: zod.enum(["dono", "vendedor", "entrega", "financeiro"]),
+  operacao: zod.string(),
+  wa: zod.string().optional(),
+  waRaw: zod.string().optional(),
+  tom: zod.string().optional(),
+  header: zod.string().optional(),
+  assinatura: zod.string().optional(),
+});
+
+export const CriarUsuarioResponse = zod.object({
+  id: zod.number(),
+  codigo: zod.string(),
+  nome: zod.string(),
+  papel: zod.enum(["dono", "vendedor", "entrega", "financeiro"]),
+  operacao: zod.string(),
+  wa: zod.string().nullish(),
+  waRaw: zod.string().nullish(),
+  tom: zod.string().nullish(),
+  header: zod.string().nullish(),
+  assinatura: zod.string().nullish(),
+  ativo: zod.boolean(),
+  ultimoAcesso: zod.string().nullish(),
+  criadoEm: zod.string().nullish(),
+});
+
+/**
+ * @summary Trocar código de acesso (dono)
+ */
+export const TrocarSenhaUsuarioParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const TrocarSenhaUsuarioHeader = zod.object({
+  "x-session-token": zod.string().optional(),
+});
+
+export const trocarSenhaUsuarioBodyNovoCodigoMin = 3;
+
+export const TrocarSenhaUsuarioBody = zod.object({
+  novoCodigo: zod.string().min(trocarSenhaUsuarioBodyNovoCodigoMin),
+});
+
+export const TrocarSenhaUsuarioResponse = zod.object({
+  id: zod.number(),
+  codigo: zod.string(),
+  nome: zod.string(),
+  papel: zod.enum(["dono", "vendedor", "entrega", "financeiro"]),
+  operacao: zod.string(),
+  wa: zod.string().nullish(),
+  waRaw: zod.string().nullish(),
+  tom: zod.string().nullish(),
+  header: zod.string().nullish(),
+  assinatura: zod.string().nullish(),
+  ativo: zod.boolean(),
+  ultimoAcesso: zod.string().nullish(),
+  criadoEm: zod.string().nullish(),
+});
+
+/**
+ * @summary Ativar/desativar usuário (dono)
+ */
+export const ToggleAtivoUsuarioParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const ToggleAtivoUsuarioHeader = zod.object({
+  "x-session-token": zod.string().optional(),
+});
+
+export const ToggleAtivoUsuarioBody = zod.object({
+  ativo: zod.boolean(),
+});
+
+export const ToggleAtivoUsuarioResponse = zod.object({
+  id: zod.number(),
+  codigo: zod.string(),
+  nome: zod.string(),
+  papel: zod.enum(["dono", "vendedor", "entrega", "financeiro"]),
+  operacao: zod.string(),
+  wa: zod.string().nullish(),
+  waRaw: zod.string().nullish(),
+  tom: zod.string().nullish(),
+  header: zod.string().nullish(),
+  assinatura: zod.string().nullish(),
+  ativo: zod.boolean(),
+  ultimoAcesso: zod.string().nullish(),
+  criadoEm: zod.string().nullish(),
+});
+
+/**
  * @summary Listar todos os produtos
  */
 export const ListProdutosQueryParams = zod.object({
@@ -43,6 +215,7 @@ export const ListProdutosResponse = zod.array(ListProdutosResponseItem);
  */
 export const BuscarProdutosQueryParams = zod.object({
   q: zod.coerce.string(),
+  categoria: zod.coerce.string().optional(),
 });
 
 export const BuscarProdutosResponseItem = zod.object({
@@ -94,27 +267,118 @@ export const GetProdutoResponse = zod.object({
  */
 export const GerarOrcamentoBody = zod.object({
   cliente: zod.string(),
-  produtoId: zod.number(),
+  whatsapp: zod.string().optional(),
+  produtoIds: zod.array(zod.number()),
   observacoes: zod.string().optional(),
+  descontoPix: zod.number().optional(),
 });
 
 export const GerarOrcamentoResponse = zod.object({
   texto: zod.string(),
-  produto: zod.object({
-    id: zod.number(),
-    nome: zod.string(),
-    sku: zod.string().optional(),
-    preco: zod.string().optional(),
-    precoPix: zod.string().optional(),
-    parcelamento: zod.string().optional(),
-    medidas: zod.string().optional(),
-    altura: zod.string().optional(),
-    categoria: zod.string(),
-    imagem: zod.string().optional(),
-    link: zod.string().optional(),
-    criadoEm: zod.string().optional(),
-  }),
+  totalPrecoBase: zod.string().optional(),
+  totalPix: zod.string(),
+  totalPrazo: zod.string(),
+  parcela12: zod.string().optional(),
+  descontoAplicado: zod.string().optional(),
+  descontoPercentual: zod.number().optional(),
+  produtos: zod.array(
+    zod.object({
+      id: zod.number(),
+      nome: zod.string(),
+      sku: zod.string().optional(),
+      preco: zod.string().optional(),
+      precoPix: zod.string().optional(),
+      parcelamento: zod.string().optional(),
+      medidas: zod.string().optional(),
+      altura: zod.string().optional(),
+      categoria: zod.string(),
+      imagem: zod.string().optional(),
+      link: zod.string().optional(),
+      criadoEm: zod.string().optional(),
+    }),
+  ),
 });
+
+/**
+ * @summary Salvar orçamento no banco de dados
+ */
+export const SalvarOrcamentoBody = zod.object({
+  cliente: zod.string(),
+  whatsapp: zod.string().optional(),
+  produtosJson: zod
+    .array(
+      zod.object({
+        id: zod.number(),
+        nome: zod.string(),
+        sku: zod.string().optional(),
+        preco: zod.string().optional(),
+        precoPix: zod.string().optional(),
+        parcelamento: zod.string().optional(),
+        medidas: zod.string().optional(),
+        altura: zod.string().optional(),
+        categoria: zod.string(),
+        imagem: zod.string().optional(),
+        link: zod.string().optional(),
+        criadoEm: zod.string().optional(),
+      }),
+    )
+    .optional(),
+  observacoes: zod.string().optional(),
+  descontoPix: zod.number().optional(),
+  totalPix: zod.string().optional(),
+  totalPrazo: zod.string().optional(),
+  texto: zod.string(),
+  vendedor: zod.string().optional(),
+  precoBaseTotal: zod.string().optional(),
+  descontoAplicado: zod.string().optional(),
+});
+
+export const SalvarOrcamentoResponse = zod.object({
+  id: zod.number(),
+  mensagem: zod.string(),
+});
+
+/**
+ * @summary Listar histórico de orçamentos
+ */
+export const HistoricoOrcamentosQueryParams = zod.object({
+  page: zod.coerce.number().optional(),
+});
+
+export const HistoricoOrcamentosResponseItem = zod.object({
+  id: zod.number(),
+  cliente: zod.string(),
+  whatsapp: zod.string().optional(),
+  status: zod.string(),
+  vendedor: zod.string().optional(),
+  totalPix: zod.string().optional(),
+  totalPrazo: zod.string().optional(),
+  descontoPix: zod.number().optional(),
+  observacoes: zod.string().optional(),
+  texto: zod.string(),
+  produtosJson: zod
+    .array(
+      zod.object({
+        id: zod.number(),
+        nome: zod.string(),
+        sku: zod.string().optional(),
+        preco: zod.string().optional(),
+        precoPix: zod.string().optional(),
+        parcelamento: zod.string().optional(),
+        medidas: zod.string().optional(),
+        altura: zod.string().optional(),
+        categoria: zod.string(),
+        imagem: zod.string().optional(),
+        link: zod.string().optional(),
+        criadoEm: zod.string().optional(),
+      }),
+    )
+    .optional(),
+  criadoEm: zod.string().optional(),
+});
+export const HistoricoOrcamentosResponse = zod.array(
+  HistoricoOrcamentosResponseItem,
+);
 
 /**
  * @summary Iniciar coleta de produtos do site Castor
@@ -140,4 +404,794 @@ export const StatusCrawlerResponse = zod.object({
   erros: zod.number(),
   iniciadoEm: zod.string().optional(),
   finalizadoEm: zod.string().optional(),
+});
+
+/**
+ * @summary Listar entregas
+ */
+export const ListEntregasHeader = zod.object({
+  "x-session-token": zod.string().optional(),
+});
+
+export const ListEntregasResponseItem = zod.object({
+  id: zod.number(),
+  orcamentoId: zod.number().nullish(),
+  cliente: zod.string(),
+  whatsapp: zod.string().nullish(),
+  endereco: zod.string().nullish(),
+  produtos: zod.string().nullish(),
+  status: zod.enum(["pendente", "em_rota", "entregue", "cancelado"]),
+  vendedor: zod.string().nullish(),
+  observacoes: zod.string().nullish(),
+  dataEntrega: zod.string().nullish(),
+  criadoEm: zod.string().optional(),
+  atualizadoEm: zod.string().optional(),
+});
+export const ListEntregasResponse = zod.array(ListEntregasResponseItem);
+
+/**
+ * @summary Criar entrega
+ */
+export const CriarEntregaHeader = zod.object({
+  "x-session-token": zod.string().optional(),
+});
+
+export const CriarEntregaBody = zod.object({
+  orcamentoId: zod.number().optional(),
+  cliente: zod.string(),
+  whatsapp: zod.string().optional(),
+  endereco: zod.string().optional(),
+  produtos: zod.string().optional(),
+  status: zod.string().optional(),
+  vendedor: zod.string().optional(),
+  observacoes: zod.string().optional(),
+  dataEntrega: zod.string().optional(),
+});
+
+export const CriarEntregaResponse = zod.object({
+  id: zod.number(),
+  orcamentoId: zod.number().nullish(),
+  cliente: zod.string(),
+  whatsapp: zod.string().nullish(),
+  endereco: zod.string().nullish(),
+  produtos: zod.string().nullish(),
+  status: zod.enum(["pendente", "em_rota", "entregue", "cancelado"]),
+  vendedor: zod.string().nullish(),
+  observacoes: zod.string().nullish(),
+  dataEntrega: zod.string().nullish(),
+  criadoEm: zod.string().optional(),
+  atualizadoEm: zod.string().optional(),
+});
+
+/**
+ * @summary Atualizar status da entrega
+ */
+export const UpdateStatusEntregaParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const UpdateStatusEntregaHeader = zod.object({
+  "x-session-token": zod.string().optional(),
+});
+
+export const UpdateStatusEntregaBody = zod.object({
+  status: zod.enum(["pendente", "em_rota", "entregue", "cancelado"]),
+});
+
+export const UpdateStatusEntregaResponse = zod.object({
+  id: zod.number(),
+  orcamentoId: zod.number().nullish(),
+  cliente: zod.string(),
+  whatsapp: zod.string().nullish(),
+  endereco: zod.string().nullish(),
+  produtos: zod.string().nullish(),
+  status: zod.enum(["pendente", "em_rota", "entregue", "cancelado"]),
+  vendedor: zod.string().nullish(),
+  observacoes: zod.string().nullish(),
+  dataEntrega: zod.string().nullish(),
+  criadoEm: zod.string().optional(),
+  atualizadoEm: zod.string().optional(),
+});
+
+/**
+ * @summary Atualizar dados da entrega
+ */
+export const UpdateEntregaParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const UpdateEntregaHeader = zod.object({
+  "x-session-token": zod.string().optional(),
+});
+
+export const UpdateEntregaBody = zod.object({
+  orcamentoId: zod.number().optional(),
+  cliente: zod.string(),
+  whatsapp: zod.string().optional(),
+  endereco: zod.string().optional(),
+  produtos: zod.string().optional(),
+  status: zod.string().optional(),
+  vendedor: zod.string().optional(),
+  observacoes: zod.string().optional(),
+  dataEntrega: zod.string().optional(),
+});
+
+export const UpdateEntregaResponse = zod.object({
+  id: zod.number(),
+  orcamentoId: zod.number().nullish(),
+  cliente: zod.string(),
+  whatsapp: zod.string().nullish(),
+  endereco: zod.string().nullish(),
+  produtos: zod.string().nullish(),
+  status: zod.enum(["pendente", "em_rota", "entregue", "cancelado"]),
+  vendedor: zod.string().nullish(),
+  observacoes: zod.string().nullish(),
+  dataEntrega: zod.string().nullish(),
+  criadoEm: zod.string().optional(),
+  atualizadoEm: zod.string().optional(),
+});
+
+/**
+ * @summary Remover entrega
+ */
+export const DeleteEntregaParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const DeleteEntregaHeader = zod.object({
+  "x-session-token": zod.string().optional(),
+});
+
+export const DeleteEntregaResponse = zod.object({
+  ok: zod.boolean(),
+});
+
+/**
+ * @summary Métricas gerais do negócio
+ */
+export const GetDashboardQueryParams = zod.object({
+  vendedor: zod.coerce.string().optional(),
+  papel: zod.coerce.string().optional(),
+});
+
+export const GetDashboardHeader = zod.object({
+  "x-session-token": zod.string().optional(),
+});
+
+export const GetDashboardResponse = zod.object({
+  totalOrcamentos: zod.number(),
+  vendidos: zod.number(),
+  taxaConversao: zod.number(),
+  ticketMedio: zod.number().optional(),
+  faturamentoTotal: zod.number(),
+  totalProdutos: zod.number(),
+  entregasPendentes: zod.number().optional(),
+  entregasEmRota: zod.number().optional(),
+  entregasEntregues: zod.number().optional(),
+  rankingVendedores: zod
+    .array(
+      zod.object({
+        vendedor: zod.string(),
+        total: zod.number(),
+        count: zod.number(),
+      }),
+    )
+    .optional(),
+  evolucaoSemanal: zod.array(zod.object({}).passthrough()).optional(),
+});
+
+/**
+ * @summary Listar categorias de despesa disponíveis
+ */
+export const ListCategoriasDespesaHeader = zod.object({
+  "x-session-token": zod.string().optional(),
+});
+
+export const ListCategoriasDespesaResponseItem = zod.string();
+export const ListCategoriasDespesaResponse = zod.array(
+  ListCategoriasDespesaResponseItem,
+);
+
+/**
+ * @summary Listar despesas do mês
+ */
+export const ListDespesasQueryParams = zod.object({
+  mes: zod.coerce.number().optional(),
+  ano: zod.coerce.number().optional(),
+  categoria: zod.coerce.string().optional(),
+});
+
+export const ListDespesasHeader = zod.object({
+  "x-session-token": zod.string().optional(),
+});
+
+export const ListDespesasResponseItem = zod.object({
+  id: zod.number(),
+  lojaId: zod.number().optional(),
+  valor: zod.string(),
+  categoria: zod.string(),
+  descricao: zod.string().nullish(),
+  comprovante: zod.string().nullish(),
+  recorrente: zod.boolean(),
+  recorrenteId: zod.number().nullish(),
+  confirmada: zod.boolean(),
+  data: zod.string(),
+  criadoEm: zod.string().optional(),
+});
+export const ListDespesasResponse = zod.array(ListDespesasResponseItem);
+
+/**
+ * @summary Criar despesa
+ */
+export const CriarDespesaHeader = zod.object({
+  "x-session-token": zod.string().optional(),
+});
+
+export const CriarDespesaBody = zod.object({
+  valor: zod.number(),
+  categoria: zod.string(),
+  descricao: zod.string().optional(),
+  comprovante: zod.string().optional(),
+  recorrente: zod.boolean().optional(),
+  data: zod.string().optional(),
+});
+
+export const CriarDespesaResponse = zod.object({
+  id: zod.number(),
+  lojaId: zod.number().optional(),
+  valor: zod.string(),
+  categoria: zod.string(),
+  descricao: zod.string().nullish(),
+  comprovante: zod.string().nullish(),
+  recorrente: zod.boolean(),
+  recorrenteId: zod.number().nullish(),
+  confirmada: zod.boolean(),
+  data: zod.string(),
+  criadoEm: zod.string().optional(),
+});
+
+/**
+ * @summary Atualizar despesa
+ */
+export const UpdateDespesaParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const UpdateDespesaHeader = zod.object({
+  "x-session-token": zod.string().optional(),
+});
+
+export const UpdateDespesaBody = zod.object({
+  valor: zod.number(),
+  categoria: zod.string(),
+  descricao: zod.string().optional(),
+  comprovante: zod.string().optional(),
+  recorrente: zod.boolean().optional(),
+  data: zod.string().optional(),
+});
+
+export const UpdateDespesaResponse = zod.object({
+  id: zod.number(),
+  lojaId: zod.number().optional(),
+  valor: zod.string(),
+  categoria: zod.string(),
+  descricao: zod.string().nullish(),
+  comprovante: zod.string().nullish(),
+  recorrente: zod.boolean(),
+  recorrenteId: zod.number().nullish(),
+  confirmada: zod.boolean(),
+  data: zod.string(),
+  criadoEm: zod.string().optional(),
+});
+
+/**
+ * @summary Remover despesa
+ */
+export const DeleteDespesaParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const DeleteDespesaHeader = zod.object({
+  "x-session-token": zod.string().optional(),
+});
+
+export const DeleteDespesaResponse = zod.object({
+  ok: zod.boolean(),
+});
+
+/**
+ * @summary Anexar comprovante URL a uma despesa
+ */
+export const UploadComprovanteParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const UploadComprovanteHeader = zod.object({
+  "x-session-token": zod.string().optional(),
+});
+
+export const UploadComprovanteBody = zod.object({
+  comprovante: zod.string(),
+});
+
+export const UploadComprovanteResponse = zod.object({
+  id: zod.number(),
+  lojaId: zod.number().optional(),
+  valor: zod.string(),
+  categoria: zod.string(),
+  descricao: zod.string().nullish(),
+  comprovante: zod.string().nullish(),
+  recorrente: zod.boolean(),
+  recorrenteId: zod.number().nullish(),
+  confirmada: zod.boolean(),
+  data: zod.string(),
+  criadoEm: zod.string().optional(),
+});
+
+/**
+ * @summary Listar despesas recorrentes
+ */
+export const ListDespesasRecorrentesHeader = zod.object({
+  "x-session-token": zod.string().optional(),
+});
+
+export const ListDespesasRecorrentesResponseItem = zod.object({
+  id: zod.number(),
+  valor: zod.string(),
+  categoria: zod.string(),
+  descricao: zod.string().nullish(),
+  ativo: zod.boolean(),
+  diaVencimento: zod.number(),
+  criadoEm: zod.string().optional(),
+});
+export const ListDespesasRecorrentesResponse = zod.array(
+  ListDespesasRecorrentesResponseItem,
+);
+
+/**
+ * @summary Criar despesa recorrente
+ */
+export const CriarDespesaRecorrenteHeader = zod.object({
+  "x-session-token": zod.string().optional(),
+});
+
+export const CriarDespesaRecorrenteBody = zod.object({
+  valor: zod.number(),
+  categoria: zod.string(),
+  descricao: zod.string().optional(),
+  diaVencimento: zod.number().optional(),
+});
+
+export const CriarDespesaRecorrenteResponse = zod.object({
+  id: zod.number(),
+  valor: zod.string(),
+  categoria: zod.string(),
+  descricao: zod.string().nullish(),
+  ativo: zod.boolean(),
+  diaVencimento: zod.number(),
+  criadoEm: zod.string().optional(),
+});
+
+/**
+ * @summary Remover despesa recorrente
+ */
+export const DeleteDespesaRecorrenteParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const DeleteDespesaRecorrenteHeader = zod.object({
+  "x-session-token": zod.string().optional(),
+});
+
+export const DeleteDespesaRecorrenteResponse = zod.object({
+  ok: zod.boolean(),
+});
+
+/**
+ * @summary Gerar despesas recorrentes para o mês
+ */
+export const GerarRecorrentesHeader = zod.object({
+  "x-session-token": zod.string().optional(),
+});
+
+export const GerarRecorrentesBody = zod.object({
+  mes: zod.number().optional(),
+  ano: zod.number().optional(),
+});
+
+export const GerarRecorrentesResponse = zod.object({
+  geradas: zod.number(),
+});
+
+/**
+ * @summary Listar comissões do mês
+ */
+export const ListComissoesQueryParams = zod.object({
+  mes: zod.coerce.number().optional(),
+  ano: zod.coerce.number().optional(),
+});
+
+export const ListComissoesHeader = zod.object({
+  "x-session-token": zod.string().optional(),
+});
+
+export const ListComissoesResponseItem = zod.object({
+  vendedor: zod.string(),
+  totalVendas: zod.number(),
+  percentual: zod.number(),
+  valorComissao: zod.number(),
+  quantidadeVendas: zod.number(),
+});
+export const ListComissoesResponse = zod.array(ListComissoesResponseItem);
+
+/**
+ * @summary Obter configuração de comissões
+ */
+export const GetComissoesConfigHeader = zod.object({
+  "x-session-token": zod.string().optional(),
+});
+
+export const GetComissoesConfigResponseItem = zod.object({
+  id: zod.number(),
+  vendedor: zod.string(),
+  percentual: zod.number(),
+  criadoEm: zod.string().optional(),
+});
+export const GetComissoesConfigResponse = zod.array(
+  GetComissoesConfigResponseItem,
+);
+
+/**
+ * @summary Salvar configuração de comissão por vendedor
+ */
+export const SaveComissaoConfigHeader = zod.object({
+  "x-session-token": zod.string().optional(),
+});
+
+export const SaveComissaoConfigBody = zod.object({
+  vendedor: zod.string(),
+  percentual: zod.number(),
+});
+
+export const SaveComissaoConfigResponse = zod.object({
+  id: zod.number(),
+  vendedor: zod.string(),
+  percentual: zod.number(),
+  criadoEm: zod.string().optional(),
+});
+
+/**
+ * @summary DRE (Demonstrativo de Resultado) do mês
+ */
+export const GetDREQueryParams = zod.object({
+  mes: zod.coerce.number().optional(),
+  ano: zod.coerce.number().optional(),
+});
+
+export const GetDREHeader = zod.object({
+  "x-session-token": zod.string().optional(),
+});
+
+export const GetDREResponse = zod.object({
+  mes: zod.number(),
+  ano: zod.number(),
+  receitaBruta: zod.number(),
+  despesaTotal: zod.number(),
+  comissoesTotal: zod.number().optional(),
+  lucroLiquido: zod.number(),
+  margemLiquida: zod.number().optional(),
+  despesasPorCategoria: zod
+    .array(
+      zod.object({
+        categoria: zod.string(),
+        total: zod.number(),
+      }),
+    )
+    .optional(),
+});
+
+/**
+ * @summary Resumo financeiro do dia corrente
+ */
+export const GetResumoDiarioHeader = zod.object({
+  "x-session-token": zod.string().optional(),
+});
+
+export const GetResumoDiarioResponse = zod.object({
+  vendas: zod.number(),
+  orcamentos: zod.number(),
+  faturamento: zod.number(),
+  despesas: zod.number(),
+});
+
+/**
+ * @summary Listar metas do mês
+ */
+export const ListMetasQueryParams = zod.object({
+  mes: zod.coerce.number().optional(),
+  ano: zod.coerce.number().optional(),
+});
+
+export const ListMetasResponseItem = zod.object({
+  id: zod.number(),
+  mes: zod.number(),
+  ano: zod.number(),
+  metaFaturamento: zod.number().optional(),
+  metaVendas: zod.number().optional(),
+  criadoEm: zod.string().optional(),
+});
+export const ListMetasResponse = zod.array(ListMetasResponseItem);
+
+/**
+ * @summary Salvar meta mensal
+ */
+export const SaveMetaHeader = zod.object({
+  "x-session-token": zod.string().optional(),
+});
+
+export const SaveMetaBody = zod.object({
+  mes: zod.number(),
+  ano: zod.number(),
+  metaFaturamento: zod.number().optional(),
+  metaVendas: zod.number().optional(),
+});
+
+export const SaveMetaResponse = zod.object({
+  id: zod.number(),
+  mes: zod.number(),
+  ano: zod.number(),
+  metaFaturamento: zod.number().optional(),
+  metaVendas: zod.number().optional(),
+  criadoEm: zod.string().optional(),
+});
+
+/**
+ * @summary Alertas financeiros ativos
+ */
+export const GetAlertasHeader = zod.object({
+  "x-session-token": zod.string().optional(),
+});
+
+export const GetAlertasResponseItem = zod.object({
+  tipo: zod.string(),
+  mensagem: zod.string(),
+  severidade: zod.enum(["info", "aviso", "critico"]),
+});
+export const GetAlertasResponse = zod.array(GetAlertasResponseItem);
+
+/**
+ * @summary Evolução de vendas e despesas dos últimos meses
+ */
+export const GetEvolucaoHeader = zod.object({
+  "x-session-token": zod.string().optional(),
+});
+
+export const GetEvolucaoResponseItem = zod.object({
+  mes: zod.string(),
+  faturamento: zod.number(),
+  despesas: zod.number(),
+  lucro: zod.number(),
+});
+export const GetEvolucaoResponse = zod.array(GetEvolucaoResponseItem);
+
+/**
+ * @summary Enviar mensagem ao ThallesZzz (SSE streaming)
+ */
+
+export const EnviarMensagemChatBody = zod.object({
+  messages: zod
+    .array(
+      zod.object({
+        role: zod.enum(["user", "assistant"]),
+        content: zod.string(),
+      }),
+    )
+    .min(1),
+});
+
+/**
+ * @summary Executar turno do Castor AI Agent (síncrono)
+ */
+export const RunAgentBody = zod.object({
+  message: zod.string(),
+  session_id: zod.string().optional(),
+});
+
+export const RunAgentResponse = zod.object({
+  success: zod.boolean(),
+  data: zod
+    .object({
+      session_id: zod.string(),
+      output: zod.string(),
+      status: zod.enum(["idle", "running", "terminated"]),
+    })
+    .optional(),
+});
+
+/**
+ * @summary Executar turno do Castor AI Agent (SSE streaming)
+ */
+export const StreamAgentBody = zod.object({
+  message: zod.string(),
+  session_id: zod.string().optional(),
+});
+
+/**
+ * @summary Listar follow-ups pendentes de execução
+ */
+export const ListFollowUpsPendentesHeader = zod.object({
+  "x-session-token": zod.string().optional(),
+});
+
+export const ListFollowUpsPendentesResponseItem = zod.object({
+  id: zod.number(),
+  tipo: zod.enum(["dia3", "dia7", "dia14"]),
+  mensagem: zod.string(),
+  waLink: zod.string().nullish(),
+  geradoEm: zod.string(),
+  orcamentoId: zod.number(),
+  cliente: zod.string(),
+  whatsapp: zod.string().nullish(),
+  vendedor: zod.string().nullish(),
+  totalPix: zod.string().nullish(),
+  status: zod.string(),
+});
+export const ListFollowUpsPendentesResponse = zod.array(
+  ListFollowUpsPendentesResponseItem,
+);
+
+/**
+ * @summary Marcar follow-up como executado
+ */
+export const MarcarFollowUpExecutadoParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const MarcarFollowUpExecutadoHeader = zod.object({
+  "x-session-token": zod.string().optional(),
+});
+
+export const MarcarFollowUpExecutadoResponse = zod.object({
+  mensagem: zod.string(),
+  id: zod.number(),
+});
+
+/**
+ * @summary Extrair itens de nota fiscal via Gemini Vision
+ */
+export const ExtrairNotaHeader = zod.object({
+  "x-session-token": zod.string().optional(),
+});
+
+export const ExtrairNotaBody = zod.object({
+  imagem: zod.instanceof(File),
+});
+
+export const ExtrairNotaResponse = zod.object({
+  itens: zod.array(
+    zod.object({
+      nome: zod.string(),
+      quantidade: zod.number(),
+      sku: zod.string().nullish(),
+      precoCusto: zod.string().nullish(),
+    }),
+  ),
+  entradaId: zod.number(),
+});
+
+/**
+ * @summary Correlacionar itens extraídos com produtos do catálogo
+ */
+export const MatchItensEstoqueHeader = zod.object({
+  "x-session-token": zod.string().optional(),
+});
+
+export const MatchItensEstoqueBody = zod.object({
+  itens: zod.array(
+    zod.object({
+      nome: zod.string(),
+      quantidade: zod.number(),
+      sku: zod.string().nullish(),
+      precoCusto: zod.string().nullish(),
+    }),
+  ),
+});
+
+export const MatchItensEstoqueResponseItem = zod.object({
+  extraido: zod.object({
+    nome: zod.string(),
+    quantidade: zod.number(),
+    sku: zod.string().nullish(),
+    precoCusto: zod.string().nullish(),
+  }),
+  produtoId: zod.number().nullish(),
+  produtoNome: zod.string().nullish(),
+  confianca: zod.number(),
+});
+export const MatchItensEstoqueResponse = zod.array(
+  MatchItensEstoqueResponseItem,
+);
+
+/**
+ * @summary Confirmar entrada de estoque e atualizar saldos
+ */
+export const ConfirmarEntradaEstoqueHeader = zod.object({
+  "x-session-token": zod.string().optional(),
+});
+
+export const ConfirmarEntradaEstoqueBody = zod.object({
+  entradaId: zod.number(),
+  itens: zod.array(
+    zod.object({
+      produtoId: zod.number(),
+      quantidade: zod.number(),
+      precoCusto: zod.string().optional(),
+      nomeExtraido: zod.string(),
+      skuExtraido: zod.string().optional(),
+    }),
+  ),
+});
+
+export const ConfirmarEntradaEstoqueResponse = zod.object({
+  ok: zod.boolean(),
+  atualizados: zod.number(),
+});
+
+/**
+ * @summary Histórico de entradas de estoque
+ */
+export const HistoricoEntradasHeader = zod.object({
+  "x-session-token": zod.string().optional(),
+});
+
+export const HistoricoEntradasResponseItem = zod.object({
+  id: zod.number(),
+  fornecedor: zod.string().nullish(),
+  imagemNota: zod.string().nullish(),
+  totalItens: zod.number(),
+  criadoEm: zod.string().optional(),
+});
+export const HistoricoEntradasResponse = zod.array(
+  HistoricoEntradasResponseItem,
+);
+
+/**
+ * @summary Buscar produtos para correlação de estoque
+ */
+export const BuscarProdutosEstoqueQueryParams = zod.object({
+  q: zod.coerce.string(),
+});
+
+export const BuscarProdutosEstoqueHeader = zod.object({
+  "x-session-token": zod.string().optional(),
+});
+
+export const BuscarProdutosEstoqueResponseItem = zod.object({
+  id: zod.number(),
+  nome: zod.string(),
+  sku: zod.string().optional(),
+  preco: zod.string().optional(),
+  precoPix: zod.string().optional(),
+  parcelamento: zod.string().optional(),
+  medidas: zod.string().optional(),
+  altura: zod.string().optional(),
+  categoria: zod.string(),
+  imagem: zod.string().optional(),
+  link: zod.string().optional(),
+  criadoEm: zod.string().optional(),
+});
+export const BuscarProdutosEstoqueResponse = zod.array(
+  BuscarProdutosEstoqueResponseItem,
+);
+
+/**
+ * @summary Processar diagnóstico de colchão (SleepMapAI)
+ */
+export const ProcessarDiagnosticoBody = zod.record(zod.string(), zod.unknown());
+
+export const ProcessarDiagnosticoResponse = zod.object({
+  recomendacao: zod.string(),
+  produto: zod.string().optional(),
+  justificativa: zod.string().optional(),
+  waLink: zod.string().optional(),
 });

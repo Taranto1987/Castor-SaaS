@@ -4,7 +4,7 @@ import { z } from "zod/v4";
 
 export const produtosTable = pgTable("produtos", {
   id: serial("id").primaryKey(),
-  tenantId: text("tenant_id").notNull().default("default"),
+  lojaId: integer("loja_id").default(1),
   nome: text("nome").notNull(),
   sku: text("sku"),
   preco: text("preco"),
@@ -32,12 +32,14 @@ export type Produto = typeof produtosTable.$inferSelect;
 
 export const outletInteressesTable = pgTable("outlet_interesses", {
   id: serial("id").primaryKey(),
+  lojaId: integer("loja_id").default(1),
   produtoId: integer("produto_id").notNull(),
   criadoEm: timestamp("criado_em").defaultNow(),
 });
 
 export const crawlerStatusTable = pgTable("crawler_status", {
   id: serial("id").primaryKey(),
+  lojaId: integer("loja_id").default(1),
   status: text("status").notNull().default("idle"),
   mensagem: text("mensagem").notNull().default(""),
   totalProdutos: text("total_produtos").default("0"),

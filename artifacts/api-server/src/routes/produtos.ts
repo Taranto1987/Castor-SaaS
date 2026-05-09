@@ -1,8 +1,9 @@
 import { Router, type IRouter, type Request, type Response, type NextFunction } from "express";
 import { db } from "@workspace/db";
 import { produtosTable, outletInteressesTable } from "@workspace/db/schema";
-import { ilike, or, eq, and, isNull, gt, desc, count, max, inArray } from "drizzle-orm";
+import { ilike, or, eq, and, isNull, gt, desc, count, max, inArray, type SQL } from "drizzle-orm";
 import { getSession, isDono as isDonoSession } from "../lib/sessions";
+import { resolveLojaId } from "../middlewares/auth";
 
 function requireDono(req: Request, res: Response, next: NextFunction) {
   const token = (req.headers["x-session-token"] || "") as string;
@@ -41,10 +42,12 @@ function mapProduto(p: typeof produtosTable.$inferSelect) {
 router.get("/", async (req, res) => {
   try {
     const { categoria, limite, interno } = req.query;
+    const lojaId = resolveLojaId(req);
+    const lojaCond = eq(produtosTable.lojaId, lojaId);
     const categoriaCond = categoria ? eq(produtosTable.categoria, categoria as string) : undefined;
     const stockCond = interno !== "1" ? or(isNull(produtosTable.estoque), gt(produtosTable.estoque, 0)) : undefined;
-    const whereCond = categoriaCond && stockCond ? and(categoriaCond, stockCond)
-      : categoriaCond ?? stockCond;
+    const conds = [lojaCond, categoriaCond, stockCond].filter(Boolean) as SQL[];
+    const whereCond = and(...conds);
     const results = await db
       .select()
       .from(produtosTable)
@@ -57,12 +60,13 @@ router.get("/", async (req, res) => {
   }
 });
 
-router.get("/outlet", async (_req, res) => {
+router.get("/outlet", async (req, res) => {
   try {
+    const lojaId = resolveLojaId(req);
     const results = await db
       .select()
       .from(produtosTable)
-      .where(eq(produtosTable.encomenda, true))
+      .where(and(eq(produtosTable.encomenda, true), eq(produtosTable.lojaId, lojaId)))
       .orderBy(produtosTable.nome);
     res.json(results.map(mapProduto));
   } catch (error) {
@@ -78,9 +82,11 @@ router.post("/outlet", async (req, res) => {
       res.status(400).json({ error: "Nome e categoria são obrigatórios" });
       return;
     }
+    const lojaId = resolveLojaId(req);
     const custoNum = parseFloat(String(custoBRL || "0")) || 0;
     const precoVenda = custoNum > 0 ? Math.ceil(custoNum * 1.6) : undefined;
     const inserted = await db.insert(produtosTable).values({
+      lojaId,
       nome,
       categoria,
       medidas: medidas ?? null,
@@ -120,9 +126,12 @@ router.patch("/:id/encomenda", async (req, res) => {
   }
 });
 
-router.get("/categorias", async (_req, res) => {
+router.get("/categorias", async (req, res) => {
   try {
-    const results = await db.selectDistinct({ categoria: produtosTable.categoria }).from(produtosTable);
+    const lojaId = resolveLojaId(req);
+    const results = await db.selectDistinct({ categoria: produtosTable.categoria })
+      .from(produtosTable)
+      .where(eq(produtosTable.lojaId, lojaId));
     res.json(results.map(r => r.categoria).filter(Boolean));
   } catch (error) {
     console.error("Erro ao listar categorias:", error);
@@ -152,8 +161,10 @@ router.get("/buscar", async (req, res) => {
       ? eq(produtosTable.categoria, categoria)
       : undefined;
 
+    const lojaId = resolveLojaId(req);
     const stockCond = or(isNull(produtosTable.estoque), gt(produtosTable.estoque, 0));
     const allConds = [
+      eq(produtosTable.lojaId, lojaId),
       ...(textoConds.length === 1 ? [textoConds[0]] : [and(...textoConds)]),
       ...(categoriaCond ? [categoriaCond] : []),
       stockCond,
@@ -296,12 +307,13 @@ router.post("/outlet/:id/promover", requireDono, async (req, res) => {
   }
 });
 
-router.get("/estoque", async (_req, res) => {
+router.get("/estoque", async (req, res) => {
   try {
+    const lojaId = resolveLojaId(req);
     const results = await db
       .select()
       .from(produtosTable)
-      .where(eq(produtosTable.encomenda, false))
+      .where(and(eq(produtosTable.encomenda, false), eq(produtosTable.lojaId, lojaId)))
       .orderBy(produtosTable.nome);
     res.json(results.map(mapProduto));
   } catch (error) {

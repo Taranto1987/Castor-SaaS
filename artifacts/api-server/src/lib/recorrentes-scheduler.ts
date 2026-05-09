@@ -31,7 +31,7 @@ async function gerarRecorrentesMes(mes: number, ano: number): Promise<number> {
       const data = new Date(ano, mes - 1, dia);
 
       await db.insert(despesasTable).values({
-        tenantId: r.tenantId,
+        lojaId: r.lojaId ?? 1,
         valor: r.valor,
         categoria: r.categoria,
         descricao: r.descricao ? `${r.descricao} (auto)` : `${r.categoria} (auto)`,

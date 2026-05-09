@@ -1,22 +1,10 @@
-import { Router, type IRouter, type Request, type Response, type NextFunction } from "express";
+import { Router, type IRouter } from "express";
 import { db } from "@workspace/db";
 import { orcamentosTable, produtosTable, entregasTable } from "@workspace/db/schema";
 import { desc, eq, and, sql } from "drizzle-orm";
-import { getSession } from "../lib/sessions";
-import type { TenantRequest } from "../middleware/tenant.js";
+import { resolveLojaId } from "../middlewares/auth";
 
 const router: IRouter = Router();
-
-function requireAuth(req: Request, res: Response, next: NextFunction) {
-  const token = (req.headers["x-session-token"] || "") as string;
-  if (!token) { res.status(401).json({ error: "Autenticação necessária" }); return; }
-  const session = getSession(token);
-  if (!session) { res.status(401).json({ error: "Sessão inválida ou expirada" }); return; }
-  (req as any).session = session;
-  next();
-}
-
-router.use(requireAuth);
 
 function parseBRL(valor?: string | null): number {
   if (!valor) return 0;
@@ -27,8 +15,8 @@ function parseBRL(valor?: string | null): number {
 
 router.get("/", async (req, res) => {
   try {
-    const tenant = (req as TenantRequest).tenant ?? "default";
     const { vendedor, papel } = req.query as { vendedor?: string; papel?: string };
+    const lojaId = resolveLojaId(req);
     const filtraPorVendedor = vendedor && papel !== "dono";
 
     const orcCols = {
@@ -41,24 +29,23 @@ router.get("/", async (req, res) => {
       precoBaseTotal: orcamentosTable.precoBaseTotal,
     };
 
-    const orcTenantCond = eq(orcamentosTable.tenantId, tenant);
+    const lojaCond = eq(orcamentosTable.lojaId, lojaId);
     const orcamentosQuery = filtraPorVendedor
-      ? db.select(orcCols).from(orcamentosTable).where(and(orcTenantCond, eq(orcamentosTable.vendedor, vendedor!))).orderBy(desc(orcamentosTable.criadoEm)).limit(500)
-      : db.select(orcCols).from(orcamentosTable).where(orcTenantCond).orderBy(desc(orcamentosTable.criadoEm)).limit(500);
+      ? db.select(orcCols).from(orcamentosTable).where(and(lojaCond, eq(orcamentosTable.vendedor, vendedor!))).orderBy(desc(orcamentosTable.criadoEm)).limit(500)
+      : db.select(orcCols).from(orcamentosTable).where(lojaCond).orderBy(desc(orcamentosTable.criadoEm)).limit(500);
 
     const entregasCols = {
       status: entregasTable.status,
       vendedor: entregasTable.vendedor,
     };
-
-    const entregTenantCond = eq(entregasTable.tenantId, tenant);
+    const lojaEntregaCond = eq(entregasTable.lojaId, lojaId);
     const entregasQuery = filtraPorVendedor
-      ? db.select(entregasCols).from(entregasTable).where(and(entregTenantCond, eq(entregasTable.vendedor, vendedor!)))
-      : db.select(entregasCols).from(entregasTable).where(entregTenantCond);
+      ? db.select(entregasCols).from(entregasTable).where(and(lojaEntregaCond, eq(entregasTable.vendedor, vendedor!)))
+      : db.select(entregasCols).from(entregasTable).where(lojaEntregaCond);
 
     const [orcamentos, totalProdutos, entregas] = await Promise.all([
       orcamentosQuery,
-      db.select({ count: sql<number>`count(*)` }).from(produtosTable),
+      db.select({ count: sql<number>`count(*)` }).from(produtosTable).where(eq(produtosTable.lojaId, lojaId)),
       entregasQuery,
     ]);
 

@@ -67,12 +67,12 @@ export default function ProductPicker({ onAdd, carrinhoIds }: Props) {
 
   const { data: listaProdutos, isLoading: isLoadingLista } = useListProdutos(
     { categoria: dbCategoria, limite: 500 },
-    { query: { enabled: open && !debouncedBusca } }
+    { query: { enabled: open && !debouncedBusca } as any }
   );
 
   const { data: resultadosBusca, isLoading: isSearching } = useBuscarProdutos(
     { q: debouncedBusca, categoria: dbCategoria },
-    { query: { enabled: open && debouncedBusca.length > 1 } }
+    { query: { enabled: open && debouncedBusca.length > 1 } as any }
   );
 
   const produtosBase = debouncedBusca.length > 1 ? (resultadosBusca || []) : (listaProdutos || []);

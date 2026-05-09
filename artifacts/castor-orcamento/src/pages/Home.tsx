@@ -29,7 +29,7 @@ export default function Home() {
     isLoading: isLoadingList 
   } = useListProdutos(
     { categoria: activeCategory !== "Todas" ? activeCategory : undefined },
-    { query: { enabled: !isSearching } }
+    { query: { enabled: !isSearching } as any }
   );
 
   const { 
@@ -37,7 +37,7 @@ export default function Home() {
     isLoading: isLoadingSearch 
   } = useBuscarProdutos(
     { q: debouncedSearch },
-    { query: { enabled: isSearching } }
+    { query: { enabled: isSearching } as any }
   );
 
   const categorias = ["Todas", ...(categoriasData || [])];

@@ -1,35 +1,35 @@
 import express, { type Express } from "express";
 import cors from "cors";
-import router from "./routes/index.js";
-import { identificarTenant } from "./middleware/tenant.js";
-
-const ALLOWED_ORIGINS = [
-  /\.vercel\.app$/,
-  /\.railway\.app$/,
-  /localhost/,
-  /127\.0\.0\.1/,
-];
+import helmet from "helmet";
+import rateLimit from "express-rate-limit";
+import router from "./routes";
 
 const app: Express = express();
 
-app.use(
-  cors({
-    origin: (origin, cb) => {
-      if (!origin || ALLOWED_ORIGINS.some((r) => r.test(origin))) {
-        cb(null, true);
-      } else {
-        cb(new Error(`CORS: origem não permitida — ${origin}`));
-      }
-    },
-    allowedHeaders: ["Content-Type", "x-session-token"],
-    methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
-  })
-);
-app.use(express.json({ limit: "20mb" }));
-app.use(express.urlencoded({ extended: true, limit: "20mb" }));
+// Security: HTTP headers
+app.use(helmet());
 
-// Identifica o tenant via hostname em todas as rotas /api
-app.use("/api", identificarTenant as express.RequestHandler);
+// Security: CORS with allowlist
+const allowedOrigins = (process.env.ALLOWED_ORIGINS || "").split(",").map(o => o.trim()).filter(Boolean);
+app.use(cors({
+  origin: allowedOrigins.length > 0 ? allowedOrigins : undefined,
+  credentials: true,
+}));
+
+// Security: Body size limit (5MB instead of 20MB)
+app.use(express.json({ limit: "5mb" }));
+app.use(express.urlencoded({ extended: true, limit: "5mb" }));
+
+function makeLimiter(max: number, windowMs = 15 * 60 * 1000, message = "Too many requests, try again later") {
+  return rateLimit({ windowMs, max, message, standardHeaders: true, legacyHeaders: false });
+}
+
+// Auth endpoints — strict limits to prevent brute force and token enumeration
+app.use("/api/auth/login",          makeLimiter(20));           // 20/15min
+app.use("/api/auth/esqueci-senha",  makeLimiter(5));            // 5/15min — prevent email enumeration abuse
+app.use("/api/auth/redefinir-senha", makeLimiter(10));          // 10/15min — prevent token brute force
+app.use("/api/auth/alterar-senha",  makeLimiter(10));           // 10/15min
+app.use("/api/usuarios/aceitar-convite", makeLimiter(10));      // 10/15min — prevent invite token brute force
 app.use("/api", router);
 
 export default app;

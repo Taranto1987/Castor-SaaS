@@ -39,7 +39,7 @@ export async function editImages(
 ): Promise<Buffer> {
   const images = await Promise.all(
     imageFiles.map((file) =>
-      toFile(fs.createReadStream(file), file, {
+      toFile(fs.createReadStream(file) as any, file, {
         type: "image/png",
       })
     )

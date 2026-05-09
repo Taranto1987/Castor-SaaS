@@ -2,8 +2,10 @@ import { Switch, Route, Router as WouterRouter, useLocation, Redirect } from "wo
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
+import { Analytics } from "@vercel/analytics/react";
 
 import { AuthProvider, useAuth } from "@/contexts/AuthContext";
+import { LojaProvider } from "@/contexts/LojaContext";
 import ErrorBoundary from "@/components/ErrorBoundary";
 import LoginScreen from "@/components/LoginScreen";
 import PublicLayout from "@/components/PublicLayout";
@@ -13,6 +15,13 @@ import Layout from "@/components/Layout";
 import Landing from "@/pages/Landing";
 import Catalogo from "@/pages/Catalogo";
 import MapaSono from "@/pages/MapaSono";
+
+// Landing Pages — conversion-optimized
+import LuxoCaboFrio from "@/pages/lp/LuxoCaboFrio";
+import CamaBoxAraruama from "@/pages/lp/CamaBoxAraruama";
+import OutletPromocao from "@/pages/lp/OutletPromocao";
+import SaudeColuna from "@/pages/lp/SaudeColuna";
+import Entrega24h from "@/pages/lp/Entrega24h";
 
 // Private pages
 import Home from "@/pages/Home";
@@ -28,6 +37,8 @@ import RankingOutlet from "@/pages/RankingOutlet";
 import EntradaEstoque from "@/pages/EntradaEstoque";
 import Financeiro from "@/pages/Financeiro";
 import Usuarios from "@/pages/Usuarios";
+import AceitarConvite from "@/pages/auth/AceitarConvite";
+import RedefinirSenha from "@/pages/auth/RedefinirSenha";
 import NotFound from "@/pages/not-found";
 
 const queryClient = new QueryClient({
@@ -58,7 +69,7 @@ function DonoRoute({ component: Component }: { component: React.ComponentType })
   const { isAuthenticated, user } = useAuth();
   const [, setLocation] = useLocation();
   if (!isAuthenticated) return <LoginScreen />;
-  if (user?.papel !== "dono") {
+  if (user?.papel !== "dono" && user?.papel !== "ADMIN" && user?.papel !== "GERENTE") {
     setLocation("/equipe");
     return null;
   }
@@ -82,6 +93,17 @@ function AppRoutes() {
       <Route path="/mapa-sono">
         <PublicLayout><MapaSono /></PublicLayout>
       </Route>
+
+      {/* ── AUTH público (convite / reset) ─────────────────────────────── */}
+      <Route path="/aceitar-convite"><AceitarConvite /></Route>
+      <Route path="/redefinir-senha"><RedefinirSenha /></Route>
+
+      {/* ── LANDING PAGES ──────────────────────────────────────────────── */}
+      <Route path="/lp/luxo"><LuxoCaboFrio /></Route>
+      <Route path="/lp/box-bau"><CamaBoxAraruama /></Route>
+      <Route path="/lp/outlet"><OutletPromocao /></Route>
+      <Route path="/lp/saude-coluna"><SaudeColuna /></Route>
+      <Route path="/lp/entrega-24h"><Entrega24h /></Route>
 
       {/* ── PRIVATE ────────────────────────────────────────────────────── */}
       <Route path="/equipe"             component={() => <PrivateRoute component={Home} />} />
@@ -107,14 +129,17 @@ function App() {
   return (
     <QueryClientProvider client={queryClient}>
       <TooltipProvider>
-        <AuthProvider>
-          <WouterRouter base={import.meta.env.BASE_URL.replace(/\/$/, "")}>
-            <ErrorBoundary>
-              <AppRoutes />
-            </ErrorBoundary>
-          </WouterRouter>
-          <Toaster />
-        </AuthProvider>
+        <LojaProvider>
+          <AuthProvider>
+            <WouterRouter base={import.meta.env.BASE_URL.replace(/\/$/, "")}>
+              <ErrorBoundary>
+                <AppRoutes />
+              </ErrorBoundary>
+            </WouterRouter>
+            <Toaster />
+            <Analytics />
+          </AuthProvider>
+        </LojaProvider>
       </TooltipProvider>
     </QueryClientProvider>
   );

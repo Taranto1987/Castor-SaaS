@@ -1,38 +1,23 @@
-import { Router, type IRouter, type Request, type Response, type NextFunction } from "express";
+import { Router, type IRouter } from "express";
 import { db } from "@workspace/db";
 import { entregasTable } from "@workspace/db/schema";
-import { eq, and, desc } from "drizzle-orm";
-import { getSession } from "../lib/sessions";
-import type { TenantRequest } from "../middleware/tenant.js";
+import { eq, desc } from "drizzle-orm";
+import { resolveLojaId } from "../middlewares/auth";
 
 const router: IRouter = Router();
 
-function requireAuth(req: Request, res: Response, next: NextFunction) {
-  const token = (req.headers["x-session-token"] || "") as string;
-  if (!token) { res.status(401).json({ error: "Autenticação necessária" }); return; }
-  const session = getSession(token);
-  if (!session) { res.status(401).json({ error: "Sessão inválida ou expirada" }); return; }
-  (req as any).session = session;
-  next();
-}
-
-router.use(requireAuth);
-
 router.get("/", async (req, res) => {
   try {
-    const tenant = (req as TenantRequest).tenant ?? "default";
     const { vendedor, papel } = req.query as { vendedor?: string; papel?: string };
-
-    const allEntregas = await db
-      .select()
-      .from(entregasTable)
-      .where(eq(entregasTable.tenantId, tenant))
+    const lojaId = resolveLojaId(req);
+    const query = db.select().from(entregasTable)
+      .where(eq(entregasTable.lojaId, lojaId))
       .orderBy(desc(entregasTable.criadoEm));
-
+    const all = await query;
     if (vendedor && papel === "vendedor") {
-      res.json(allEntregas.filter(e => e.vendedor === vendedor));
+      res.json(all.filter(e => e.vendedor === vendedor));
     } else {
-      res.json(allEntregas);
+      res.json(all);
     }
   } catch (error) {
     console.error("Erro ao listar entregas:", error);
@@ -42,14 +27,11 @@ router.get("/", async (req, res) => {
 
 router.post("/", async (req, res) => {
   try {
-    const tenant = (req as TenantRequest).tenant ?? "default";
     const { orcamentoId, cliente, whatsapp, endereco, produtos, vendedor, observacoes, dataEntrega } = req.body;
-    if (!cliente) {
-      res.status(400).json({ error: "Cliente é obrigatório" });
-      return;
-    }
+    if (!cliente) { res.status(400).json({ error: "Cliente é obrigatório" }); return; }
+    const lojaId = resolveLojaId(req);
     const inserted = await db.insert(entregasTable).values({
-      tenantId: tenant,
+      lojaId,
       orcamentoId: orcamentoId || null,
       cliente,
       whatsapp: whatsapp || null,
@@ -69,22 +51,15 @@ router.post("/", async (req, res) => {
 
 router.patch("/:id/status", async (req, res) => {
   try {
-    const tenant = (req as unknown as TenantRequest).tenant ?? "default";
-    const id = parseInt(req.params.id as string);
+    const id = parseInt(req.params.id);
     const { status } = req.body;
     const validos = ["pendente", "em_rota", "entregue", "cancelado"];
-    if (!validos.includes(status)) {
-      res.status(400).json({ error: "Status inválido" });
-      return;
-    }
+    if (!validos.includes(status)) { res.status(400).json({ error: "Status inválido" }); return; }
     const updated = await db.update(entregasTable)
       .set({ status, atualizadoEm: new Date() })
-      .where(and(eq(entregasTable.id, id), eq(entregasTable.tenantId, tenant)))
+      .where(eq(entregasTable.id, id))
       .returning();
-    if (updated.length === 0) {
-      res.status(404).json({ error: "Entrega não encontrada" });
-      return;
-    }
+    if (updated.length === 0) { res.status(404).json({ error: "Entrega não encontrada" }); return; }
     res.json(updated[0]);
   } catch (error) {
     console.error("Erro ao atualizar entrega:", error);
@@ -94,17 +69,13 @@ router.patch("/:id/status", async (req, res) => {
 
 router.patch("/:id", async (req, res) => {
   try {
-    const tenant = (req as unknown as TenantRequest).tenant ?? "default";
-    const id = parseInt(req.params.id as string);
+    const id = parseInt(req.params.id);
     const { endereco, observacoes, dataEntrega, vendedor } = req.body;
     const updated = await db.update(entregasTable)
       .set({ endereco, observacoes, dataEntrega, vendedor, atualizadoEm: new Date() })
-      .where(and(eq(entregasTable.id, id), eq(entregasTable.tenantId, tenant)))
+      .where(eq(entregasTable.id, id))
       .returning();
-    if (updated.length === 0) {
-      res.status(404).json({ error: "Entrega não encontrada" });
-      return;
-    }
+    if (updated.length === 0) { res.status(404).json({ error: "Entrega não encontrada" }); return; }
     res.json(updated[0]);
   } catch (error) {
     console.error("Erro ao editar entrega:", error);
@@ -114,10 +85,8 @@ router.patch("/:id", async (req, res) => {
 
 router.delete("/:id", async (req, res) => {
   try {
-    const tenant = (req as unknown as TenantRequest).tenant ?? "default";
-    const id = parseInt(req.params.id as string);
-    await db.delete(entregasTable)
-      .where(and(eq(entregasTable.id, id), eq(entregasTable.tenantId, tenant)));
+    const id = parseInt(req.params.id);
+    await db.delete(entregasTable).where(eq(entregasTable.id, id));
     res.json({ ok: true });
   } catch (error) {
     console.error("Erro ao deletar entrega:", error);

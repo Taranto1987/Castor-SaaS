@@ -4,6 +4,12 @@ import { eq, and, lt } from "drizzle-orm";
 import { enviarWhatsApp } from "../services/whatsapp.js";
 import type { TenantKey } from "../config/tenants.js";
 
+const TENANT_LOJA: Record<TenantKey, number> = {
+  "cabo-frio": 1,
+  "araruama": 2,
+  "default": 1,
+};
+
 const TENANTS: TenantKey[] = ["cabo-frio", "araruama"];
 
 // Follow-up para orçamentos pendentes há mais de 24h
@@ -21,7 +27,7 @@ async function followUpOrcamentosPendentes(): Promise<void> {
       .from(orcamentosTable)
       .where(
         and(
-          eq(orcamentosTable.tenantId, tenant),
+          eq(orcamentosTable.lojaId, TENANT_LOJA[tenant] ?? 1),
           eq(orcamentosTable.status, "pendente"),
           lt(orcamentosTable.criadoEm, limite)
         )

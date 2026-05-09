@@ -3,6 +3,12 @@ import { produtosTable } from "@workspace/db/schema";
 import { eq, and } from "drizzle-orm";
 import type { TenantKey } from "../config/tenants.js";
 
+const TENANT_LOJA: Record<TenantKey, number> = {
+  "cabo-frio": 1,
+  "araruama": 2,
+  "default": 1,
+};
+
 export type ProdutoResumido = {
   id: number;
   nome: string;
@@ -33,7 +39,7 @@ export async function buscarProdutos(
     .from(produtosTable)
     .where(
       and(
-        eq(produtosTable.tenantId, tenant),
+        eq(produtosTable.lojaId, TENANT_LOJA[tenant] ?? 1),
         eq(produtosTable.disponivel, true)
       )
     );
