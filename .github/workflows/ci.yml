@@ -2,13 +2,29 @@ name: CI
 
 on:
   push:
-    branches: [main, master, develop, "release/**"]
+    branches: [main, master, develop, "release/**", "claude/**"]
+    paths-ignore:
+      - "**.md"
+      - ".github/workflows/branch-protection.yml"
+      - ".github/workflows/railway-deploy-guard.yml"
   pull_request:
-    branches: [main, master, develop, "release/**"]
+    # No branch filter — CI runs on ALL pull requests regardless of base branch.
+    # Feature branches targeting claude/* or any intermediate branch are covered.
+    paths-ignore:
+      - "**.md"
+      - ".github/workflows/branch-protection.yml"
+      - ".github/workflows/railway-deploy-guard.yml"
 
 concurrency:
-  group: ci-${{ github.ref }}
+  group: ci-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: true
+
+env:
+  NODE_VERSION: "20"
+  PNPM_VERSION: "10.13.1"
+  # Placeholder so any db import that tries to connect fails gracefully;
+  # typecheck and build don't execute runtime DB code.
+  DATABASE_URL: "postgres://localhost:5432/ci_placeholder"
 
 jobs:
   typecheck:
@@ -19,11 +35,11 @@ jobs:
 
       - uses: pnpm/action-setup@v4
         with:
-          run_install: false
+          version: ${{ env.PNPM_VERSION }}
 
       - uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: ${{ env.NODE_VERSION }}
           cache: pnpm
 
       - name: Install dependencies
@@ -41,11 +57,11 @@ jobs:
 
       - uses: pnpm/action-setup@v4
         with:
-          run_install: false
+          version: ${{ env.PNPM_VERSION }}
 
       - uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: ${{ env.NODE_VERSION }}
           cache: pnpm
 
       - name: Install dependencies
