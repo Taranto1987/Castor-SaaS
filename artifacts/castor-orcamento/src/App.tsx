@@ -5,6 +5,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { Analytics } from "@vercel/analytics/react";
 
 import { AuthProvider, useAuth } from "@/contexts/AuthContext";
+import { LojaProvider } from "@/contexts/LojaContext";
 import ErrorBoundary from "@/components/ErrorBoundary";
 import LoginScreen from "@/components/LoginScreen";
 import PublicLayout from "@/components/PublicLayout";
@@ -36,6 +37,8 @@ import RankingOutlet from "@/pages/RankingOutlet";
 import EntradaEstoque from "@/pages/EntradaEstoque";
 import Financeiro from "@/pages/Financeiro";
 import Usuarios from "@/pages/Usuarios";
+import AceitarConvite from "@/pages/auth/AceitarConvite";
+import RedefinirSenha from "@/pages/auth/RedefinirSenha";
 import NotFound from "@/pages/not-found";
 
 const queryClient = new QueryClient({
@@ -66,7 +69,7 @@ function DonoRoute({ component: Component }: { component: React.ComponentType })
   const { isAuthenticated, user } = useAuth();
   const [, setLocation] = useLocation();
   if (!isAuthenticated) return <LoginScreen />;
-  if (user?.papel !== "dono") {
+  if (user?.papel !== "dono" && user?.papel !== "ADMIN" && user?.papel !== "GERENTE") {
     setLocation("/equipe");
     return null;
   }
@@ -90,6 +93,10 @@ function AppRoutes() {
       <Route path="/mapa-sono">
         <PublicLayout><MapaSono /></PublicLayout>
       </Route>
+
+      {/* ── AUTH público (convite / reset) ─────────────────────────────── */}
+      <Route path="/aceitar-convite"><AceitarConvite /></Route>
+      <Route path="/redefinir-senha"><RedefinirSenha /></Route>
 
       {/* ── LANDING PAGES ──────────────────────────────────────────────── */}
       <Route path="/lp/luxo"><LuxoCaboFrio /></Route>
@@ -122,15 +129,17 @@ function App() {
   return (
     <QueryClientProvider client={queryClient}>
       <TooltipProvider>
-        <AuthProvider>
-          <WouterRouter base={import.meta.env.BASE_URL.replace(/\/$/, "")}>
-            <ErrorBoundary>
-              <AppRoutes />
-            </ErrorBoundary>
-          </WouterRouter>
-          <Toaster />
-          <Analytics />
-        </AuthProvider>
+        <LojaProvider>
+          <AuthProvider>
+            <WouterRouter base={import.meta.env.BASE_URL.replace(/\/$/, "")}>
+              <ErrorBoundary>
+                <AppRoutes />
+              </ErrorBoundary>
+            </WouterRouter>
+            <Toaster />
+            <Analytics />
+          </AuthProvider>
+        </LojaProvider>
       </TooltipProvider>
     </QueryClientProvider>
   );

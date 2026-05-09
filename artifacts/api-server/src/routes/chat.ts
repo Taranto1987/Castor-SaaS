@@ -5,6 +5,7 @@ import { getProductContext } from "../services/chat/repository";
 import { processarLeadDaConversa } from "../services/chat/lead-extractor";
 import { SYSTEM_PROMPT, buildFallbackMessage } from "../services/chat/prompt";
 import type { ChatMessage } from "../services/chat/lead-extractor";
+import { resolveLojaId } from "../middlewares/auth";
 
 const router = Router();
 
@@ -46,7 +47,8 @@ router.post("/", async (req, res) => {
       return;
     }
 
-    const productContext = await getProductContext();
+    const lojaId = resolveLojaId(req);
+    const productContext = await getProductContext(lojaId);
     let fullAssistantText = "";
 
     const stream = client.messages.stream({

@@ -1,7 +1,8 @@
 import { Router, type IRouter } from "express";
 import { db } from "@workspace/db";
 import { orcamentosTable, produtosTable, entregasTable } from "@workspace/db/schema";
-import { desc, eq, sql } from "drizzle-orm";
+import { desc, eq, and, sql } from "drizzle-orm";
+import { resolveLojaId } from "../middlewares/auth";
 
 const router: IRouter = Router();
 
@@ -15,6 +16,7 @@ function parseBRL(valor?: string | null): number {
 router.get("/", async (req, res) => {
   try {
     const { vendedor, papel } = req.query as { vendedor?: string; papel?: string };
+    const lojaId = resolveLojaId(req);
     const filtraPorVendedor = vendedor && papel !== "dono";
 
     const orcCols = {
@@ -27,22 +29,23 @@ router.get("/", async (req, res) => {
       precoBaseTotal: orcamentosTable.precoBaseTotal,
     };
 
+    const lojaCond = eq(orcamentosTable.lojaId, lojaId);
     const orcamentosQuery = filtraPorVendedor
-      ? db.select(orcCols).from(orcamentosTable).where(eq(orcamentosTable.vendedor, vendedor!)).orderBy(desc(orcamentosTable.criadoEm)).limit(500)
-      : db.select(orcCols).from(orcamentosTable).orderBy(desc(orcamentosTable.criadoEm)).limit(500);
+      ? db.select(orcCols).from(orcamentosTable).where(and(lojaCond, eq(orcamentosTable.vendedor, vendedor!))).orderBy(desc(orcamentosTable.criadoEm)).limit(500)
+      : db.select(orcCols).from(orcamentosTable).where(lojaCond).orderBy(desc(orcamentosTable.criadoEm)).limit(500);
 
     const entregasCols = {
       status: entregasTable.status,
       vendedor: entregasTable.vendedor,
     };
-
+    const lojaEntregaCond = eq(entregasTable.lojaId, lojaId);
     const entregasQuery = filtraPorVendedor
-      ? db.select(entregasCols).from(entregasTable).where(eq(entregasTable.vendedor, vendedor!))
-      : db.select(entregasCols).from(entregasTable);
+      ? db.select(entregasCols).from(entregasTable).where(and(lojaEntregaCond, eq(entregasTable.vendedor, vendedor!)))
+      : db.select(entregasCols).from(entregasTable).where(lojaEntregaCond);
 
     const [orcamentos, totalProdutos, entregas] = await Promise.all([
       orcamentosQuery,
-      db.select({ count: sql<number>`count(*)` }).from(produtosTable),
+      db.select({ count: sql<number>`count(*)` }).from(produtosTable).where(eq(produtosTable.lojaId, lojaId)),
       entregasQuery,
     ]);
 

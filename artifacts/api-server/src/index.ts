@@ -2,6 +2,7 @@ import app from "./app";
 import { iniciarSchedulerRecorrentes } from "./lib/recorrentes-scheduler";
 import { iniciarSchedulerFollowUps } from "./lib/followup-scheduler";
 import { seedColaboradores } from "./lib/sessions";
+import { seedLojas } from "./lib/seed-lojas";
 
 const rawPort = process.env["PORT"];
 
@@ -21,5 +22,6 @@ app.listen(port, () => {
   console.log(`Server listening on port ${port}`);
   iniciarSchedulerRecorrentes();
   iniciarSchedulerFollowUps();
+  seedLojas().catch(console.error);
   seedColaboradores().catch(console.error);
 });

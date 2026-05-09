@@ -1,5 +1,8 @@
 import { Router } from "express";
-import { requireDono } from "../middlewares/auth";
+import { resolveLojaId } from "../middlewares/auth";
+import { requireFinanceiro } from "../lib/rbac";
+// requireDono alias → requireFinanceiro: ADMIN+GERENTE+FINANCEIRO acessam módulo financeiro
+const requireDono = requireFinanceiro;
 import {
   findDespesas,
   createDespesa,
@@ -36,7 +39,8 @@ router.get("/despesas", requireDono, async (req, res) => {
     const { mes, ano, categoria } = req.query as Record<string, string | undefined>;
     const { mes: m, ano: a } = parseMesAno(mes, ano);
     const { inicio, fim } = getMonthRange(m, a);
-    res.json(await findDespesas(inicio, fim, categoria));
+    const lojaId = resolveLojaId(req);
+    res.json(await findDespesas(inicio, fim, categoria, lojaId));
   } catch {
     res.status(500).json({ error: "Erro interno" });
   }
@@ -46,8 +50,9 @@ router.post("/despesas", requireDono, async (req, res) => {
   try {
     const { valor, categoria, descricao, comprovante, recorrente, data } = req.body;
     if (!valor || !categoria) { res.status(400).json({ error: "Valor e categoria são obrigatórios" }); return; }
+    const lojaId = resolveLojaId(req);
     res.json(await createDespesa({
-      valor: String(valor), categoria,
+      lojaId, valor: String(valor), categoria,
       descricao: descricao || null, comprovante: comprovante || null,
       recorrente: recorrente || false, data: data ? new Date(data) : new Date(),
     }));
@@ -68,7 +73,8 @@ router.put("/despesas/:id", requireDono, async (req, res) => {
     if (comprovante !== undefined) updates.comprovante = comprovante;
     if (confirmada !== undefined) updates.confirmada = confirmada;
     if (data !== undefined) updates.data = new Date(data);
-    const row = await updateDespesa(id, updates);
+    const lojaId = resolveLojaId(req);
+    const row = await updateDespesa(id, updates, lojaId);
     if (!row) { res.status(404).json({ error: "Despesa não encontrada" }); return; }
     res.json(row);
   } catch {
@@ -80,7 +86,7 @@ router.delete("/despesas/:id", requireDono, async (req, res) => {
   try {
     const id = parseInt(req.params.id as string);
     if (isNaN(id)) { res.status(400).json({ error: "ID inválido" }); return; }
-    await deleteDespesa(id);
+    await deleteDespesa(id, resolveLojaId(req));
     res.json({ ok: true });
   } catch {
     res.status(500).json({ error: "Erro interno" });
@@ -91,6 +97,7 @@ router.post("/despesas/:id/comprovante", requireDono, async (req, res) => {
   try {
     const id = parseInt(req.params.id as string);
     if (isNaN(id)) { res.status(400).json({ error: "ID inválido" }); return; }
+    const lojaId = resolveLojaId(req);
     const chunks: Buffer[] = [];
     req.on("data", (chunk: Buffer) => chunks.push(chunk));
     req.on("end", async () => {
@@ -98,7 +105,7 @@ router.post("/despesas/:id/comprovante", requireDono, async (req, res) => {
       if (buffer.length === 0) { res.status(400).json({ error: "Arquivo vazio" }); return; }
       if (buffer.length > 5 * 1024 * 1024) { res.status(400).json({ error: "Arquivo muito grande (max 5MB)" }); return; }
       const base64 = `data:image/jpeg;base64,${buffer.toString("base64")}`;
-      const row = await updateDespesaComprovante(id, base64);
+      const row = await updateDespesaComprovante(id, base64, lojaId);
       if (!row) { res.status(404).json({ error: "Despesa não encontrada" }); return; }
       res.json({ id: row.id, comprovante: "uploaded" });
     });
@@ -107,8 +114,8 @@ router.post("/despesas/:id/comprovante", requireDono, async (req, res) => {
   }
 });
 
-router.get("/despesas-recorrentes", requireDono, async (_req, res) => {
-  try { res.json(await findDespesasRecorrentes()); }
+router.get("/despesas-recorrentes", requireDono, async (req, res) => {
+  try { res.json(await findDespesasRecorrentes(resolveLojaId(req))); }
   catch { res.status(500).json({ error: "Erro interno" }); }
 });
 
@@ -116,7 +123,8 @@ router.post("/despesas-recorrentes", requireDono, async (req, res) => {
   try {
     const { valor, categoria, descricao, diaVencimento } = req.body;
     if (!valor || !categoria) { res.status(400).json({ error: "Valor e categoria são obrigatórios" }); return; }
-    res.json(await createDespesaRecorrente({ valor: String(valor), categoria, descricao: descricao || null, diaVencimento: diaVencimento || 1 }));
+    const lojaId = resolveLojaId(req);
+    res.json(await createDespesaRecorrente({ lojaId, valor: String(valor), categoria, descricao: descricao || null, diaVencimento: diaVencimento || 1 }));
   } catch {
     res.status(500).json({ error: "Erro interno" });
   }
@@ -139,9 +147,10 @@ router.post("/gerar-recorrentes", requireDono, async (req, res) => {
     const now = new Date();
     const m = mes || now.getMonth() + 1;
     const a = ano || now.getFullYear();
+    const lojaId = resolveLojaId(req);
     const { inicio, fim } = getMonthRange(m, a);
-    const recorrentes = await findDespesasRecorrentes();
-    const existentes = await findDespesasRecorrentesNoMes(inicio, fim);
+    const recorrentes = await findDespesasRecorrentes(lojaId);
+    const existentes = await findDespesasRecorrentesNoMes(inicio, fim, lojaId);
     const existentesIds = new Set(existentes.map((e) => e.recorrenteId));
     const { createDespesa: createD } = await import("../services/finance/repository");
     let geradas = 0;
@@ -149,6 +158,7 @@ router.post("/gerar-recorrentes", requireDono, async (req, res) => {
       if (existentesIds.has(rec.id)) continue;
       const dia = Math.min(rec.diaVencimento, fim.getDate());
       await createD({
+        lojaId,
         valor: rec.valor,
         categoria: rec.categoria,
         descricao: rec.descricao,
@@ -167,14 +177,14 @@ router.get("/comissoes", requireDono, async (req, res) => {
   try {
     const { mes, ano } = req.query as Record<string, string | undefined>;
     const { mes: m, ano: a } = parseMesAno(mes, ano);
-    res.json(await calcularComissoes(m, a));
+    res.json(await calcularComissoes(m, a, resolveLojaId(req)));
   } catch {
     res.status(500).json({ error: "Erro interno" });
   }
 });
 
-router.get("/comissoes-config", requireDono, async (_req, res) => {
-  try { res.json(await findComissoesConfig()); }
+router.get("/comissoes-config", requireDono, async (req, res) => {
+  try { res.json(await findComissoesConfig(resolveLojaId(req))); }
   catch { res.status(500).json({ error: "Erro interno" }); }
 });
 
@@ -182,7 +192,7 @@ router.post("/comissoes-config", requireDono, async (req, res) => {
   try {
     const { vendedor, percentual } = req.body;
     if (!vendedor || percentual === undefined) { res.status(400).json({ error: "Dados incompletos" }); return; }
-    res.json(await upsertComissaoConfig(vendedor, String(percentual)));
+    res.json(await upsertComissaoConfig(vendedor, String(percentual), resolveLojaId(req)));
   } catch {
     res.status(500).json({ error: "Erro interno" });
   }
@@ -192,14 +202,14 @@ router.get("/dre", requireDono, async (req, res) => {
   try {
     const { mes, ano } = req.query as Record<string, string | undefined>;
     const { mes: m, ano: a } = parseMesAno(mes, ano);
-    res.json(await calcularDRE(m, a));
+    res.json(await calcularDRE(m, a, resolveLojaId(req)));
   } catch {
     res.status(500).json({ error: "Erro interno" });
   }
 });
 
-router.get("/resumo-diario", requireDono, async (_req, res) => {
-  try { res.json(await calcularResumoDiario()); }
+router.get("/resumo-diario", requireDono, async (req, res) => {
+  try { res.json(await calcularResumoDiario(resolveLojaId(req))); }
   catch { res.status(500).json({ error: "Erro interno" }); }
 });
 
@@ -229,7 +239,7 @@ router.post("/metas", requireDono, async (req, res) => {
 router.get("/alertas", requireDono, async (req, res) => {
   try {
     const { operacao } = req.query as Record<string, string | undefined>;
-    res.json(await calcularAlertas(operacao || "cabo_frio"));
+    res.json(await calcularAlertas(operacao || "cabo_frio", resolveLojaId(req)));
   } catch {
     res.status(500).json({ error: "Erro interno" });
   }
@@ -239,7 +249,7 @@ router.get("/evolucao", requireDono, async (req, res) => {
   try {
     const { meses: mesesParam } = req.query as Record<string, string | undefined>;
     const qtd = Math.min(parseInt(mesesParam || "6"), 12);
-    res.json(await calcularEvolucao(qtd));
+    res.json(await calcularEvolucao(qtd, resolveLojaId(req)));
   } catch {
     res.status(500).json({ error: "Erro interno" });
   }

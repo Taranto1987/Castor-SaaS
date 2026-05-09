@@ -1,12 +1,16 @@
 import { db } from "@workspace/db";
 import { produtosTable, orcamentosTable, entregasTable } from "@workspace/db/schema";
-import { inArray, desc, eq } from "drizzle-orm";
+import { inArray, desc, eq, and } from "drizzle-orm";
 
-export async function findProdutosByIds(ids: number[]) {
-  return db.select().from(produtosTable).where(inArray(produtosTable.id, ids));
+export async function findProdutosByIds(ids: number[], lojaId?: number) {
+  const cond = lojaId
+    ? and(inArray(produtosTable.id, ids), eq(produtosTable.lojaId, lojaId))
+    : inArray(produtosTable.id, ids);
+  return db.select().from(produtosTable).where(cond);
 }
 
 export async function saveOrcamento(data: {
+  lojaId?: number;
   cliente: string;
   whatsapp?: string | null;
   produtosJson?: unknown;
@@ -20,6 +24,7 @@ export async function saveOrcamento(data: {
   descontoAplicado?: string | null;
 }) {
   const [row] = await db.insert(orcamentosTable).values({
+    lojaId: data.lojaId ?? 1,
     cliente: data.cliente,
     whatsapp: data.whatsapp || null,
     produtosJson: data.produtosJson || [],
@@ -50,15 +55,21 @@ const HISTORICO_COLS = {
   criadoEm: orcamentosTable.criadoEm,
 };
 
-export async function findHistorico(papel: string, vendedor: string, page: number) {
+export async function findHistorico(papel: string, vendedor: string, page: number, lojaId?: number) {
   const limit = 50;
   const offset = page * limit;
+  const lojaCond = lojaId ? eq(orcamentosTable.lojaId, lojaId) : undefined;
+
   if (papel === "dono") {
     return db.select(HISTORICO_COLS).from(orcamentosTable)
+      .where(lojaCond)
       .orderBy(desc(orcamentosTable.criadoEm)).limit(limit).offset(offset);
   }
+  const cond = lojaCond
+    ? and(lojaCond, eq(orcamentosTable.vendedor, vendedor))
+    : eq(orcamentosTable.vendedor, vendedor);
   return db.select(HISTORICO_COLS).from(orcamentosTable)
-    .where(eq(orcamentosTable.vendedor, vendedor))
+    .where(cond)
     .orderBy(desc(orcamentosTable.criadoEm)).limit(limit).offset(offset);
 }
 
@@ -68,6 +79,7 @@ export async function findOrcamentoById(id: number) {
 }
 
 export async function fecharVendaTransaction(id: number, orc: {
+  lojaId?: number | null;
   cliente: string;
   whatsapp?: string | null;
   vendedor?: string | null;
@@ -97,6 +109,7 @@ export async function fecharVendaTransaction(id: number, orc: {
     }
 
     const [entrega] = await tx.insert(entregasTable).values({
+      lojaId: orc.lojaId ?? 1,
       orcamentoId: id,
       cliente: orc.cliente,
       whatsapp: orc.whatsapp || null,
