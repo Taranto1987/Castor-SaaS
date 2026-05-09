@@ -87,6 +87,66 @@ The API contract lives in `lib/api-spec/`. Running Orval codegen regenerates the
 | `VITE_GTM_ID` | Optional | Google Tag Manager (injected at build) |
 | `VITE_GA_MEASUREMENT_ID` | Optional | Google Analytics 4 |
 
+## Visão Estratégica & Escopo Técnico
+
+### Missão
+Transformar o Castor-SaaS em uma plataforma SaaS multi-tenant escalável — preparada para centenas de lojas, onboarding automatizado, IA contextual e SEO programático regional.
+
+### Abordagem Arquitetural
+**Monolito Modular** com boundaries claras entre domínios.
+- NÃO construir microsserviços prematuramente
+- NÃO otimizar para escala massiva antes da validação prática
+
+### Os 6 Pilares
+
+**I. Multi-tenancy Real**
+- Isolamento total de dados por `loja_id` / `tenant_id` em todas as tabelas transacionais
+- Chaves estrangeiras obrigatórias
+
+**II. Domínios Desacoplados (Bounded Contexts)**
+- `Core / Auth` — tenants, usuários, permissões
+- `CRM` — clientes e funis de vendas
+- `IA` — configurações, prompts e histórico contextualizado
+- `WhatsApp` — mensageria e conexões
+- `Catálogo` — produtos, estoque e preços por loja
+- `SEO / Conteúdo` — páginas e landing pages regionais
+
+**III. WhatsApp Desacoplado**
+- Integração isolada com Evolution API
+- Webhooks dedicados + fila exclusiva para eventos WA
+
+**IV. Mensageria e Filas**
+- Redis + BullMQ para processamento assíncrono
+- Tarefas pesadas: disparos, geração de IA, sync de catálogo
+- Políticas obrigatórias de retry e rate limiting
+
+**V. Observabilidade**
+- Logs estruturados em JSON
+- Tracing entre módulos
+
+**VI. Engine de Onboarding & Contexto Regional**
+Fluxo self-service que coleta: região/cidade, nicho, catálogo inicial, tom de voz, concorrentes locais, WhatsApp e histórico de atendimento.
+Orquestra assincronamente: adaptação de prompts da IA para regionalismo local + configuração do motor de SEO programático (landing pages regionais, FAQs locais).
+
+### Modelo de Negócio
+| Plano | Foco | Restrições |
+|---|---|---|
+| FREE | Atração de leads + indexação SEO | Limites rígidos de IA e envios WA |
+| TRIAL FULL (14-30 dias) | Conversão e demonstração de valor | Acesso quase completo. Sem subsidiar custos variáveis |
+
+### Roadmap MVP — Validação Progressiva
+**Premissas a validar:**
+1. Onboarding self-service sem gargalos
+2. IA contextual regionalizada gera conversão real
+3. Isolamento e performance do monolito se sustentam
+
+**Fases:**
+- Fase 1: 3 lojas piloto
+- Fase 2: 5 lojas
+- Fase 3: 10 lojas → escala em massa
+
+---
+
 ## Domain Context
 Castor-SaaS is a SaaS platform for a mattress store chain. Key business features:
 - **Orçamento** — quote generation with WhatsApp-native delivery (pre-filled WA message links)
