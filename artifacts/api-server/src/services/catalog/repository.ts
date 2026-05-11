@@ -1,6 +1,6 @@
 import { db } from "@workspace/db";
 import { produtosTable } from "@workspace/db/schema";
-import { eq, ilike, or, and, desc } from "drizzle-orm";
+import { eq, ilike, or, desc } from "drizzle-orm";
 
 export async function findProdutosDisponiveis() {
   return db.select().from(produtosTable)

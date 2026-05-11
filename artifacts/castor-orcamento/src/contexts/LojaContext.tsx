@@ -53,7 +53,7 @@ export function LojaProvider({ children }: { children: ReactNode }) {
   async function detectarPorLocalizacao(params: { cidade?: string; cep?: string; ddd?: string; operacao?: string }) {
     try {
       const qs = new URLSearchParams(
-        Object.entries(params).filter(([, v]) => v != null) as [string, string][]
+        Object.entries(params).filter(([, v]) => v !== null && v !== undefined) as [string, string][]
       ).toString();
       const res = await fetch(`/api/loja/detect${qs ? `?${qs}` : ""}`);
       if (!res.ok) return;

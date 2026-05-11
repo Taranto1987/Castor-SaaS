@@ -1,4 +1,4 @@
-import { pgTable, serial, text, timestamp, integer, jsonb } from "drizzle-orm/pg-core";
+import { pgTable, serial, text, timestamp, integer } from "drizzle-orm/pg-core";
 import { produtosTable } from "./produtos";
 
 export const entradasEstoqueTable = pgTable("entradas_estoque", {

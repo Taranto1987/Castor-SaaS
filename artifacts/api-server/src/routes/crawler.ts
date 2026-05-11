@@ -97,40 +97,6 @@ async function fetchCategoryProducts(categoryId: number, catName: string): Promi
   return allItems;
 }
 
-async function fetchProductDetails(urlKey: string): Promise<{ precoPix: string; parcelamento: string; medidas: string; altura: string } | null> {
-  const query = `{
-    products(filter: { url_key: { eq: "${urlKey}" } }) {
-      items {
-        description { html }
-        ... on SimpleProduct {
-          custom_attributes {
-            attribute_code
-            value
-          }
-        }
-      }
-    }
-  }`;
-
-  try {
-    const { data } = await gql.post("/graphql", { query });
-    const item = data?.data?.products?.items?.[0];
-    if (!item) return null;
-
-    const html: string = item.description?.html ?? "";
-    const text = html.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ");
-
-    const medidasMatch = text.match(/(\d{2,3})\s*[xX×]\s*(\d{2,3})/);
-    const medidas = medidasMatch ? `${medidasMatch[1]}x${medidasMatch[2]}` : "";
-
-    const alturaMatch = text.match(/(\d{2,3})\s*cm/i);
-    const altura = alturaMatch ? alturaMatch[0] : "";
-
-    return { precoPix: "", parcelamento: "", medidas, altura };
-  } catch {
-    return null;
-  }
-}
 
 async function getCrawlerStatus() {
   const results = await db.select().from(crawlerStatusTable).orderBy(crawlerStatusTable.id).limit(1);
@@ -304,7 +270,7 @@ router.post("/iniciar", requireDono, async (_req, res) => {
 router.get("/status", async (_req, res) => {
   try {
     res.json(await getCrawlerStatus());
-  } catch (error) {
+  } catch {
     res.status(500).json({ error: "Erro interno" });
   }
 });

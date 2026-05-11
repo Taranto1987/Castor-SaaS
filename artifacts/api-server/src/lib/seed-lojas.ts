@@ -1,5 +1,4 @@
 import { db } from "@workspace/db";
-import { lojasTable } from "@workspace/db/schema";
 import { sql } from "drizzle-orm";
 
 const LOJAS_SEED = [

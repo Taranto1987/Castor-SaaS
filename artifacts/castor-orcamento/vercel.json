@@ -2,7 +2,7 @@
   "rewrites": [
     {
       "source": "/api/:path*",
-      "destination": "https://workspaceapi-server-production-f2b3.up.railway.app/api/:path*"
+      "destination": "https://workspaceapi-server-production-fb1b.up.railway.app/api/:path*"
     },
     {
       "source": "/(.*)",

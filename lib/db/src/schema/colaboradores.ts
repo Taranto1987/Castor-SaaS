@@ -7,6 +7,7 @@ export const colaboradoresTable = pgTable("colaboradores", {
   codigo: text("codigo").notNull().unique(),
   nome: text("nome").notNull(),
   papel: text("papel").notNull().default("vendedor"), // dono | vendedor | entrega | financeiro
+  tenantId: text("tenant_id").notNull().default("default"),
   operacao: text("operacao").notNull().default("cabo_frio"), // cabo_frio | araruama
   wa: text("wa"),                    // "(22) 99241-0112"
   waRaw: text("wa_raw"),             // "5522992410112"

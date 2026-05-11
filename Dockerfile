@@ -21,4 +21,6 @@ RUN corepack enable && pnpm install --frozen-lockfile
 COPY . .
 RUN pnpm --filter @workspace/api-server run build
 
+ENV NODE_ENV=production
+
 CMD ["node", "artifacts/api-server/dist/index.cjs"]

@@ -1,7 +1,7 @@
 import { Router, type IRouter } from "express";
 import { db } from "@workspace/db";
 import { entregasTable } from "@workspace/db/schema";
-import { eq, and, desc } from "drizzle-orm";
+import { eq, desc } from "drizzle-orm";
 import { resolveLojaId } from "../middlewares/auth";
 
 const router: IRouter = Router();
