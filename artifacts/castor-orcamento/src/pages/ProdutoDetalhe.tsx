@@ -48,7 +48,8 @@ function useSEO(produto: Produto | null) {
     const title = `${produto.nome} | Castor Cabo Frio`;
     const description = `${catLabel} — ${produto.nome}. ${produto.medidas ? `Medidas: ${produto.medidas}. ` : ""}${produto.precoPix ? `No Pix: ${produto.precoPix}. ` : ""}${produto.parcelamento ? `Parcelado: ${produto.parcelamento}. ` : ""}Compre na Castor Cabo Frio com entrega garantida.`;
     const image = produto.imagem ?? "";
-    const url = `${window.location.origin}/produto/${produto.slug}`;
+    const canonicalSlug = (produto.slug ?? "").toLowerCase();
+    const url = `${window.location.origin}/produto/${canonicalSlug}`;
 
     // Basic meta
     document.title = title;
@@ -165,9 +166,29 @@ export default function ProdutoDetalhe() {
     }
   }, [lojaInfo]);
 
-  // Fetch product by slug
+  // Fetch product by slug — with redirect guards
   useEffect(() => {
     if (!params.slug) return;
+
+    // Numeric ID: find the product and redirect to its canonical slug URL
+    if (/^\d+$/.test(params.slug)) {
+      fetch(`/api/produtos/${params.slug}`)
+        .then(r => r.ok ? r.json() as Promise<Produto> : null)
+        .then(data => {
+          if (data?.slug) navigate(`/produto/${data.slug}`, { replace: true });
+          else setNotFound(true);
+        })
+        .catch(() => setNotFound(true))
+        .finally(() => setLoading(false));
+      return;
+    }
+
+    // Uppercase slug: redirect to lowercase canonical
+    if (params.slug !== params.slug.toLowerCase()) {
+      navigate(`/produto/${params.slug.toLowerCase()}`, { replace: true });
+      return;
+    }
+
     setLoading(true);
     setNotFound(false);
     fetch(`/api/produtos/slug/${encodeURIComponent(params.slug)}`)

@@ -1,0 +1,26 @@
+User-agent: *
+
+# Private/operational routes — no crawl value, protect internal tools
+Disallow: /equipe
+Disallow: /orcamento
+Disallow: /historico
+Disallow: /dashboard
+Disallow: /logistica
+Disallow: /crawler
+Disallow: /estoque
+Disallow: /financeiro
+Disallow: /usuarios
+Disallow: /entrada-estoque
+Disallow: /ranking-outlet
+Disallow: /outlet
+Disallow: /aceitar-convite
+Disallow: /redefinir-senha
+
+# Public — allow indexing
+Allow: /
+Allow: /catalogo
+Allow: /mapa-sono
+Allow: /produto/
+Allow: /lp/
+
+Sitemap: https://evolution-api-production-405f.up.railway.app/sitemap.xml

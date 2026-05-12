@@ -17,15 +17,11 @@ function requireDono(req: Request, res: Response, next: NextFunction) {
 const router: IRouter = Router();
 
 function mapProduto(p: typeof produtosTable.$inferSelect) {
-  // Derive slug from stored slug or extract from legacy link field.
-  // link (e.g. https://lojacastor.com.br/biocomfort-pocket-slx) is NEVER sent
-  // to the frontend — it stays as internal crawler origin data.
-  const slug = p.slug ?? (p.link ? p.link.replace("https://lojacastor.com.br/", "") : null);
   return {
     id: p.id,
     nome: p.nome,
     sku: p.sku,
-    slug,
+    slug: p.slug,
     preco: p.preco,
     precoPix: p.precoPix,
     parcelamento: p.parcelamento,
@@ -360,14 +356,8 @@ router.get("/slug/:slug", async (req, res) => {
     const { slug } = req.params;
     if (!slug) { res.status(400).json({ error: "Slug obrigatório" }); return; }
 
-    // Try direct slug column first, fall back to legacy link pattern
-    let results = await db.select().from(produtosTable)
+    const results = await db.select().from(produtosTable)
       .where(eq(produtosTable.slug, slug)).limit(1);
-
-    if (results.length === 0) {
-      results = await db.select().from(produtosTable)
-        .where(eq(produtosTable.link, `https://lojacastor.com.br/${slug}`)).limit(1);
-    }
 
     if (results.length === 0) {
       res.status(404).json({ error: "Produto não encontrado" });

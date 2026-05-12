@@ -3,6 +3,7 @@ import cors from "cors";
 import helmet from "helmet";
 import rateLimit from "express-rate-limit";
 import router from "./routes";
+import sitemapRouter from "./routes/sitemap.js";
 
 const app: Express = express();
 
@@ -30,6 +31,8 @@ app.use("/api/auth/esqueci-senha",  makeLimiter(5));            // 5/15min — p
 app.use("/api/auth/redefinir-senha", makeLimiter(10));          // 10/15min — prevent token brute force
 app.use("/api/auth/alterar-senha",  makeLimiter(10));           // 10/15min
 app.use("/api/usuarios/aceitar-convite", makeLimiter(10));      // 10/15min — prevent invite token brute force
+// Sitemap at root (not under /api) for search engine discovery
+app.use(sitemapRouter);
 app.use("/api", router);
 
 export default app;

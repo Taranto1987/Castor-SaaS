@@ -26,7 +26,10 @@ export const produtosTable = pgTable("produtos", {
   // Nunca calcular desconto sobre precoPix ou qualquer preço já reduzido.
   precoBase: numeric("preco_base", { precision: 12, scale: 2 }),
   criadoEm: timestamp("criado_em").defaultNow(),
-}, (t) => [uniqueIndex("produtos_sku_unique").on(t.sku).where(sql`${t.sku} IS NOT NULL`)]);
+}, (t) => [
+  uniqueIndex("produtos_sku_unique").on(t.sku).where(sql`${t.sku} IS NOT NULL`),
+  uniqueIndex("produtos_slug_unique").on(t.slug).where(sql`${t.slug} IS NOT NULL`),
+]);
 
 export const insertProdutoSchema = createInsertSchema(produtosTable).omit({ id: true, criadoEm: true });
 export type InsertProduto = z.infer<typeof insertProdutoSchema>;
