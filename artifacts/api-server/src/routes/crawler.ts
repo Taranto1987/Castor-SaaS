@@ -186,7 +186,10 @@ async function executarCrawler() {
         // PIX = 15% de desconto sobre o PREÇO CHEIO (nunca sobre preço já descontado)
         const precoPix = formatBRL(precoRegular * 0.85);
 
+        // link stays as internal crawler_origin — NEVER sent to frontend
         const link = `https://lojacastor.com.br/${item.url_key}`;
+        // slug is the public-facing identifier for internal PDP routes
+        const slug = item.url_key;
         const imagem = item.small_image?.url ?? "";
 
         // Extract dimensions from description HTML
@@ -201,17 +204,32 @@ async function executarCrawler() {
           await db.insert(produtosTable).values({
             nome: item.name,
             sku: item.sku,
+            slug,
+            link,          // internal only — crawler_origin
             preco,
             precoPix,
-            // precoBase = valor numérico do preço cheio (fonte de verdade)
             precoBase: String(precoRegular),
             parcelamento: `12x de ${formatBRL(precoRegular / 12)}`,
             medidas: medidas || null,
             altura: altura || null,
             categoria: categoria.nome,
             imagem: imagem || null,
-            link,
-          }).onConflictDoNothing();
+          }).onConflictDoUpdate({
+            target: produtosTable.sku,
+            set: {
+              slug,
+              link,
+              nome: item.name,
+              preco,
+              precoPix,
+              precoBase: String(precoRegular),
+              parcelamento: `12x de ${formatBRL(precoRegular / 12)}`,
+              medidas: medidas || null,
+              altura: altura || null,
+              categoria: categoria.nome,
+              imagem: imagem || null,
+            },
+          });
           produtosColetados++;
         } catch (err) {
           console.error(`[Crawler] Erro ao salvar ${item.name}:`, err);

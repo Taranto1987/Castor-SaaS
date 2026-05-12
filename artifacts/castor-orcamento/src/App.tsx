@@ -15,6 +15,7 @@ import Layout from "@/components/Layout";
 import Landing from "@/pages/Landing";
 import Catalogo from "@/pages/Catalogo";
 import MapaSono from "@/pages/MapaSono";
+import ProdutoDetalhe from "@/pages/ProdutoDetalhe";
 
 // Landing Pages — conversion-optimized
 import LuxoCaboFrio from "@/pages/lp/LuxoCaboFrio";
@@ -92,6 +93,9 @@ function AppRoutes() {
       </Route>
       <Route path="/mapa-sono">
         <PublicLayout><MapaSono /></PublicLayout>
+      </Route>
+      <Route path="/produto/:slug">
+        <ProdutoDetalhe />
       </Route>
 
       {/* ── AUTH público (convite / reset) ─────────────────────────────── */}

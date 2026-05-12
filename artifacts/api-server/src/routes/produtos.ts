@@ -17,10 +17,15 @@ function requireDono(req: Request, res: Response, next: NextFunction) {
 const router: IRouter = Router();
 
 function mapProduto(p: typeof produtosTable.$inferSelect) {
+  // Derive slug from stored slug or extract from legacy link field.
+  // link (e.g. https://lojacastor.com.br/biocomfort-pocket-slx) is NEVER sent
+  // to the frontend — it stays as internal crawler origin data.
+  const slug = p.slug ?? (p.link ? p.link.replace("https://lojacastor.com.br/", "") : null);
   return {
     id: p.id,
     nome: p.nome,
     sku: p.sku,
+    slug,
     preco: p.preco,
     precoPix: p.precoPix,
     parcelamento: p.parcelamento,
@@ -28,7 +33,6 @@ function mapProduto(p: typeof produtosTable.$inferSelect) {
     altura: p.altura,
     categoria: p.categoria,
     imagem: p.imagem,
-    link: p.link,
     disponivel: p.disponivel,
     encomenda: p.encomenda,
     custoBRL: p.custoBRL,
@@ -345,6 +349,32 @@ router.patch("/:id/estoque", async (req, res) => {
     res.json(mapProduto(updated[0]));
   } catch (error) {
     console.error("Erro ao atualizar estoque:", error);
+    res.status(500).json({ error: "Erro interno" });
+  }
+});
+
+// Public PDP endpoint — matches slug stored in DB or derived from legacy link.
+// Never exposes the upstream Castor URL; that stays in the DB only.
+router.get("/slug/:slug", async (req, res) => {
+  try {
+    const { slug } = req.params;
+    if (!slug) { res.status(400).json({ error: "Slug obrigatório" }); return; }
+
+    // Try direct slug column first, fall back to legacy link pattern
+    let results = await db.select().from(produtosTable)
+      .where(eq(produtosTable.slug, slug)).limit(1);
+
+    if (results.length === 0) {
+      results = await db.select().from(produtosTable)
+        .where(eq(produtosTable.link, `https://lojacastor.com.br/${slug}`)).limit(1);
+    }
+
+    if (results.length === 0) {
+      res.status(404).json({ error: "Produto não encontrado" });
+      return;
+    }
+    res.json(mapProduto(results[0]));
+  } catch {
     res.status(500).json({ error: "Erro interno" });
   }
 });

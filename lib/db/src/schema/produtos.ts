@@ -1,4 +1,5 @@
-import { pgTable, serial, text, timestamp, boolean, integer, numeric } from "drizzle-orm/pg-core";
+import { pgTable, serial, text, timestamp, boolean, integer, numeric, uniqueIndex } from "drizzle-orm/pg-core";
+import { sql } from "drizzle-orm";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod/v4";
 
@@ -7,6 +8,7 @@ export const produtosTable = pgTable("produtos", {
   lojaId: integer("loja_id").default(1),
   nome: text("nome").notNull(),
   sku: text("sku"),
+  slug: text("slug"),
   preco: text("preco"),
   precoPix: text("preco_pix"),
   parcelamento: text("parcelamento"),
@@ -24,7 +26,7 @@ export const produtosTable = pgTable("produtos", {
   // Nunca calcular desconto sobre precoPix ou qualquer preço já reduzido.
   precoBase: numeric("preco_base", { precision: 12, scale: 2 }),
   criadoEm: timestamp("criado_em").defaultNow(),
-});
+}, (t) => [uniqueIndex("produtos_sku_unique").on(t.sku).where(sql`${t.sku} IS NOT NULL`)]);
 
 export const insertProdutoSchema = createInsertSchema(produtosTable).omit({ id: true, criadoEm: true });
 export type InsertProduto = z.infer<typeof insertProdutoSchema>;
