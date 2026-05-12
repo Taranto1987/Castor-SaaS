@@ -5,6 +5,7 @@ import { iniciarSchedulerFollowUps } from "./lib/followup-scheduler";
 import { seedColaboradores } from "./lib/sessions";
 import { iniciarJobInteligente } from "./jobs/inteligente.js";
 import { seedLojas } from "./lib/seed-lojas";
+import { backfillSlugs } from "./lib/backfill-slugs.js";
 
 // Must run before anything else — exits with code 1 if required vars are missing
 validateEnv();
@@ -30,4 +31,5 @@ app.listen(port, () => {
   iniciarJobInteligente();
   seedLojas().catch(console.error);
   seedColaboradores().catch(console.error);
+  backfillSlugs().catch(console.error);
 });

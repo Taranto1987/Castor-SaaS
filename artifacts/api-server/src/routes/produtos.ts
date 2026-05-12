@@ -373,6 +373,7 @@ router.get("/slug/:slug", async (req, res) => {
       res.status(404).json({ error: "Produto não encontrado" });
       return;
     }
+    res.setHeader("Cache-Control", "public, max-age=60, stale-while-revalidate=300");
     res.json(mapProduto(results[0]));
   } catch {
     res.status(500).json({ error: "Erro interno" });
