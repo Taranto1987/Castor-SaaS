@@ -3,6 +3,7 @@ import { Search, Loader2, PackageX, MessageCircle, Moon, ExternalLink } from "lu
 import { useLocation } from "wouter";
 import { motion, AnimatePresence } from "framer-motion";
 import { useDebounce } from "@/hooks/use-debounce";
+import { useWAInfo } from "@/hooks/use-wa-info";
 import { ProductCard } from "@/components/ProductCard";
 import {
   useListProdutos,
@@ -13,10 +14,6 @@ import { cn } from "@/lib/utils";
 import type { Produto as ProdutoBase } from "@workspace/api-client-react";
 type Produto = ProdutoBase & { slug?: string | null };
 import { trackPageView, trackCatalogoWhatsApp, trackCatalogoView } from "@/lib/tracking";
-
-const WA_CF  = { numero: "5522992410112", loja: "Cabo Frio", contato: "ThallesZzz" };
-const WA_ARU = { numero: "5522988447240", loja: "Araruama",  contato: "Marcela" };
-const CIDADES_ARU = ["araruama", "saquarema", "iguaba grande", "maricá", "silva jardim"];
 
 function gerarMsgWA(produto: Produto, contato: string, loja: string): string {
   return `Olá, ${contato}! 👋 Vi o site da Castor ${loja} e tenho interesse no produto:\n\n*${produto.nome}*\n${produto.medidas ? `📐 Medidas: ${produto.medidas}\n` : ""}${produto.precoPix ? `💰 Pix: ${produto.precoPix}\n` : ""}\nGostaria de mais informações e disponibilidade!`;
@@ -36,21 +33,9 @@ export default function Catalogo() {
   const [searchTerm, setSearchTerm] = useState("");
   const [activeCategory, setActiveCategory] = useState<string>("Todas");
   const [selectedProduct, setSelectedProduct] = useState<Produto | null>(null);
-  const [waInfo, setWaInfo] = useState(WA_CF);
+  const waInfo = useWAInfo();
 
   useEffect(() => { trackPageView("catalogo"); trackCatalogoView(); }, []);
-
-  useEffect(() => {
-    const controller = new AbortController();
-    fetch("https://ipapi.co/json/", { signal: controller.signal })
-      .then(r => r.json())
-      .then((data: { city?: string }) => {
-        const cidade = (data.city ?? "").toLowerCase();
-        if (CIDADES_ARU.some(c => cidade.includes(c))) setWaInfo(WA_ARU);
-      })
-      .catch(() => {});
-    return () => controller.abort();
-  }, []);
 
   // Pick up ?categoria= from URL on mount
   useEffect(() => {

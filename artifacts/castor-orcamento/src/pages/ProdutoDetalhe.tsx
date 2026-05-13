@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { useParams, useLocation } from "wouter";
 import { motion } from "framer-motion";
 import { ArrowLeft, MessageCircle, Package, Tag, Ruler, ShoppingCart } from "lucide-react";
-import { useLoja } from "@/contexts/LojaContext";
+import { useWAInfo } from "@/hooks/use-wa-info";
 
 interface Produto {
   id: number;
@@ -32,9 +32,6 @@ const CATEGORY_LABELS: Record<string, string> = {
   "roupa-de-cama": "Roupa de Cama",
 };
 
-const WA_CF  = { numero: "5522992410112", loja: "Cabo Frio",  contato: "ThallesZzz" };
-const WA_ARU = { numero: "5522988447240", loja: "Araruama",   contato: "Marcela" };
-const CIDADES_ARU = ["araruama", "saquarema", "iguaba grande", "maricá", "silva jardim"];
 
 function gerarMsgWA(p: Produto, contato: string, loja: string): string {
   return `Olá, ${contato}! 👋 Vi o site da Castor ${loja} e tenho interesse em:\n\n*${p.nome}*\n${p.medidas ? `📐 ${p.medidas}\n` : ""}${p.precoPix ? `💰 Pix: ${p.precoPix}\n` : ""}${p.encomenda ? `⏱️ Prazo: ${p.prazoEncomenda ?? "A combinar"}\n` : ""}\nGostaria de confirmar disponibilidade e condições!`;
@@ -137,34 +134,13 @@ function setMetaName(name: string, content: string) {
 export default function ProdutoDetalhe() {
   const params = useParams<{ slug: string }>();
   const [, navigate] = useLocation();
-  const { lojaInfo } = useLoja();
+  const waInfo = useWAInfo();
 
   const [produto, setProduto] = useState<Produto | null>(null);
   const [loading, setLoading] = useState(true);
   const [notFound, setNotFound] = useState(false);
-  const [waInfo, setWaInfo] = useState(WA_CF);
 
   useSEO(produto);
-
-  // Geo-routing WhatsApp
-  useEffect(() => {
-    const controller = new AbortController();
-    fetch("https://ipapi.co/json/", { signal: controller.signal })
-      .then(r => r.json())
-      .then((data: { city?: string }) => {
-        const cidade = (data.city ?? "").toLowerCase();
-        if (CIDADES_ARU.some(c => cidade.includes(c))) setWaInfo(WA_ARU);
-      })
-      .catch(() => {});
-    return () => controller.abort();
-  }, []);
-
-  // Override WA with loja context if available
-  useEffect(() => {
-    if (lojaInfo?.whatsappNumero) {
-      setWaInfo(prev => ({ ...prev, numero: lojaInfo.whatsappNumero! }));
-    }
-  }, [lojaInfo]);
 
   // Fetch product by slug — with redirect guards
   useEffect(() => {
