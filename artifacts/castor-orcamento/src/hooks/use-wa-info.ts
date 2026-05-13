@@ -7,30 +7,33 @@ export type WAInfo = {
   contato: string;
 };
 
-// Static fallbacks — used when LojaContext hasn't resolved yet.
-// Once the context resolves (from a previous page, sessionStorage, or geo-detection
-// below), lojaInfo.whatsappNumero becomes the single source of truth.
-const WA_CF:  WAInfo = { numero: "5522992410112", loja: "Cabo Frio", contato: "ThallesZzz" };
-const WA_ARU: WAInfo = { numero: "5522988447240", loja: "Araruama",  contato: "Marcela" };
+// Fallbacks used only when LojaContext hasn't resolved yet (first render / no prior session).
+// All fields are overridden by API data the moment lojaInfo becomes available.
+const FALLBACK_CF:  WAInfo = { numero: "5522992410112", loja: "Cabo Frio", contato: "ThallesZzz" };
+const FALLBACK_ARU: WAInfo = { numero: "5522988447240", loja: "Araruama",  contato: "Marcela" };
+const FALLBACK_BY_LOJA: Record<number, WAInfo> = { 1: FALLBACK_CF, 2: FALLBACK_ARU };
 const CIDADES_ARU = ["araruama", "saquarema", "iguaba grande", "maricá", "silva jardim"];
-const LOJA_WA: Record<number, WAInfo> = { 1: WA_CF, 2: WA_ARU };
 
 export function useWAInfo(): WAInfo {
   const { lojaId, lojaInfo, detectarPorLocalizacao } = useLoja();
 
-  // Initialise from the persisted lojaId in sessionStorage (avoids flicker on repeat visits).
-  const [waInfo, setWaInfo] = useState<WAInfo>(() => LOJA_WA[lojaId] ?? WA_CF);
+  // Initialise from persisted lojaId (avoids flicker on repeat visits that set the session).
+  const [waInfo, setWaInfo] = useState<WAInfo>(() => FALLBACK_BY_LOJA[lojaId] ?? FALLBACK_CF);
 
-  // Primary source: LojaContext resolved from API (/api/loja/detect).
-  // Covers: geo-detection done by MapaSono, Calculadora, or a previous visit.
+  // Primary source: LojaContext resolved from /api/loja/detect.
+  // ALL three fields (numero, loja, contato) come from the backend — no hardcoded names.
   useEffect(() => {
     if (!lojaInfo) return;
-    const base = LOJA_WA[lojaInfo.lojaId] ?? WA_CF;
-    setWaInfo({ ...base, numero: lojaInfo.whatsappNumero ?? base.numero });
+    const fallback = FALLBACK_BY_LOJA[lojaInfo.lojaId] ?? FALLBACK_CF;
+    setWaInfo({
+      numero:  lojaInfo.whatsappNumero ?? fallback.numero,
+      loja:    lojaInfo.cidade         ?? fallback.loja,
+      contato: lojaInfo.contato        ?? fallback.contato,
+    });
   }, [lojaInfo]);
 
-  // Fallback: if LojaContext is still null, run geo-detection once.
-  // Also populates the context so sibling components (Header, Chat, etc.) benefit.
+  // Fallback: geo-detect via ipapi.co when LojaContext is still null.
+  // Also populates the context so sibling components benefit immediately.
   useEffect(() => {
     if (lojaInfo) return;
     const controller = new AbortController();
@@ -39,7 +42,7 @@ export function useWAInfo(): WAInfo {
       .then((data: { city?: string }) => {
         const cidade = (data.city ?? "").toLowerCase();
         if (CIDADES_ARU.some(c => cidade.includes(c))) {
-          setWaInfo(WA_ARU);
+          setWaInfo(FALLBACK_ARU);
           detectarPorLocalizacao({ cidade: data.city }).catch(() => {});
         }
       })

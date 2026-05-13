@@ -6,6 +6,7 @@ import {
 } from "lucide-react";
 import RulerPicker from "@/components/RulerPicker";
 import { trackMapaSonoCompleto, trackWhatsAppClick, trackPageView } from "@/lib/tracking";
+import { useWAInfo } from "@/hooks/use-wa-info";
 
 // ─── TYPES ───────────────────────────────────────────────────────────────────
 
@@ -230,11 +231,10 @@ function getFlow(data: DiagnosticoData): string[] {
 
 // ─── CONSTANTS ───────────────────────────────────────────────────────────────
 
-const WA = "5522992410112";
-
 // ─── COMPONENT ───────────────────────────────────────────────────────────────
 
 export default function MapaSono() {
+  const waInfo = useWAInfo();
   const [step, setStep] = useState<"welcome" | number | "loading" | "result">("welcome");
   const [data, setData] = useState<DiagnosticoData>({});
   const [resultado, setResultado] = useState<Resultado | null>(null);
@@ -517,10 +517,10 @@ export default function MapaSono() {
           </div>
 
           <a
-            href={`https://wa.me/${WA}?text=${msgWA}`}
+            href={`https://wa.me/${waInfo.numero}?text=${msgWA}`}
             target="_blank"
             rel="noreferrer"
-            onClick={() => trackWhatsAppClick("mapa_sono_resultado", "Cabo Frio")}
+            onClick={() => trackWhatsAppClick("mapa_sono_resultado", waInfo.loja)}
             className="flex items-center justify-center gap-2 w-full bg-green-500 hover:bg-green-400 text-white font-extrabold px-5 py-4 rounded-xl text-base transition-colors"
           >
             💬 Falar no WhatsApp agora

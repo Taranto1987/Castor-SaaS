@@ -21,6 +21,7 @@ router.get("/loja/detect", (req: Request, res: Response) => {
     lojaId: result.lojaId,
     operacao: result.operacao,
     confianca: result.confianca,
+    contato: config?.contato ?? null,
     whatsappNumero: config?.whatsappNumero ?? null,
     whatsappDisplay: config?.whatsappDisplay ?? null,
     cidade: config?.cidade ?? null,

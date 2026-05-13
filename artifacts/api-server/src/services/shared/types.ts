@@ -3,6 +3,7 @@ export interface TenantContext {
   lojaSlug: string;
   operacao: string;
   cidade: string;
+  contato: string;
   whatsappNumero: string;
   whatsappDisplay: string;
   vendedor?: string;

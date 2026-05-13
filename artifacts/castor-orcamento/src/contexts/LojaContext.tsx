@@ -8,6 +8,7 @@ type LojaInfo = {
   lojaId: number;
   operacao: string;
   confianca: Confianca;
+  contato: string | null;
   whatsappNumero: string | null;
   whatsappDisplay: string | null;
   cidade: string | null;
