@@ -1,45 +1,19 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { motion } from "framer-motion";
 import { Link } from "wouter";
-import { MessageCircle, Star, MapPin, ChevronRight, Moon, Shield, Zap, Wind, RotateCcw, Award, BedDouble, Package, Box, Layers, Sparkles } from "lucide-react";
+import { MessageCircle, Star, MapPin, ChevronRight, Moon, Shield, Zap, Wind, RotateCcw, Award, BedDouble, Package, Box, Layers } from "lucide-react";
 import MapaSonoModal from "@/components/MapaSonoModal";
 import { trackWhatsAppClick, trackPageView } from "@/lib/tracking";
-
-const WA_CABO_FRIO  = { numero: "5522992410112", loja: "Cabo Frio", contato: "ThallesZzz", tel: "(22) 99241-0112" };
-const WA_ARARUAMA   = { numero: "5522988447240", loja: "Araruama",  contato: "Marcela",    tel: "(22) 98844-7240" };
+import { useLoja } from "@/contexts/LojaContext";
+import { useWAInfo } from "@/hooks/use-wa-info";
+import { useEffect } from "react";
 
 const MAPS_CABO_FRIO = "https://maps.app.goo.gl/UuF6w1nAvTgXockS6";
 const MAPS_ARARUAMA  = "https://maps.app.goo.gl/cGmvFgeubawLRNGy8";
 
-const CIDADES_ARARUAMA = ["araruama", "saquarema", "iguaba grande", "maricá", "silva jardim"];
-
-function waLink(wa: typeof WA_CABO_FRIO, texto?: string) {
-  const msg = texto ?? `Olá! Vi o site da Castor ${wa.loja} e quero saber mais sobre os colchões!`;
-  return `https://wa.me/${wa.numero}?text=${encodeURIComponent(msg)}`;
-}
-
-function useLocalizacao() {
-  const [wa, setWa] = useState(WA_CABO_FRIO);
-  const [ready, setReady] = useState(false);
-
-  useEffect(() => {
-    const controller = new AbortController();
-    fetch("https://ipapi.co/json/", { signal: controller.signal })
-      .then(r => r.json())
-      .then((data: { city?: string }) => {
-        const cidade = (data.city ?? "").toLowerCase();
-        if (CIDADES_ARARUAMA.some(c => cidade.includes(c))) {
-          setWa(WA_ARARUAMA);
-        }
-        setReady(true);
-      })
-      .catch(() => { setReady(true); });
-    return () => controller.abort();
-  }, []);
-
-  const toggle = () => setWa(prev => prev.numero === WA_CABO_FRIO.numero ? WA_ARARUAMA : WA_CABO_FRIO);
-
-  return { wa, ready, toggle };
+function waLink(numero: string, loja: string, texto?: string) {
+  const msg = texto ?? `Olá! Vi o site da Castor ${loja} e quero saber mais sobre os colchões!`;
+  return `https://wa.me/${numero}?text=${encodeURIComponent(msg)}`;
 }
 
 const fade = (delay = 0) => ({
@@ -53,7 +27,10 @@ const REGIOES = ["Cabo Frio", "Búzios", "Arraial do Cabo", "São Pedro da Aldei
 
 export default function Landing() {
   const [showMapa, setShowMapa] = useState(false);
-  const { wa, ready, toggle } = useLocalizacao();
+  const { lojaId, detectarPorLocalizacao } = useLoja();
+  const waInfo = useWAInfo();
+
+  const toggle = () => detectarPorLocalizacao({ operacao: lojaId === 2 ? "cabo_frio" : "araruama" });
 
   useEffect(() => { trackPageView("landing"); }, []);
 
@@ -94,14 +71,13 @@ export default function Landing() {
                 ))}
               </motion.div>
 
-              {ready && (
-                <motion.div {...fade(0.28)} className="mb-8">
+              <motion.div {...fade(0.28)} className="mb-8">
                   <p className="text-white/60 text-xs font-semibold uppercase tracking-widest mb-2 text-center md:text-left">📍 Qual loja mais perto de você?</p>
                   <div className="inline-flex bg-white/10 backdrop-blur-sm rounded-xl p-1 border border-white/15">
                     <button
-                      onClick={() => wa.numero !== WA_CABO_FRIO.numero && toggle()}
+                      onClick={() => lojaId !== 1 && toggle()}
                       className={`flex items-center gap-2 px-5 py-2.5 rounded-lg text-sm font-bold transition-all ${
-                        wa.numero === WA_CABO_FRIO.numero
+                        lojaId === 1
                           ? "bg-red-600 text-white shadow-lg shadow-red-900/40"
                           : "text-white/60 hover:text-white hover:bg-white/10"
                       }`}
@@ -110,9 +86,9 @@ export default function Landing() {
                       Cabo Frio
                     </button>
                     <button
-                      onClick={() => wa.numero === WA_CABO_FRIO.numero && toggle()}
+                      onClick={() => lojaId !== 2 && toggle()}
                       className={`flex items-center gap-2 px-5 py-2.5 rounded-lg text-sm font-bold transition-all ${
-                        wa.numero !== WA_CABO_FRIO.numero
+                        lojaId === 2
                           ? "bg-red-600 text-white shadow-lg shadow-red-900/40"
                           : "text-white/60 hover:text-white hover:bg-white/10"
                       }`}
@@ -122,7 +98,6 @@ export default function Landing() {
                     </button>
                   </div>
                 </motion.div>
-              )}
 
               <motion.div {...fade(0.3)} className="flex flex-col sm:flex-row gap-3 justify-center md:justify-start">
                 <button onClick={() => setShowMapa(true)} className="flex items-center justify-center gap-2 bg-red-600 hover:bg-red-500 text-white font-extrabold px-7 py-4 rounded-2xl transition-all shadow-xl shadow-red-900/40 active:scale-95 text-base">
@@ -143,7 +118,7 @@ export default function Landing() {
               className="flex-shrink-0"
             >
               <a
-                href={waLink(wa, `Oi ${wa.contato}! Vi vocês no site e quero saber mais sobre os colchões Castor.`)}
+                href={waLink(waInfo.numero, waInfo.loja, `Oi ${waInfo.contato}! Vi vocês no site e quero saber mais sobre os colchões Castor.`)}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="block cursor-pointer group"
@@ -151,12 +126,12 @@ export default function Landing() {
                 <div className="relative w-64 h-64 md:w-80 md:h-80 group-hover:scale-[1.02] transition-transform">
                   <div className="absolute inset-0 bg-gradient-to-br from-red-500/30 to-red-900/30 rounded-[2rem] backdrop-blur-sm border border-white/10 shadow-2xl" />
                   <img
-                    src={wa.numero === WA_CABO_FRIO.numero ? "/thalles-avatar.jpg" : "/marcela-avatar.jpg"}
-                    alt={`Especialista ${wa.contato}`}
+                    src={lojaId === 2 ? "/marcela-avatar.jpg" : "/thalles-avatar.jpg"}
+                    alt={`Especialista ${waInfo.contato}`}
                     className="absolute inset-0 w-full h-full object-cover object-top rounded-[2rem]"
                   />
                   <div className="absolute bottom-4 left-4 right-4 bg-black/60 backdrop-blur-md rounded-xl px-3 py-2">
-                    <p className="text-white font-extrabold text-sm">Especialista {wa.contato}</p>
+                    <p className="text-white font-extrabold text-sm">Especialista {waInfo.contato}</p>
                     <p className="text-green-400 text-xs font-semibold">● Online agora · Mapa do Sono</p>
                   </div>
                 </div>
@@ -190,13 +165,13 @@ export default function Landing() {
           <div className="flex flex-col md:flex-row items-center gap-8">
             <div className="flex-shrink-0">
               <div className="w-20 h-20 rounded-2xl overflow-hidden border-2 border-white/20 shadow-xl">
-                <img src={wa.numero === WA_CABO_FRIO.numero ? "/thalles-avatar.jpg" : "/marcela-avatar.jpg"} alt={wa.contato} className="w-full h-full object-cover object-top" />
+                <img src={lojaId === 2 ? "/marcela-avatar.jpg" : "/thalles-avatar.jpg"} alt={waInfo.contato} className="w-full h-full object-cover object-top" />
               </div>
             </div>
             <div className="flex-1 text-center md:text-left">
-              <motion.p {...fade(0)} className="text-red-200 text-sm font-bold uppercase tracking-wider mb-2">Exclusivo · Castor {wa.loja}</motion.p>
+              <motion.p {...fade(0)} className="text-red-200 text-sm font-bold uppercase tracking-wider mb-2">Exclusivo · Castor {waInfo.loja}</motion.p>
               <motion.h2 {...fade(0.1)} className="text-2xl md:text-3xl font-black leading-tight mb-3">
-                Mapa do Sono com o Especialista {wa.contato}
+                Mapa do Sono com o Especialista {waInfo.contato}
               </motion.h2>
               <motion.p {...fade(0.2)} className="text-red-100 text-base leading-relaxed max-w-lg">
                 Dormir mal, sentir desconforto ao acordar ou ter calor à noite são sinais de desalinhamento entre seu corpo e o colchão.
@@ -364,24 +339,24 @@ export default function Landing() {
             {/* CTA WhatsApp — inteligente por localização */}
             <motion.div {...fade(0.15)} className="bg-gradient-to-br from-red-600 to-red-900 rounded-3xl p-8 text-white shadow-2xl shadow-red-900/30 text-center">
               <p className="text-red-200 text-sm font-bold uppercase tracking-wider mb-3">
-                {wa.loja === "Araruama" ? "Loja Araruama" : "Fale agora mesmo"}
+                {lojaId === 2 ? "Loja Araruama" : "Fale agora mesmo"}
               </p>
               <h3 className="text-2xl font-black mb-3">Atendimento<br />personalizado</h3>
               <p className="text-red-100 text-sm leading-relaxed mb-6">
                 Me chame no WhatsApp e eu respondo na hora. Se quiser, faça o Mapa do Sono antes — você já chega com seu perfil completo!
               </p>
               <a
-                href={waLink(wa)}
+                href={waLink(waInfo.numero, waInfo.loja)}
                 target="_blank"
                 rel="noreferrer"
-                onClick={() => trackWhatsAppClick("landing_cta", wa.loja)}
+                onClick={() => trackWhatsAppClick("landing_cta", waInfo.loja)}
                 className="flex items-center justify-center gap-2 bg-green-500 hover:bg-green-400 text-white font-extrabold px-6 py-4 rounded-2xl transition-all shadow-lg active:scale-95 text-base mb-3"
               >
                 <MessageCircle className="w-5 h-5" />
-                Falar com {wa.contato}
+                Falar com {waInfo.contato}
               </a>
-              <p className="text-red-200/60 text-xs">{wa.tel} · Resposta imediata</p>
-              {wa.loja === "Araruama" && (
+              <p className="text-red-200/60 text-xs">{waInfo.tel} · Resposta imediata</p>
+              {lojaId === 2 && (
                 <p className="text-red-300/60 text-[10px] mt-1">Detectamos que você está próximo de Araruama</p>
               )}
             </motion.div>
@@ -391,14 +366,14 @@ export default function Landing() {
 
       {/* ── FLOATING WHATSAPP — inteligente ──────────────────────────────── */}
       <a
-        href={waLink(wa)}
+        href={waLink(waInfo.numero, waInfo.loja)}
         target="_blank"
         rel="noreferrer"
-        onClick={() => trackWhatsAppClick("landing_floating", wa.loja)}
+        onClick={() => trackWhatsAppClick("landing_floating", waInfo.loja)}
         className="fixed bottom-6 right-6 z-50 flex items-center gap-2 bg-green-500 hover:bg-green-600 text-white font-bold px-4 py-3 rounded-2xl shadow-2xl shadow-green-900/40 transition-all active:scale-95 hover:scale-105"
       >
         <MessageCircle className="w-5 h-5" />
-        <span className="text-sm hidden sm:inline">WhatsApp {wa.loja}</span>
+        <span className="text-sm hidden sm:inline">WhatsApp {waInfo.loja}</span>
       </a>
 
       {/* ── MODAL MAPA DO SONO ─────────────────────────────────────────────── */}
