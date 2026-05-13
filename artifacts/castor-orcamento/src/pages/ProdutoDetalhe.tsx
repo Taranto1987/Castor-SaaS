@@ -169,7 +169,7 @@ export default function ProdutoDetalhe() {
     setNotFound(false);
     fetch(`/api/produtos/slug/${encodeURIComponent(params.slug)}`)
       .then(r => {
-        if (r.status === 404) { setNotFound(true); return null; }
+        if (!r.ok) { setNotFound(true); return null; }
         return r.json() as Promise<Produto>;
       })
       .then(data => { if (data) setProduto(data); })
