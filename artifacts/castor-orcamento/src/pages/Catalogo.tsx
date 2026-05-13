@@ -4,6 +4,7 @@ import { useLocation } from "wouter";
 import { motion, AnimatePresence } from "framer-motion";
 import { useDebounce } from "@/hooks/use-debounce";
 import { useWAInfo } from "@/hooks/use-wa-info";
+import { useLoja } from "@/contexts/LojaContext";
 import { ProductCard } from "@/components/ProductCard";
 import {
   useListProdutos,
@@ -34,6 +35,8 @@ export default function Catalogo() {
   const [activeCategory, setActiveCategory] = useState<string>("Todas");
   const [selectedProduct, setSelectedProduct] = useState<Produto | null>(null);
   const waInfo = useWAInfo();
+  const { lojaId } = useLoja();
+  const avatarSrc = lojaId === 2 ? "/marcela-avatar.jpg" : "/thalles-avatar.jpg";
 
   useEffect(() => { trackPageView("catalogo"); trackCatalogoView(); }, []);
 
@@ -71,7 +74,7 @@ export default function Catalogo() {
             Catálogo de Produtos
           </h1>
           <p className="text-slate-500 mt-2 text-sm max-w-xl">
-            Todos os colchões, boxes, travesseiros e acessórios Castor disponíveis em Cabo Frio. Clique para ver detalhes e falar diretamente com o especialista.
+            Todos os colchões, boxes, travesseiros e acessórios Castor disponíveis em {waInfo.loja}. Clique para ver detalhes e falar diretamente com o especialista.
           </p>
         </div>
         <div className="w-full md:w-96 relative group">
@@ -94,7 +97,7 @@ export default function Catalogo() {
         animate={{ opacity: 1, y: 0 }}
         className="bg-gradient-to-r from-red-600 to-red-800 rounded-2xl p-5 flex items-center gap-4 text-white shadow-lg"
       >
-        <img src="/thalles-avatar.jpg" alt="Especialista" className="w-12 h-12 rounded-xl object-cover object-top border-2 border-white/20 shrink-0" />
+        <img src={avatarSrc} alt="Especialista" className="w-12 h-12 rounded-xl object-cover object-top border-2 border-white/20 shrink-0" />
         <div className="flex-1 min-w-0">
           <p className="font-extrabold text-sm leading-tight">Não sabe qual colchão escolher?</p>
           <p className="text-red-100 text-xs mt-0.5">Faça o Mapa do Sono com o Especialista {waInfo.contato} — 13 cliques e descubra o ideal para o seu corpo.</p>
