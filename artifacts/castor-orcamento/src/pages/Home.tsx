@@ -10,7 +10,8 @@ import {
   useListCategorias
 } from "@workspace/api-client-react";
 import { cn } from "@/lib/utils";
-import type { Produto } from "@workspace/api-client-react";
+import type { Produto as ProdutoBase } from "@workspace/api-client-react";
+type Produto = ProdutoBase & { slug?: string | null };
 
 export default function Home() {
   const [location, setLocation] = useLocation();
@@ -226,12 +227,13 @@ export default function Home() {
                       <FileText className="w-5 h-5" />
                       Gerar Orçamento
                     </button>
-                    {selectedProduct.link && (
-                      <a 
-                        href={selectedProduct.link}
+                    {selectedProduct.slug && (
+                      <a
+                        href={`/produto/${selectedProduct.slug}`}
                         target="_blank"
                         rel="noreferrer"
                         className="w-14 flex items-center justify-center bg-white border-2 border-slate-200 rounded-xl text-slate-500 hover:text-primary hover:border-primary transition-colors"
+                        title="Página do produto"
                       >
                         <ExternalLink className="w-5 h-5" />
                       </a>

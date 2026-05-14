@@ -3,6 +3,8 @@ import { Search, Loader2, PackageX, MessageCircle, Moon, ExternalLink } from "lu
 import { useLocation } from "wouter";
 import { motion, AnimatePresence } from "framer-motion";
 import { useDebounce } from "@/hooks/use-debounce";
+import { useWAInfo } from "@/hooks/use-wa-info";
+import { useLoja } from "@/contexts/LojaContext";
 import { ProductCard } from "@/components/ProductCard";
 import {
   useListProdutos,
@@ -10,12 +12,9 @@ import {
   useListCategorias
 } from "@workspace/api-client-react";
 import { cn } from "@/lib/utils";
-import type { Produto } from "@workspace/api-client-react";
+import type { Produto as ProdutoBase } from "@workspace/api-client-react";
+type Produto = ProdutoBase & { slug?: string | null };
 import { trackPageView, trackCatalogoWhatsApp, trackCatalogoView } from "@/lib/tracking";
-
-const WA_CF  = { numero: "5522992410112", loja: "Cabo Frio", contato: "ThallesZzz" };
-const WA_ARU = { numero: "5522988447240", loja: "Araruama",  contato: "Marcela" };
-const CIDADES_ARU = ["araruama", "saquarema", "iguaba grande", "maricá", "silva jardim"];
 
 function gerarMsgWA(produto: Produto, contato: string, loja: string): string {
   return `Olá, ${contato}! 👋 Vi o site da Castor ${loja} e tenho interesse no produto:\n\n*${produto.nome}*\n${produto.medidas ? `📐 Medidas: ${produto.medidas}\n` : ""}${produto.precoPix ? `💰 Pix: ${produto.precoPix}\n` : ""}\nGostaria de mais informações e disponibilidade!`;
@@ -35,21 +34,11 @@ export default function Catalogo() {
   const [searchTerm, setSearchTerm] = useState("");
   const [activeCategory, setActiveCategory] = useState<string>("Todas");
   const [selectedProduct, setSelectedProduct] = useState<Produto | null>(null);
-  const [waInfo, setWaInfo] = useState(WA_CF);
+  const waInfo = useWAInfo();
+  const { lojaId } = useLoja();
+  const avatarSrc = lojaId === 2 ? "/marcela-avatar.jpg" : "/thalles-avatar.jpg";
 
   useEffect(() => { trackPageView("catalogo"); trackCatalogoView(); }, []);
-
-  useEffect(() => {
-    const controller = new AbortController();
-    fetch("https://ipapi.co/json/", { signal: controller.signal })
-      .then(r => r.json())
-      .then((data: { city?: string }) => {
-        const cidade = (data.city ?? "").toLowerCase();
-        if (CIDADES_ARU.some(c => cidade.includes(c))) setWaInfo(WA_ARU);
-      })
-      .catch(() => {});
-    return () => controller.abort();
-  }, []);
 
   // Pick up ?categoria= from URL on mount
   useEffect(() => {
@@ -85,7 +74,7 @@ export default function Catalogo() {
             Catálogo de Produtos
           </h1>
           <p className="text-slate-500 mt-2 text-sm max-w-xl">
-            Todos os colchões, boxes, travesseiros e acessórios Castor disponíveis em Cabo Frio. Clique para ver detalhes e falar diretamente com o especialista.
+            Todos os colchões, boxes, travesseiros e acessórios Castor disponíveis em {waInfo.loja}. Clique para ver detalhes e falar diretamente com o especialista.
           </p>
         </div>
         <div className="w-full md:w-96 relative group">
@@ -108,7 +97,7 @@ export default function Catalogo() {
         animate={{ opacity: 1, y: 0 }}
         className="bg-gradient-to-r from-red-600 to-red-800 rounded-2xl p-5 flex items-center gap-4 text-white shadow-lg"
       >
-        <img src="/thalles-avatar.jpg" alt="Especialista" className="w-12 h-12 rounded-xl object-cover object-top border-2 border-white/20 shrink-0" />
+        <img src={avatarSrc} alt="Especialista" className="w-12 h-12 rounded-xl object-cover object-top border-2 border-white/20 shrink-0" />
         <div className="flex-1 min-w-0">
           <p className="font-extrabold text-sm leading-tight">Não sabe qual colchão escolher?</p>
           <p className="text-red-100 text-xs mt-0.5">Faça o Mapa do Sono com o Especialista {waInfo.contato} — 13 cliques e descubra o ideal para o seu corpo.</p>
@@ -252,12 +241,11 @@ export default function Catalogo() {
                     <MessageCircle className="w-5 h-5" />
                     Tenho interesse
                   </a>
-                  {selectedProduct.link && (
+                  {selectedProduct.slug && (
                     <a
-                      href={selectedProduct.link}
-                      target="_blank"
-                      rel="noreferrer"
-                      className="w-14 flex items-center justify-center bg-white border-2 border-slate-200 rounded-xl text-slate-500 hover:text-red-500 hover:border-red-200 transition-colors"
+                      href={`/produto/${selectedProduct.slug}`}
+                      className="w-14 flex items-center justify-center bg-white border-2 border-slate-200 rounded-xl text-slate-500 hover:text-slate-700 hover:border-slate-300 transition-colors"
+                      title="Ver página do produto"
                     >
                       <ExternalLink className="w-5 h-5" />
                     </a>

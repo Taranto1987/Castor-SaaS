@@ -5,8 +5,7 @@ import { MessageCircle, Menu, X, Moon, Search, ChevronRight } from "lucide-react
 import { motion, AnimatePresence } from "framer-motion";
 import { trackWhatsAppClick } from "@/lib/tracking";
 import ChatBot from "./ChatBot";
-
-const WHATSAPP = "https://wa.me/5522992410112?text=Olá! Vi o site da Castor e quero saber mais sobre os colchões!";
+import { useWAInfo } from "@/hooks/use-wa-info";
 
 interface PublicLayoutProps {
   children: ReactNode;
@@ -15,6 +14,8 @@ interface PublicLayoutProps {
 export default function PublicLayout({ children }: PublicLayoutProps) {
   const [location] = useLocation();
   const [mobileOpen, setMobileOpen] = useState(false);
+  const waInfo = useWAInfo();
+  const whatsapp = `https://wa.me/${waInfo.numero}?text=${encodeURIComponent(`Olá! Vi o site da Castor e quero saber mais sobre os colchões!`)}`;
 
   const navLinks = [
     { path: "/catalogo", label: "Catálogo", icon: Search },
@@ -58,10 +59,10 @@ export default function PublicLayout({ children }: PublicLayoutProps) {
             {/* WhatsApp CTA */}
             <div className="hidden md:flex items-center gap-3">
               <a
-                href={WHATSAPP}
+                href={whatsapp}
                 target="_blank"
                 rel="noreferrer"
-                onClick={() => trackWhatsAppClick("header_nav", "Cabo Frio")}
+                onClick={() => trackWhatsAppClick("header_nav", waInfo.loja)}
                 className="flex items-center gap-2 bg-green-500 hover:bg-green-600 text-white font-extrabold px-5 py-2.5 rounded-xl transition-all shadow-md shadow-green-500/30 active:scale-95 text-sm"
               >
                 <MessageCircle className="w-4 h-4" />
@@ -101,10 +102,10 @@ export default function PublicLayout({ children }: PublicLayoutProps) {
                   </Link>
                 ))}
                 <a
-                  href={WHATSAPP}
+                  href={whatsapp}
                   target="_blank"
                   rel="noreferrer"
-                  onClick={() => { setMobileOpen(false); trackWhatsAppClick("header_mobile", "Cabo Frio"); }}
+                  onClick={() => { setMobileOpen(false); trackWhatsAppClick("header_mobile", waInfo.loja); }}
                   className="flex items-center gap-3 px-4 py-3 rounded-xl bg-green-50 text-green-700 font-bold"
                 >
                   <MessageCircle className="w-4 h-4" />
