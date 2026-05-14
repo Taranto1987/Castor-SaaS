@@ -25,6 +25,16 @@ const CATEGORY_LABELS: Record<string, string> = {
   "roupa-de-cama": "Roupa de Cama",
 };
 
+// Defines the display order of category filter buttons; "Todas" always appears last.
+const CATEGORY_ORDER = [
+  "colchoes",
+  "cama-box-colchao",
+  "cama-box",
+  "travesseiros",
+  "roupa-de-cama",
+  "protetor",
+];
+
 export default function Catalogo() {
   const [location] = useLocation();
   const [searchTerm, setSearchTerm] = useState("");
@@ -55,7 +65,12 @@ export default function Catalogo() {
     { query: { enabled: isSearching } as any }
   );
 
-  const categorias = ["Todas", ...(categoriasData || [])];
+  const categorias = useMemo(() => {
+    const available = new Set(categoriasData ?? []);
+    const ordered = CATEGORY_ORDER.filter(c => available.has(c));
+    const others = (categoriasData ?? []).filter(c => !CATEGORY_ORDER.includes(c));
+    return [...ordered, ...others, "Todas"];
+  }, [categoriasData]);
   const rawProducts = (isSearching ? searchData : listData) as CatalogoProduto[] | undefined;
   const isLoading = isSearching ? isLoadingSearch : isLoadingList;
 

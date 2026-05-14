@@ -68,29 +68,32 @@ export function ProductCardGrouped({ group, waInfo, className }: Props) {
           {group.familia}
         </h3>
 
-        {/* Size selector — only shown when multiple sizes exist */}
+        {/* Size selector — spinning gradient ring draws attention to the tabs */}
         {group.hasSizes && group.variants.length > 1 && (
-          <div className="flex flex-wrap gap-1.5">
-            {group.variants.map((variant, i) => {
-              const oos = isOutOfStock(variant);
-              return (
-                <button
-                  key={variant.size}
-                  type="button"
-                  onClick={() => !oos && setActiveIdx(i)}
-                  className={cn(
-                    "px-2.5 py-1 rounded-lg text-xs font-bold border transition-all",
-                    i === activeIdx
-                      ? "bg-red-600 text-white border-red-600 shadow-sm"
-                      : oos
-                      ? "bg-slate-50 text-slate-300 border-slate-100 cursor-not-allowed line-through"
-                      : "bg-white text-slate-600 border-slate-200 hover:border-red-400 hover:text-red-600 cursor-pointer"
-                  )}
-                >
-                  {variant.size}
-                </button>
-              );
-            })}
+          <div className="size-selector-ring relative rounded-[14px] p-[2px] overflow-hidden">
+            {/* White inner layer sits on top of the spinning ring */}
+            <div className="relative z-10 bg-white rounded-xl p-1.5 flex flex-wrap gap-1.5">
+              {group.variants.map((variant, i) => {
+                const oos = isOutOfStock(variant);
+                return (
+                  <button
+                    key={variant.size}
+                    type="button"
+                    onClick={() => !oos && setActiveIdx(i)}
+                    className={cn(
+                      "px-3 py-1 rounded-lg text-xs font-bold border transition-all",
+                      i === activeIdx
+                        ? "bg-red-600 text-white border-red-600 shadow-sm"
+                        : oos
+                        ? "bg-slate-50 text-slate-300 border-slate-100 cursor-not-allowed line-through"
+                        : "bg-white text-slate-700 border-slate-300 hover:border-red-400 hover:text-red-600 cursor-pointer"
+                    )}
+                  >
+                    {variant.size}
+                  </button>
+                );
+              })}
+            </div>
           </div>
         )}
 
