@@ -2,15 +2,16 @@ export type Size = "King" | "Queen" | "Casal" | "Solteiro";
 
 export const SIZE_ORDER: readonly Size[] = ["King", "Queen", "Casal", "Solteiro"];
 
-// Ordered longest-first so "King Size" matches before "King"
+// Ordered longest-first so "King Size" matches before "King".
+// (\s+.*)? allows trailing dimensions like "88x188" or "88x188x30cm" after the size word.
 const SIZE_PATTERNS: { re: RegExp; size: Size }[] = [
-  { re: /\s+King\s+Size\s*$/i, size: "King" },
-  { re: /\s+Queen\s+Size\s*$/i, size: "Queen" },
-  { re: /\s+King\s*$/i, size: "King" },
-  { re: /\s+Queen\s*$/i, size: "Queen" },
-  { re: /\s+Casal\s*$/i, size: "Casal" },
-  { re: /\s+Solteirão\s*$/i, size: "Solteiro" },
-  { re: /\s+Solteiro\s*$/i, size: "Solteiro" },
+  { re: /\s+King\s+Size(\s+.*)?$/i, size: "King" },
+  { re: /\s+Queen\s+Size(\s+.*)?$/i, size: "Queen" },
+  { re: /\s+King(\s+.*)?$/i, size: "King" },
+  { re: /\s+Queen(\s+.*)?$/i, size: "Queen" },
+  { re: /\s+Casal(\s+.*)?$/i, size: "Casal" },
+  { re: /\s+Solteirão(\s+.*)?$/i, size: "Solteiro" },
+  { re: /\s+Solteiro(\s+.*)?$/i, size: "Solteiro" },
 ];
 
 export type CatalogoProduto = {
