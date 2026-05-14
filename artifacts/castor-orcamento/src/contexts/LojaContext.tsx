@@ -18,6 +18,7 @@ type LojaContextType = {
   lojaId: number;
   lojaInfo: LojaInfo | null;
   detectarPorLocalizacao: (params: { cidade?: string; cep?: string; ddd?: string; operacao?: string }) => Promise<void>;
+  selecionarLoja: (id: number) => void;
 };
 
 const DEFAULT_LOJA_ID = 1;
@@ -26,6 +27,7 @@ const LojaContext = createContext<LojaContextType>({
   lojaId: DEFAULT_LOJA_ID,
   lojaInfo: null,
   detectarPorLocalizacao: async () => {},
+  selecionarLoja: () => {},
 });
 
 function persistLojaId(id: number) {
@@ -51,6 +53,14 @@ export function LojaProvider({ children }: { children: ReactNode }) {
     persistLojaId(lojaId);
   }, [lojaId]);
 
+  // Synchronous — updates lojaId and sessionStorage immediately.
+  // Use this for explicit user selections (loja switcher).
+  // The async detectarPorLocalizacao is called separately in background to populate lojaInfo.
+  function selecionarLoja(id: number) {
+    setLojaId(id);
+    persistLojaId(id);
+  }
+
   async function detectarPorLocalizacao(params: { cidade?: string; cep?: string; ddd?: string; operacao?: string }) {
     try {
       const qs = new URLSearchParams(
@@ -65,7 +75,7 @@ export function LojaProvider({ children }: { children: ReactNode }) {
   }
 
   return (
-    <LojaContext.Provider value={{ lojaId, lojaInfo, detectarPorLocalizacao }}>
+    <LojaContext.Provider value={{ lojaId, lojaInfo, detectarPorLocalizacao, selecionarLoja }}>
       {children}
     </LojaContext.Provider>
   );
