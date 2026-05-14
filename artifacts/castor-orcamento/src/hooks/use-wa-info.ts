@@ -21,6 +21,15 @@ export function useWAInfo(): WAInfo {
   // Initialise from persisted lojaId (avoids flicker on repeat visits that set the session).
   const [waInfo, setWaInfo] = useState<WAInfo>(() => FALLBACK_BY_LOJA[lojaId] ?? FALLBACK_CF);
 
+  // React immediately to explicit lojaId changes (e.g. user clicks loja switcher).
+  // This fires synchronously before lojaInfo is updated by the background API call,
+  // so the UI updates instantly rather than waiting for the network.
+  useEffect(() => {
+    // If lojaInfo is already resolved for this lojaId, it will override us via the effect below.
+    if (lojaInfo?.lojaId === lojaId) return;
+    setWaInfo(FALLBACK_BY_LOJA[lojaId] ?? FALLBACK_CF);
+  }, [lojaId]);
+
   // Primary source: LojaContext resolved from /api/loja/detect.
   // ALL fields come from the backend — no hardcoded names.
   useEffect(() => {

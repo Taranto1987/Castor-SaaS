@@ -27,10 +27,15 @@ const REGIOES = ["Cabo Frio", "Búzios", "Arraial do Cabo", "São Pedro da Aldei
 
 export default function Landing() {
   const [showMapa, setShowMapa] = useState(false);
-  const { lojaId, detectarPorLocalizacao } = useLoja();
+  const { lojaId, selecionarLoja, detectarPorLocalizacao } = useLoja();
   const waInfo = useWAInfo();
 
-  const toggle = () => detectarPorLocalizacao({ operacao: lojaId === 2 ? "cabo_frio" : "araruama" });
+  // Synchronous toggle + background API fetch for full lojaInfo
+  const toggle = () => {
+    const newId = lojaId === 2 ? 1 : 2;
+    selecionarLoja(newId);
+    detectarPorLocalizacao({ operacao: newId === 2 ? "araruama" : "cabo_frio" });
+  };
 
   useEffect(() => { trackPageView("landing"); }, []);
 
