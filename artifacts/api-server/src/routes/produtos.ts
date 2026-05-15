@@ -17,7 +17,11 @@ function requireDono(req: Request, res: Response, next: NextFunction) {
 const router: IRouter = Router();
 
 function mapProduto(p: typeof produtosTable.$inferSelect) {
-  const { familySlug, familyName, size } = extractFamilyInfo(p.slug, p.nome);
+  // Prefer DB-stored values (written by crawler); fall back to runtime extraction
+  // for products that pre-date the family columns or were added via outlet/manual entry.
+  const family = (p.familySlug && p.familyName)
+    ? { familySlug: p.familySlug, familyName: p.familyName, size: p.size }
+    : extractFamilyInfo(p.slug, p.nome);
   return {
     id: p.id,
     nome: p.nome,
@@ -36,9 +40,9 @@ function mapProduto(p: typeof produtosTable.$inferSelect) {
     prazoEncomenda: p.prazoEncomenda,
     estoque: p.estoque,
     precoBase: p.precoBase ? parseFloat(String(p.precoBase)) : null,
-    familySlug,
-    familyName,
-    size,
+    familySlug: family.familySlug,
+    familyName: family.familyName,
+    size: family.size,
     criadoEm: p.criadoEm,
   };
 }

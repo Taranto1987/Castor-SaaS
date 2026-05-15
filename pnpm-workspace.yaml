@@ -38,6 +38,14 @@ onlyBuiltDependencies:
   - unrs-resolver
 
 overrides:
+  # ── Security fixes ────────────────────────────────────────────────────────
+  # path-to-regexp DoS via sequential optional groups (Express router)
+  path-to-regexp: ">=8.4.0"
+  # picomatch ReDoS via extglob quantifiers (dev toolchain)
+  picomatch: ">=4.0.4"
+  # follow-redirects header leak (axios transitive)
+  follow-redirects: ">=1.15.6"
+  # ─────────────────────────────────────────────────────────────────────────
   '@esbuild-kit/esm-loader': npm:tsx@^4.21.0
   '@expo/ngrok-bin>@expo/ngrok-bin-darwin-arm64': '-'
   '@expo/ngrok-bin>@expo/ngrok-bin-darwin-x64': '-'

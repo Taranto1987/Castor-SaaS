@@ -25,7 +25,15 @@ export const produtosTable = pgTable("produtos", {
   // Preço cheio: referência obrigatória para todo cálculo de desconto.
   // Nunca calcular desconto sobre precoPix ou qualquer preço já reduzido.
   precoBase: numeric("preco_base", { precision: 12, scale: 2 }),
+  // Product-family grouping — written by crawler, fallback computed in mapProduto.
+  familySlug: text("family_slug"),
+  familyName: text("family_name"),
+  size: text("size"),
   criadoEm: timestamp("criado_em").defaultNow(),
+  // Set to NOW() each time the crawler confirms this product still exists on
+  // the supplier catalog. Products not seen after a sync are soft-deleted
+  // (disponivel = false) instead of being physically deleted.
+  sincronizadoEm: timestamp("sincronizado_em"),
 }, (t) => [
   uniqueIndex("produtos_sku_unique").on(t.sku).where(sql`${t.sku} IS NOT NULL`),
   uniqueIndex("produtos_slug_unique").on(t.slug).where(sql`${t.slug} IS NOT NULL`),

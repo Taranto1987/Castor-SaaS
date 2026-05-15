@@ -1,7 +1,7 @@
 import { Router, type IRouter, type Request, type Response, type NextFunction } from "express";
-import { db } from "@workspace/db";
+import { db, extractFamilyInfo } from "@workspace/db";
 import { produtosTable, crawlerStatusTable } from "@workspace/db/schema";
-import { eq } from "drizzle-orm";
+import { eq, lt, isNotNull } from "drizzle-orm";
 import axios from "axios";
 import { getSession, isDono } from "../lib/sessions";
 
@@ -137,6 +137,7 @@ async function executarCrawler() {
   crawlerRunning = true;
   let produtosColetados = 0;
   let erros = 0;
+  const syncStart = new Date();
 
   // Category IDs for the categories we sell
   const categorias = [
@@ -188,9 +189,9 @@ async function executarCrawler() {
 
         // link stays as internal crawler_origin — NEVER sent to frontend
         const link = `https://lojacastor.com.br/${item.url_key}`;
-        // slug is the public-facing identifier for internal PDP routes
         const slug = item.url_key;
         const imagem = item.small_image?.url ?? "";
+        const { familySlug, familyName, size } = extractFamilyInfo(slug, item.name);
 
         // Extract dimensions from description HTML
         const html = (item as { description?: { html?: string } }).description?.html ?? "";
@@ -214,6 +215,11 @@ async function executarCrawler() {
             altura: altura || null,
             categoria: categoria.nome,
             imagem: imagem || null,
+            familySlug,
+            familyName,
+            size,
+            disponivel: true,
+            sincronizadoEm: syncStart,
           }).onConflictDoUpdate({
             target: produtosTable.sku,
             set: {
@@ -228,6 +234,11 @@ async function executarCrawler() {
               altura: altura || null,
               categoria: categoria.nome,
               imagem: imagem || null,
+              familySlug,
+              familyName,
+              size,
+              disponivel: true,
+              sincronizadoEm: syncStart,
             },
           });
           produtosColetados++;
@@ -241,6 +252,16 @@ async function executarCrawler() {
         }
       }
     }
+
+    // Soft-delete products not seen in this sync cycle (supplier removed them).
+    // Never hard-deletes — history and outlet items are preserved.
+    const softDeleted = await db
+      .update(produtosTable)
+      .set({ disponivel: false })
+      .where(lt(produtosTable.sincronizadoEm, syncStart) as ReturnType<typeof lt>)
+      .returning({ id: produtosTable.id });
+
+    console.log(`[Crawler] Soft-deleted ${softDeleted.length} products not seen in this sync.`);
 
     await atualizarStatus("completed", `✅ Coleta finalizada! ${produtosColetados} produtos salvos.`, produtosColetados, erros, produtosColetados, true);
     console.log(`[Crawler] Finalizado: ${produtosColetados} produtos, ${erros} erros`);
@@ -272,9 +293,6 @@ router.post("/iniciar", requireDono, async (_req, res) => {
   } else {
     await db.update(crawlerStatusTable).set(initData).where(eq(crawlerStatusTable.id, existing[0].id));
   }
-
-  // Clear previous products before re-collecting
-  await db.delete(produtosTable);
 
   executarCrawler().catch(console.error);
 
