@@ -70,6 +70,7 @@ export * from "./orcamentoInput";
 export * from "./orcamentoOutput";
 export * from "./processarDiagnosticoBody";
 export * from "./produto";
+export * from "./produtoSize";
 export * from "./resumoDiario";
 export * from "./salvarOrcamentoInput";
 export * from "./salvarOrcamentoOutput";
