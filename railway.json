@@ -8,7 +8,7 @@
     "DEPLOY": "Deploy automático APENAS via branch main — feature branches NÃO fazem deploy"
   },
   "build": {
-    "builder": "NIXPACKS"
+    "builder": "DOCKERFILE"
   },
   "deploy": {
     "releaseCommand": "pnpm --filter @workspace/db run push",
