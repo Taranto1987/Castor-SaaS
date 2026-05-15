@@ -198,6 +198,7 @@ export const ListProdutosResponseItem = zod.object({
   id: zod.number(),
   nome: zod.string(),
   sku: zod.string().optional(),
+  slug: zod.string().optional(),
   preco: zod.string().optional(),
   precoPix: zod.string().optional(),
   parcelamento: zod.string().optional(),
@@ -205,7 +206,21 @@ export const ListProdutosResponseItem = zod.object({
   altura: zod.string().optional(),
   categoria: zod.string(),
   imagem: zod.string().optional(),
-  link: zod.string().optional(),
+  disponivel: zod.boolean().optional(),
+  encomenda: zod.boolean().optional(),
+  estoque: zod.number().optional(),
+  familySlug: zod
+    .string()
+    .optional()
+    .describe("Canonical family key shared by all size variants of a model"),
+  familyName: zod
+    .string()
+    .optional()
+    .describe("Display name for the product family (size-stripped)"),
+  size: zod
+    .enum(["King", "Queen", "Casal", "Solteiro"])
+    .optional()
+    .describe("Size variant for this specific product"),
   criadoEm: zod.string().optional(),
 });
 export const ListProdutosResponse = zod.array(ListProdutosResponseItem);
@@ -222,6 +237,7 @@ export const BuscarProdutosResponseItem = zod.object({
   id: zod.number(),
   nome: zod.string(),
   sku: zod.string().optional(),
+  slug: zod.string().optional(),
   preco: zod.string().optional(),
   precoPix: zod.string().optional(),
   parcelamento: zod.string().optional(),
@@ -229,7 +245,21 @@ export const BuscarProdutosResponseItem = zod.object({
   altura: zod.string().optional(),
   categoria: zod.string(),
   imagem: zod.string().optional(),
-  link: zod.string().optional(),
+  disponivel: zod.boolean().optional(),
+  encomenda: zod.boolean().optional(),
+  estoque: zod.number().optional(),
+  familySlug: zod
+    .string()
+    .optional()
+    .describe("Canonical family key shared by all size variants of a model"),
+  familyName: zod
+    .string()
+    .optional()
+    .describe("Display name for the product family (size-stripped)"),
+  size: zod
+    .enum(["King", "Queen", "Casal", "Solteiro"])
+    .optional()
+    .describe("Size variant for this specific product"),
   criadoEm: zod.string().optional(),
 });
 export const BuscarProdutosResponse = zod.array(BuscarProdutosResponseItem);
@@ -251,6 +281,7 @@ export const GetProdutoResponse = zod.object({
   id: zod.number(),
   nome: zod.string(),
   sku: zod.string().optional(),
+  slug: zod.string().optional(),
   preco: zod.string().optional(),
   precoPix: zod.string().optional(),
   parcelamento: zod.string().optional(),
@@ -258,7 +289,21 @@ export const GetProdutoResponse = zod.object({
   altura: zod.string().optional(),
   categoria: zod.string(),
   imagem: zod.string().optional(),
-  link: zod.string().optional(),
+  disponivel: zod.boolean().optional(),
+  encomenda: zod.boolean().optional(),
+  estoque: zod.number().optional(),
+  familySlug: zod
+    .string()
+    .optional()
+    .describe("Canonical family key shared by all size variants of a model"),
+  familyName: zod
+    .string()
+    .optional()
+    .describe("Display name for the product family (size-stripped)"),
+  size: zod
+    .enum(["King", "Queen", "Casal", "Solteiro"])
+    .optional()
+    .describe("Size variant for this specific product"),
   criadoEm: zod.string().optional(),
 });
 
@@ -286,6 +331,7 @@ export const GerarOrcamentoResponse = zod.object({
       id: zod.number(),
       nome: zod.string(),
       sku: zod.string().optional(),
+      slug: zod.string().optional(),
       preco: zod.string().optional(),
       precoPix: zod.string().optional(),
       parcelamento: zod.string().optional(),
@@ -293,7 +339,23 @@ export const GerarOrcamentoResponse = zod.object({
       altura: zod.string().optional(),
       categoria: zod.string(),
       imagem: zod.string().optional(),
-      link: zod.string().optional(),
+      disponivel: zod.boolean().optional(),
+      encomenda: zod.boolean().optional(),
+      estoque: zod.number().optional(),
+      familySlug: zod
+        .string()
+        .optional()
+        .describe(
+          "Canonical family key shared by all size variants of a model",
+        ),
+      familyName: zod
+        .string()
+        .optional()
+        .describe("Display name for the product family (size-stripped)"),
+      size: zod
+        .enum(["King", "Queen", "Casal", "Solteiro"])
+        .optional()
+        .describe("Size variant for this specific product"),
       criadoEm: zod.string().optional(),
     }),
   ),
@@ -311,6 +373,7 @@ export const SalvarOrcamentoBody = zod.object({
         id: zod.number(),
         nome: zod.string(),
         sku: zod.string().optional(),
+        slug: zod.string().optional(),
         preco: zod.string().optional(),
         precoPix: zod.string().optional(),
         parcelamento: zod.string().optional(),
@@ -318,7 +381,23 @@ export const SalvarOrcamentoBody = zod.object({
         altura: zod.string().optional(),
         categoria: zod.string(),
         imagem: zod.string().optional(),
-        link: zod.string().optional(),
+        disponivel: zod.boolean().optional(),
+        encomenda: zod.boolean().optional(),
+        estoque: zod.number().optional(),
+        familySlug: zod
+          .string()
+          .optional()
+          .describe(
+            "Canonical family key shared by all size variants of a model",
+          ),
+        familyName: zod
+          .string()
+          .optional()
+          .describe("Display name for the product family (size-stripped)"),
+        size: zod
+          .enum(["King", "Queen", "Casal", "Solteiro"])
+          .optional()
+          .describe("Size variant for this specific product"),
         criadoEm: zod.string().optional(),
       }),
     )
@@ -362,6 +441,7 @@ export const HistoricoOrcamentosResponseItem = zod.object({
         id: zod.number(),
         nome: zod.string(),
         sku: zod.string().optional(),
+        slug: zod.string().optional(),
         preco: zod.string().optional(),
         precoPix: zod.string().optional(),
         parcelamento: zod.string().optional(),
@@ -369,7 +449,23 @@ export const HistoricoOrcamentosResponseItem = zod.object({
         altura: zod.string().optional(),
         categoria: zod.string(),
         imagem: zod.string().optional(),
-        link: zod.string().optional(),
+        disponivel: zod.boolean().optional(),
+        encomenda: zod.boolean().optional(),
+        estoque: zod.number().optional(),
+        familySlug: zod
+          .string()
+          .optional()
+          .describe(
+            "Canonical family key shared by all size variants of a model",
+          ),
+        familyName: zod
+          .string()
+          .optional()
+          .describe("Display name for the product family (size-stripped)"),
+        size: zod
+          .enum(["King", "Queen", "Casal", "Solteiro"])
+          .optional()
+          .describe("Size variant for this specific product"),
         criadoEm: zod.string().optional(),
       }),
     )
@@ -1170,6 +1266,7 @@ export const BuscarProdutosEstoqueResponseItem = zod.object({
   id: zod.number(),
   nome: zod.string(),
   sku: zod.string().optional(),
+  slug: zod.string().optional(),
   preco: zod.string().optional(),
   precoPix: zod.string().optional(),
   parcelamento: zod.string().optional(),
@@ -1177,7 +1274,21 @@ export const BuscarProdutosEstoqueResponseItem = zod.object({
   altura: zod.string().optional(),
   categoria: zod.string(),
   imagem: zod.string().optional(),
-  link: zod.string().optional(),
+  disponivel: zod.boolean().optional(),
+  encomenda: zod.boolean().optional(),
+  estoque: zod.number().optional(),
+  familySlug: zod
+    .string()
+    .optional()
+    .describe("Canonical family key shared by all size variants of a model"),
+  familyName: zod
+    .string()
+    .optional()
+    .describe("Display name for the product family (size-stripped)"),
+  size: zod
+    .enum(["King", "Queen", "Casal", "Solteiro"])
+    .optional()
+    .describe("Size variant for this specific product"),
   criadoEm: zod.string().optional(),
 });
 export const BuscarProdutosEstoqueResponse = zod.array(

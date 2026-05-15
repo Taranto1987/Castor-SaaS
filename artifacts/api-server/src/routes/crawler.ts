@@ -1,5 +1,5 @@
 import { Router, type IRouter, type Request, type Response, type NextFunction } from "express";
-import { db } from "@workspace/db";
+import { db, extractFamilyInfo } from "@workspace/db";
 import { produtosTable, crawlerStatusTable } from "@workspace/db/schema";
 import { eq } from "drizzle-orm";
 import axios from "axios";
@@ -191,6 +191,7 @@ async function executarCrawler() {
         // slug is the public-facing identifier for internal PDP routes
         const slug = item.url_key;
         const imagem = item.small_image?.url ?? "";
+        const { familySlug, familyName, size } = extractFamilyInfo(slug, item.name);
 
         // Extract dimensions from description HTML
         const html = (item as { description?: { html?: string } }).description?.html ?? "";
@@ -205,7 +206,7 @@ async function executarCrawler() {
             nome: item.name,
             sku: item.sku,
             slug,
-            link,          // internal only — crawler_origin
+            link,
             preco,
             precoPix,
             precoBase: String(precoRegular),
@@ -214,6 +215,9 @@ async function executarCrawler() {
             altura: altura || null,
             categoria: categoria.nome,
             imagem: imagem || null,
+            familySlug,
+            familyName,
+            size,
           }).onConflictDoUpdate({
             target: produtosTable.sku,
             set: {
@@ -228,6 +232,9 @@ async function executarCrawler() {
               altura: altura || null,
               categoria: categoria.nome,
               imagem: imagem || null,
+              familySlug,
+              familyName,
+              size,
             },
           });
           produtosColetados++;

@@ -6,6 +6,7 @@
   "scripts": {
     "hello": "tsx ./src/hello.ts",
     "backfill-slugs": "tsx ./src/backfill-slugs.ts",
+    "backfill-family": "tsx ./src/backfill-family.ts",
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
   "dependencies": {
