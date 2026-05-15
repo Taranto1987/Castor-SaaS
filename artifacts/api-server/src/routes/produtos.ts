@@ -1,5 +1,5 @@
 import { Router, type IRouter, type Request, type Response, type NextFunction } from "express";
-import { db } from "@workspace/db";
+import { db, extractFamilyInfo } from "@workspace/db";
 import { produtosTable, outletInteressesTable } from "@workspace/db/schema";
 import { ilike, or, eq, and, isNull, gt, desc, count, max, inArray, type SQL } from "drizzle-orm";
 import { getSession, isDono as isDonoSession } from "../lib/sessions";
@@ -17,6 +17,7 @@ function requireDono(req: Request, res: Response, next: NextFunction) {
 const router: IRouter = Router();
 
 function mapProduto(p: typeof produtosTable.$inferSelect) {
+  const { familySlug, familyName, size } = extractFamilyInfo(p.slug, p.nome);
   return {
     id: p.id,
     nome: p.nome,
@@ -35,9 +36,9 @@ function mapProduto(p: typeof produtosTable.$inferSelect) {
     prazoEncomenda: p.prazoEncomenda,
     estoque: p.estoque,
     precoBase: p.precoBase ? parseFloat(String(p.precoBase)) : null,
-    familySlug: p.familySlug,
-    familyName: p.familyName,
-    size: p.size,
+    familySlug,
+    familyName,
+    size,
     criadoEm: p.criadoEm,
   };
 }

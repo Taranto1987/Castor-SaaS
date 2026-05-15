@@ -25,10 +25,6 @@ export const produtosTable = pgTable("produtos", {
   // Preço cheio: referência obrigatória para todo cálculo de desconto.
   // Nunca calcular desconto sobre precoPix ou qualquer preço já reduzido.
   precoBase: numeric("preco_base", { precision: 12, scale: 2 }),
-  // Product-family grouping — computed once at crawler write-time.
-  familySlug: text("family_slug"),   // canonical key, e.g. "colchao-castor-red-white-d33"
-  familyName: text("family_name"),   // display name, e.g. "Colchão Castor Red & White D33"
-  size: text("size"),                // "King" | "Queen" | "Casal" | "Solteiro" | null
   criadoEm: timestamp("criado_em").defaultNow(),
 }, (t) => [
   uniqueIndex("produtos_sku_unique").on(t.sku).where(sql`${t.sku} IS NOT NULL`),
