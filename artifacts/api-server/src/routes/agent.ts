@@ -4,10 +4,11 @@ import {
   sendCastorMessage,
   streamCastorEvents,
 } from "../lib/castor-agent";
+import { requireAuth } from "../middlewares/auth";
 
 const router = Router();
 
-router.post("/agent/run", async (req: Request, res: Response) => {
+router.post("/agent/run", requireAuth, async (req: Request, res: Response) => {
   try {
     const { message, session_id } = req.body ?? {};
     if (typeof message !== "string" || !message.trim()) {
@@ -43,7 +44,7 @@ router.post("/agent/run", async (req: Request, res: Response) => {
   }
 });
 
-router.post("/agent/stream", async (req: Request, res: Response) => {
+router.post("/agent/stream", requireAuth, async (req: Request, res: Response) => {
   try {
     const { message, session_id } = req.body ?? {};
     if (typeof message !== "string" || !message.trim()) {
