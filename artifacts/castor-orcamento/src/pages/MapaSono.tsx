@@ -5,7 +5,7 @@ import {
   Cloud, BedDouble, Activity, Thermometer, Maximize2,
   RefreshCw, Star, ChevronLeft, ChevronRight,
   MessageCircle, User, Home, Check, Zap, Heart,
-  Shield, Clock, Package, Layers, Phone,
+  Shield, Clock, Package, Layers, Phone, Loader2,
 } from "lucide-react";
 import { trackWhatsAppClick } from "@/lib/tracking";
 
@@ -46,6 +46,28 @@ interface QStep {
   options?: Opt[];
   grid2?: boolean;
   min?: number; max?: number; defaultVal?: number;
+}
+
+// ── Recommendation engine types ────────────────────────────────────────────────
+interface ApiProduto {
+  id: number;
+  nome: string;
+  precoPix?: string;
+  imagem?: string;
+  familyName?: string;
+  familySlug?: string;
+  size?: string;
+  categoria: string;
+  medidas?: string;
+  disponivel?: boolean;
+  encomenda?: boolean;
+}
+
+interface ScoredProduto {
+  produto: ApiProduto;
+  score: number;
+  tags: string[];
+  firmezaLabel: string;
 }
 
 // ── Steps ──────────────────────────────────────────────────────────────────────
@@ -161,41 +183,145 @@ const TOTAL = STEPS.length;
 const MID_AFTER = 4; // show mid-loading after step index 4 (peso)
 
 // ── Recommendation engine ──────────────────────────────────────────────────────
-function computeResult(a: Answers) {
+const SIZE_MAP: Record<string, string> = {
+  solteiro: "Solteiro",
+  casal: "Casal",
+  queen: "Queen",
+  king: "King",
+};
+
+function calcFirmezaAlvo(a: Answers): "firme" | "intermediario" | "macio" {
   const peso = a.peso ?? 75;
   const alt  = a.altura ?? 170;
   const imc  = peso / ((alt / 100) ** 2);
-
-  let firmeza = "Intermediário";
-  if (imc >= 28 || a.posicao === "costas") firmeza = "Firme";
-  if (imc < 22 && a.posicao !== "costas") firmeza = "Macio";
-  if (a.firmeza === "macio"  && firmeza !== "Firme") firmeza = "Macio";
-  if (a.firmeza === "firme") firmeza = "Firme";
-
+  let f: "firme" | "intermediario" | "macio" = "intermediario";
+  if (imc >= 28 || a.posicao === "costas") f = "firme";
+  if (imc < 22 && a.posicao !== "costas") f = "macio";
+  if (a.firmeza === "macio" && f !== "firme") f = "macio";
+  if (a.firmeza === "firme") f = "firme";
   const dores = a.dores ?? [];
-  if (dores.some(d => ["lombar", "coluna"].includes(d)) && firmeza === "Macio") firmeza = "Intermediário";
-
-  const tags: string[] = [
-    firmeza === "Firme"  ? "Alto Suporte"          :
-    firmeza === "Macio"  ? "Suave e Aconchegante"  : "Conforto Equilibrado",
-  ];
-  if (a.temperatura === "sim")                        tags.push("Tecnologia Térmica");
-  if (a.casal === "casal")                            tags.push("Molas Ensacadas");
-  if (dores.some(d => d !== "nenhuma"))               tags.push("Alívio de Pressão");
-  if (a.prioridade === "durabilidade")                tags.push("Alta Durabilidade");
-
-  const nome =
-    a.casal === "casal"   ? "Castor Duo Confort"    :
-    firmeza === "Firme"   ? "Castor Suporte Active" :
-    firmeza === "Macio"   ? "Castor Soft Premium"   : "Castor Premium D45";
-
-  return { nome, firmeza, tags };
+  if (dores.some(d => ["lombar", "coluna"].includes(d)) && f === "macio") f = "intermediario";
+  return f;
 }
 
-function buildWAMsg(a: Answers, capNome: string, res: { nome: string; firmeza: string }) {
+function scoreAndTag(
+  p: ApiProduto,
+  a: Answers,
+  fAlvo: "firme" | "intermediario" | "macio",
+): { score: number; tags: string[] } {
+  const txt = `${p.nome} ${p.familyName ?? ""}`.toLowerCase();
+  const densM = txt.match(/\bd(\d{2,3})\b/);
+  const dens = densM ? parseInt(densM[1]) : null;
+  const hasPillow = txt.includes("pillow");
+  const hasSpring = txt.includes("molas") || txt.includes("spring") || txt.includes("pocket") || txt.includes("ensacad");
+  let score = 0;
+
+  // Firmness
+  if (fAlvo === "firme") {
+    if (dens && dens >= 45) score += 4;
+    if (dens && dens >= 53) score += 2;
+    if (dens && dens <= 28) score -= 3;
+    if (!hasPillow) score += 1;
+  } else if (fAlvo === "macio") {
+    if (hasPillow) score += 4;
+    if (dens && dens <= 33) score += 2;
+    if (dens && dens >= 53) score -= 2;
+  } else {
+    if (dens === 45) score += 3;
+    if (dens === 33) score += 2;
+  }
+
+  // Spring tech
+  if (a.casal === "casal" && hasSpring) score += 5;
+  if (a.temperatura === "sim" && hasSpring) score += 3;
+  if (a.temperatura === "sim" && hasPillow) score -= 1;
+
+  // Pain relief
+  const hasPain = (a.dores ?? []).some(d => ["lombar", "coluna", "ombro"].includes(d));
+  if (hasPain && dens && dens >= 45) score += 2;
+  if (hasPain && (txt.includes("ortoped") || txt.includes("anatomic"))) score += 3;
+
+  // Priorities
+  if (a.prioridade === "durabilidade" && dens && dens >= 45) score += 2;
+  if (a.prioridade === "conforto" && (hasPillow || txt.includes("premium"))) score += 1;
+
+  // Tags
+  const tags: string[] = [];
+  const fLabel = fAlvo === "firme" ? "Alto Suporte" : fAlvo === "macio" ? "Suave e Aconchegante" : "Conforto Equilibrado";
+  tags.push(fLabel);
+  if (hasSpring) tags.push("Molas Ensacadas");
+  if (hasPillow) tags.push("Pillow Top");
+  if (dens && dens >= 45) tags.push(`Densidade D${dens}`);
+  if (hasPain) tags.push("Alívio de Pressão");
+  if (a.prioridade === "durabilidade" && dens && dens >= 45) tags.push("Alta Durabilidade");
+
+  return { score, tags: tags.slice(0, 4) };
+}
+
+async function fetchRecomendacoes(a: Answers): Promise<ScoredProduto[]> {
+  const res = await fetch("/api/produtos?categoria=colchoes&limite=100");
+  if (!res.ok) throw new Error("api_error");
+  const all: ApiProduto[] = await res.json();
+
+  const fAlvo = calcFirmezaAlvo(a);
+  const tamanhoAlvo = a.tamanho ? SIZE_MAP[a.tamanho] : null;
+
+  // Filter: available, correct size
+  const candidates = all.filter(p => {
+    if (!p.disponivel) return false;
+    if (p.encomenda) return false;
+    if (tamanhoAlvo && p.size && p.size !== tamanhoAlvo) return false;
+    return true;
+  });
+
+  // Score all candidates
+  const scored = candidates.map(p => {
+    const { score, tags } = scoreAndTag(p, a, fAlvo);
+    return {
+      produto: p,
+      score,
+      tags,
+      firmezaLabel: fAlvo === "firme" ? "Firme" : fAlvo === "macio" ? "Macio" : "Intermediário",
+    };
+  });
+
+  // Sort by score desc
+  scored.sort((a, b) => b.score - a.score);
+
+  // Deduplicate by familySlug — keep best-scored per family
+  const seen = new Set<string>();
+  const unique: ScoredProduto[] = [];
+  for (const s of scored) {
+    const key = s.produto.familySlug ?? s.produto.nome;
+    if (!seen.has(key)) { seen.add(key); unique.push(s); }
+    if (unique.length >= 3) break;
+  }
+
+  return unique;
+}
+
+// ── Fallback (legacy) when no API products found ───────────────────────────────
+function computeFallback(a: Answers) {
+  const fAlvo = calcFirmezaAlvo(a);
+  const tags: string[] = [
+    fAlvo === "firme" ? "Alto Suporte" : fAlvo === "macio" ? "Suave e Aconchegante" : "Conforto Equilibrado",
+  ];
+  if (a.temperatura === "sim") tags.push("Tecnologia Térmica");
+  if (a.casal === "casal")    tags.push("Molas Ensacadas");
+  if ((a.dores ?? []).some(d => d !== "nenhuma")) tags.push("Alívio de Pressão");
+  if (a.prioridade === "durabilidade") tags.push("Alta Durabilidade");
+  const nome =
+    a.casal === "casal"         ? "Castor Duo Confort"    :
+    fAlvo    === "firme"        ? "Castor Suporte Active" :
+    fAlvo    === "macio"        ? "Castor Soft Premium"   : "Castor Premium D45";
+  return { nome, firmezaLabel: fAlvo === "firme" ? "Firme" : fAlvo === "macio" ? "Macio" : "Intermediário", tags };
+}
+
+function buildWAMsg(a: Answers, capNome: string, produtoNome: string, precoPix?: string) {
   const altStr  = a.altura ? `${(a.altura / 100).toFixed(2).replace(".", ",")} m` : "-";
   const pesoStr = a.peso   ? `${a.peso} kg` : "-";
   const doresStr = (a.dores ?? []).filter(Boolean).join(", ") || "nenhuma";
+  const precoStr = precoPix ? ` — ${precoPix}` : "";
   return [
     `Olá! Fiz o Mapa do Sono da Castor e recebi minha recomendação. 🌙`,
     ``,
@@ -209,7 +335,7 @@ function buildWAMsg(a: Answers, capNome: string, res: { nome: string; firmeza: s
     `• Calor ao dormir: ${a.temperatura === "sim" ? "sim" : "não"}`,
     `• Prioridade: ${a.prioridade ?? "-"}`,
     ``,
-    `✅ Recomendação recebida: ${res.nome} (${res.firmeza})`,
+    `✅ Recomendação recebida: ${produtoNome}${precoStr}`,
     ``,
     `Gostaria de saber mais sobre esse colchão!`,
   ].join("\n");
@@ -636,13 +762,28 @@ function AnalyzingScreen() {
 
 // ── Result screen ───────────────────────────────────────────────────────────────
 function ResultScreen({
-  answers, capNome, capZap, onRestart,
+  answers, capNome, capZap, onRestart, recomendacoes, produtosLoading,
 }: {
-  answers: Answers; capNome: string; capZap: string; onRestart: () => void;
+  answers: Answers;
+  capNome: string;
+  capZap: string;
+  onRestart: () => void;
+  recomendacoes: ScoredProduto[];
+  produtosLoading: boolean;
 }) {
-  const result = computeResult(answers);
-  const msg    = buildWAMsg(answers, capNome, result);
-  const waUrl  = `https://wa.me/5522992410112?text=${encodeURIComponent(msg)}`;
+  void capZap; // captured for future CRM use
+
+  const primary = recomendacoes[0] ?? null;
+  const alternatives = recomendacoes.slice(1);
+
+  // Get display name and price for primary recommendation
+  const mainNome   = primary?.produto.familyName ?? primary?.produto.nome ?? computeFallback(answers).nome;
+  const mainPreco  = primary?.produto.precoPix;
+  const mainWaMsg  = buildWAMsg(answers, capNome, mainNome, mainPreco);
+  const mainWaUrl  = `https://wa.me/5522992410112?text=${encodeURIComponent(mainWaMsg)}`;
+  const mainTags   = primary?.tags ?? computeFallback(answers).tags;
+  const mainImagem = primary?.produto.imagem ?? null;
+  const mainSize   = primary?.produto.size;
 
   return (
     <div className="flex flex-col h-full" style={{ background: BG }}>
@@ -658,25 +799,52 @@ function ResultScreen({
           </p>
         </div>
 
-        {/* Product card */}
-        <div className="rounded-2xl overflow-hidden mb-5" style={{ background: CARD, border: `1px solid ${BORDER}` }}>
-          <div className="px-5 py-5">
-            <p className="text-xs font-bold uppercase tracking-wider mb-1" style={{ color: "#666" }}>
-              Recomendação Personalizada
-            </p>
-            <h3 className="text-xl font-black text-white mb-4">{result.nome}</h3>
-            <div className="flex flex-wrap gap-2">
-              {result.tags.map(tag => (
-                <span key={tag} className="text-xs font-bold px-3 py-1 rounded-full" style={{ background: "#1e0000", color: RED, border: `1px solid ${BORDER}` }}>
-                  {tag}
-                </span>
-              ))}
+        {/* Primary product card */}
+        {produtosLoading ? (
+          <div
+            className="rounded-2xl p-8 flex flex-col items-center justify-center gap-3 mb-5"
+            style={{ background: CARD, border: `1px solid ${BORDER}` }}
+          >
+            <Loader2 className="w-7 h-7 animate-spin" style={{ color: RED }} />
+            <span className="text-sm" style={{ color: "#666" }}>Buscando produtos...</span>
+          </div>
+        ) : (
+          <div className="rounded-2xl overflow-hidden mb-5" style={{ background: CARD, border: `1px solid ${BORDER}` }}>
+            {/* Product image */}
+            {mainImagem && (
+              <div className="w-full h-44 overflow-hidden" style={{ background: "#0e0e0e" }}>
+                <img
+                  src={mainImagem}
+                  alt={mainNome}
+                  className="w-full h-full object-contain"
+                  loading="lazy"
+                />
+              </div>
+            )}
+            <div className="px-5 py-5">
+              <p className="text-xs font-bold uppercase tracking-wider mb-1" style={{ color: "#666" }}>
+                Recomendação Personalizada
+              </p>
+              <h3 className="text-xl font-black text-white mb-1 leading-tight">{mainNome}</h3>
+              {mainSize && (
+                <p className="text-sm mb-2" style={{ color: "#888" }}>{mainSize}</p>
+              )}
+              {mainPreco && (
+                <p className="text-lg font-extrabold mb-3" style={{ color: RED }}>{mainPreco} no Pix</p>
+              )}
+              <div className="flex flex-wrap gap-2">
+                {mainTags.map(tag => (
+                  <span key={tag} className="text-xs font-bold px-3 py-1 rounded-full" style={{ background: "#1e0000", color: RED, border: `1px solid ${BORDER}` }}>
+                    {tag}
+                  </span>
+                ))}
+              </div>
             </div>
           </div>
-        </div>
+        )}
 
         {/* Profile summary */}
-        <div className="rounded-2xl px-5 py-4 mb-6" style={{ background: "#0e0e0e", border: `1px solid #1e1e1e` }}>
+        <div className="rounded-2xl px-5 py-4 mb-5" style={{ background: "#0e0e0e", border: `1px solid #1e1e1e` }}>
           <p className="text-xs font-bold uppercase tracking-wider mb-3" style={{ color: "#555" }}>Seu Perfil</p>
           <div className="grid grid-cols-2 gap-2 text-xs" style={{ color: "#888" }}>
             {answers.altura && (
@@ -694,9 +862,61 @@ function ResultScreen({
           </div>
         </div>
 
-        {/* CTA */}
+        {/* Alternative products */}
+        {alternatives.length > 0 && (
+          <>
+            <p className="text-xs font-bold uppercase tracking-wider mb-3" style={{ color: "#555" }}>
+              Outras opções para você
+            </p>
+            <div className="flex flex-col gap-3 mb-5">
+              {alternatives.map((alt, i) => {
+                const altNome  = alt.produto.familyName ?? alt.produto.nome;
+                const altMsg   = buildWAMsg(answers, capNome, altNome, alt.produto.precoPix);
+                const altUrl   = `https://wa.me/5522992410112?text=${encodeURIComponent(altMsg)}`;
+                return (
+                  <div
+                    key={i}
+                    className="rounded-xl px-4 py-4 flex items-center gap-4"
+                    style={{ background: CARD, border: `1px solid ${BORDER}` }}
+                  >
+                    {alt.produto.imagem && (
+                      <img
+                        src={alt.produto.imagem}
+                        alt={altNome}
+                        className="w-14 h-14 rounded-lg object-contain shrink-0"
+                        style={{ background: "#0e0e0e" }}
+                        loading="lazy"
+                      />
+                    )}
+                    <div className="flex-1 min-w-0">
+                      <p className="text-white font-bold text-sm leading-tight truncate">{altNome}</p>
+                      {alt.produto.size && (
+                        <p className="text-xs mt-0.5" style={{ color: "#666" }}>{alt.produto.size}</p>
+                      )}
+                      {alt.produto.precoPix && (
+                        <p className="text-sm font-extrabold mt-1" style={{ color: RED }}>{alt.produto.precoPix}</p>
+                      )}
+                    </div>
+                    <a
+                      href={altUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      onClick={() => trackWhatsAppClick("mapa_sono_alternativa", "Cabo Frio")}
+                      className="shrink-0 w-9 h-9 rounded-full flex items-center justify-center"
+                      style={{ background: "#25D366" }}
+                    >
+                      <MessageCircle className="w-4 h-4 text-white" />
+                    </a>
+                  </div>
+                );
+              })}
+            </div>
+          </>
+        )}
+
+        {/* Primary CTA */}
         <a
-          href={waUrl}
+          href={mainWaUrl}
           target="_blank"
           rel="noopener noreferrer"
           onClick={() => trackWhatsAppClick("mapa_sono_resultado", "Cabo Frio")}
@@ -759,16 +979,18 @@ function WelcomeScreen({ onStart }: { onStart: () => void }) {
 
 // ── Main ───────────────────────────────────────────────────────────────────────
 export default function MapaSono({ embedded = false }: MapaSonoProps) {
-  const [phase, setPhase]     = useState<Phase>(embedded ? "quiz" : "welcome");
-  const [step, setStep]       = useState(0);
-  const [answers, setAnswers] = useState<Answers>({});
-  const [sliders, setSliders] = useState<Record<string, number>>({});
-  const [capNome, setCapNome] = useState("");
-  const [capZap,  setCapZap]  = useState("");
+  const [phase, setPhase]         = useState<Phase>(embedded ? "quiz" : "welcome");
+  const [step, setStep]           = useState(0);
+  const [answers, setAnswers]     = useState<Answers>({});
+  const [sliders, setSliders]     = useState<Record<string, number>>({});
+  const [capNome, setCapNome]     = useState("");
+  const [capZap,  setCapZap]      = useState("");
+  const [recomendacoes, setRecomendacoes] = useState<ScoredProduto[]>([]);
+  const [produtosLoading, setProdutosLoading] = useState(false);
 
-  const midTimer      = useRef<number | null>(null);
+  const midTimer       = useRef<number | null>(null);
   const analyzingTimer = useRef<number | null>(null);
-  const autoTimer     = useRef<number | null>(null);
+  const autoTimer      = useRef<number | null>(null);
 
   useEffect(() => () => {
     [midTimer, analyzingTimer, autoTimer].forEach(r => {
@@ -796,9 +1018,8 @@ export default function MapaSono({ embedded = false }: MapaSonoProps) {
   }
 
   function advance(cur: Answers) {
-    void cur; // just for completeness
+    void cur;
     if (step === MID_AFTER) {
-      // After peso → mid loading
       setPhase("mid_loading");
       midTimer.current = window.setTimeout(() => {
         midTimer.current = null;
@@ -806,7 +1027,6 @@ export default function MapaSono({ embedded = false }: MapaSonoProps) {
         setPhase("quiz");
       }, 2000);
     } else if (step >= TOTAL - 1) {
-      // After last step → capture
       setPhase("capture");
     } else {
       setStep(s => s + 1);
@@ -821,8 +1041,17 @@ export default function MapaSono({ embedded = false }: MapaSonoProps) {
   }
 
   function handleCapture(nome: string, zap: string) {
-    setCapNome(nome); setCapZap(zap);
+    setCapNome(nome);
+    setCapZap(zap);
     setPhase("analyzing");
+    setRecomendacoes([]);
+    setProdutosLoading(true);
+
+    // Fetch real products concurrently with the animation
+    fetchRecomendacoes(answers)
+      .then(r => { setRecomendacoes(r); setProdutosLoading(false); })
+      .catch(() => { setProdutosLoading(false); }); // falls back to computeFallback in ResultScreen
+
     analyzingTimer.current = window.setTimeout(() => {
       analyzingTimer.current = null;
       setPhase("result");
@@ -835,6 +1064,8 @@ export default function MapaSono({ embedded = false }: MapaSonoProps) {
     setAnswers({});
     setSliders({});
     setCapNome(""); setCapZap("");
+    setRecomendacoes([]);
+    setProdutosLoading(false);
   }
 
   const outerClass = embedded ? "flex flex-col min-h-full" : "flex flex-col min-h-screen";
@@ -890,7 +1121,14 @@ export default function MapaSono({ embedded = false }: MapaSonoProps) {
 
         {phase === "result" && (
           <motion.div key="result" initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} transition={{ duration: 0.3 }} className="flex-1 flex flex-col">
-            <ResultScreen answers={answers} capNome={capNome} capZap={capZap} onRestart={restart} />
+            <ResultScreen
+              answers={answers}
+              capNome={capNome}
+              capZap={capZap}
+              onRestart={restart}
+              recomendacoes={recomendacoes}
+              produtosLoading={produtosLoading}
+            />
           </motion.div>
         )}
       </AnimatePresence>
