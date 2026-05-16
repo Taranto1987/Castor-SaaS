@@ -617,45 +617,65 @@ function GuaranteeStrip({ text }: { text: string }) {
 // ── Floating CTA ───────────────────────────────────────────────────────────────
 
 function FloatingCTA({ cfg }: { cfg: LPConfig }) {
-  const [visible, setVisible] = useState(false);
+  const [scrolled, setScrolled] = useState(false);
   const wa = cfg.wa;
   useEffect(() => {
-    const fn = () => setVisible(window.scrollY > 350);
+    const fn = () => setScrolled(window.scrollY > 300);
+    fn();
     window.addEventListener("scroll", fn, { passive: true });
     return () => window.removeEventListener("scroll", fn);
   }, []);
+
+  const waHref = waLink(wa, defaultWaMsg(wa));
+  const telHref = `tel:${wa.tel.replace(/\D/g, "")}`;
+
   return (
-    <AnimatePresence>
-      {visible && (
-        <motion.div
-          initial={{ opacity: 0, y: 24 }}
-          animate={{ opacity: 1, y: 0 }}
-          exit={{ opacity: 0, y: 24 }}
-          className="fixed bottom-5 right-5 z-50 flex flex-col items-end gap-2"
+    <>
+      {/* Mobile: barra fixa no rodapé — sempre visível desde o carregamento */}
+      <div className="sm:hidden fixed bottom-0 left-0 right-0 z-50 bg-white border-t border-slate-200 shadow-[0_-4px_24px_rgba(0,0,0,0.12)] px-4 py-3 flex gap-3">
+        <a
+          href={telHref}
+          onClick={() => pushEvent("lp_phone_click", { loja: wa.loja })}
+          className="flex items-center justify-center gap-2 flex-1 bg-slate-900 text-white font-bold py-3 rounded-2xl active:scale-95 transition-all text-sm"
+          aria-label="Ligar agora"
         >
-          {/* Phone CTA — mobile only */}
-          <a
-            href={`tel:${wa.tel.replace(/\D/g, "")}`}
-            onClick={() => pushEvent("lp_phone_click", { loja: wa.loja })}
-            className="sm:hidden flex items-center justify-center w-11 h-11 bg-slate-900 rounded-2xl shadow-xl hover:bg-slate-700 transition-all"
-            aria-label="Ligar agora"
+          <Phone className="w-4 h-4" />Ligar
+        </a>
+        <a
+          href={waHref}
+          target="_blank"
+          rel="noopener noreferrer"
+          onClick={() => trackWhatsAppClick("lp_sticky_mobile", wa.loja)}
+          className="flex items-center justify-center gap-2 flex-[2] bg-green-500 text-white font-extrabold py-3 rounded-2xl active:scale-95 transition-all text-sm shadow-lg shadow-green-900/30"
+        >
+          <MessageCircle className="w-4 h-4" />WhatsApp agora
+        </a>
+      </div>
+
+      {/* Desktop: botão flutuante aparece após scroll */}
+      <AnimatePresence>
+        {scrolled && (
+          <motion.div
+            initial={{ opacity: 0, y: 24 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: 24 }}
+            className="hidden sm:flex fixed bottom-5 right-5 z-50 flex-col items-end gap-2"
           >
-            <Phone className="w-5 h-5 text-white" />
-          </a>
-          <a
-            href={waLink(wa, defaultWaMsg(wa))}
-            target="_blank"
-            rel="noopener noreferrer"
-            onClick={() => trackWhatsAppClick("lp_floating", wa.loja)}
-            className="flex items-center gap-2.5 bg-green-500 hover:bg-green-400 text-white font-bold px-5 py-3.5 rounded-2xl shadow-2xl shadow-green-900/40 transition-all active:scale-95"
-            style={{ filter: "drop-shadow(0 0 10px rgba(34,197,94,0.45))" }}
-          >
-            <MessageCircle className="w-5 h-5" />
-            <span className="hidden sm:inline text-sm">WhatsApp agora</span>
-          </a>
-        </motion.div>
-      )}
-    </AnimatePresence>
+            <a
+              href={waHref}
+              target="_blank"
+              rel="noopener noreferrer"
+              onClick={() => trackWhatsAppClick("lp_floating", wa.loja)}
+              className="flex items-center gap-2.5 bg-green-500 hover:bg-green-400 text-white font-bold px-5 py-3.5 rounded-2xl shadow-2xl shadow-green-900/40 transition-all active:scale-95"
+              style={{ filter: "drop-shadow(0 0 10px rgba(34,197,94,0.45))" }}
+            >
+              <MessageCircle className="w-5 h-5" />
+              <span className="text-sm">WhatsApp agora</span>
+            </a>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </>
   );
 }
 
@@ -748,7 +768,7 @@ export default function LPTemplate({ cfg }: { cfg: LPConfig }) {
   const waHref = waLink(wa, defaultWaMsg(wa));
 
   return (
-    <div className="min-h-screen bg-white overflow-x-hidden">
+    <div className="min-h-screen bg-white overflow-x-hidden pb-[72px] sm:pb-0">
       <PageMeta cfg={cfg} />
       <LocalBusinessSchema cfg={cfg} />
 
