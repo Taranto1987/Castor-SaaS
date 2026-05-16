@@ -33,6 +33,8 @@ app.use("/api/auth/alterar-senha",  makeLimiter(10));           // 10/15min
 app.use("/api/usuarios/aceitar-convite", makeLimiter(10));      // 10/15min — prevent invite token brute force
 // AI agent endpoints — each call creates an Anthropic session (billed per token)
 app.use("/api/agent/",              makeLimiter(20, 60 * 60 * 1000)); // 20/hour per IP
+// Public AI chat (ThallesZzz sales assistant) — streams Anthropic calls
+app.use("/api/chat",                makeLimiter(30));                  // 30/15min per IP
 // Sitemap at root (not under /api) for search engine discovery
 app.use(sitemapRouter);
 app.use("/api", router);

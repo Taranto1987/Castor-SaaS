@@ -1,17 +1,8 @@
-import { Router, type IRouter, type Request, type Response, type NextFunction } from "express";
+import { Router, type IRouter } from "express";
 import { db } from "@workspace/db";
 import { followUpsTable, orcamentosTable } from "@workspace/db/schema";
 import { eq, and, isNull, desc } from "drizzle-orm";
-import { getSession } from "../lib/sessions";
-
-function requireAuth(req: Request, res: Response, next: NextFunction) {
-  const token = (req.headers["x-session-token"] || "") as string;
-  if (!token) { res.status(401).json({ error: "Autenticação necessária" }); return; }
-  const session = getSession(token);
-  if (!session) { res.status(401).json({ error: "Sessão inválida ou expirada" }); return; }
-  (req as any).session = session;
-  next();
-}
+import { requireAuth, type AuthRequest } from "../middlewares/auth";
 
 const router: IRouter = Router();
 
@@ -20,9 +11,9 @@ const router: IRouter = Router();
  * Retorna follow-ups automáticos ainda não executados.
  * Dono vê todos; vendedor vê apenas os seus.
  */
-router.get("/pendentes", requireAuth, async (req, res) => {
+router.get("/pendentes", requireAuth, async (req: AuthRequest, res) => {
   try {
-    const session = (req as any).session as { nome: string; papel: string };
+    const session = req.session!;
 
     const rows = await db
       .select({
@@ -42,6 +33,7 @@ router.get("/pendentes", requireAuth, async (req, res) => {
       .innerJoin(orcamentosTable, eq(followUpsTable.orcamentoId, orcamentosTable.id))
       .where(
         and(
+          eq(followUpsTable.lojaId, session.lojaId),
           isNull(followUpsTable.executadoEm),
           eq(orcamentosTable.status, "pendente")
         )
@@ -64,7 +56,7 @@ router.get("/pendentes", requireAuth, async (req, res) => {
  * POST /api/followup/:id/executado
  * Marca um follow-up como executado (enviado ao cliente).
  */
-router.post("/:id/executado", requireAuth, async (req, res) => {
+router.post("/:id/executado", requireAuth, async (req: AuthRequest, res) => {
   try {
     const id = parseInt(String(req.params.id), 10);
     if (!id || isNaN(id)) {
@@ -75,7 +67,7 @@ router.post("/:id/executado", requireAuth, async (req, res) => {
     const [updated] = await db
       .update(followUpsTable)
       .set({ executadoEm: new Date() })
-      .where(eq(followUpsTable.id, id))
+      .where(and(eq(followUpsTable.id, id), eq(followUpsTable.lojaId, req.session!.lojaId)))
       .returning({ id: followUpsTable.id });
 
     if (!updated) {
