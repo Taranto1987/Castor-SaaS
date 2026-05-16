@@ -28,7 +28,7 @@
   "rewrites": [
     {
       "source": "/api/:path*",
-      "destination": "https://workspaceapi-server-production-fb1b.up.railway.app/api/:path*"
+      "destination": "https://evolution-api-production-405f.up.railway.app/api/:path*"
     },
     {
       "source": "/(.*)",
