@@ -43,7 +43,7 @@ export default function Layout({ children }: LayoutProps) {
             {/* Logo area */}
             <Link href="/" className="flex items-center cursor-pointer group">
               <img
-                src="/logo-castor.png"
+                src="/logo-castor.webp"
                 alt="Castor Cabo Frio"
                 className="h-12 w-auto group-hover:scale-105 transition-transform duration-300"
               />

@@ -55,7 +55,7 @@ export default function LoginScreen() {
       >
         <div className="bg-white rounded-2xl p-4 shadow-2xl mb-5">
           <img
-            src="/logo-castor.png"
+            src="/logo-castor.webp"
             alt="Castor"
             className="h-14 w-auto object-contain"
             onError={e => { (e.target as HTMLImageElement).style.display = "none"; }}
