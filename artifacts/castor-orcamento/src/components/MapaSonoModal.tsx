@@ -82,7 +82,7 @@ export default function MapaSonoModal({ open, onClose }: Props) {
 
             {/* Conteúdo com scroll */}
             <div className="overflow-y-auto flex-1 overscroll-contain">
-              <MapaSono />
+              <MapaSono embedded />
             </div>
           </motion.div>
         </motion.div>
