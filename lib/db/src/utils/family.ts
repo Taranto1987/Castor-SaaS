@@ -42,8 +42,11 @@ function familyNameFromNome(nome: string): string {
 export function extractFamilyInfo(slug: string | null | undefined, nome: string): FamilyInfo {
   // ── PRIMARY: slug-based ────────────────────────────────────────────────────
   if (slug) {
+    // Normalize accent-broken prefix used by some Castor URLs ("ã" → "o" with hyphen)
+    const normalizedSlug = slug.replace(/^colch-o-castor/, "colchao-castor");
+
     // Strip trailing dimension segment: -88x188x27cm or -88x188
-    const clean = slug
+    const clean = normalizedSlug
       .replace(/-\d[\dx]*cm$/i, "")
       .replace(/-\d[\dx]*$/i,   "");
 
