@@ -25,6 +25,12 @@ export const produtosTable = pgTable("produtos", {
   // Preço cheio: referência obrigatória para todo cálculo de desconto.
   // Nunca calcular desconto sobre precoPix ou qualquer preço já reduzido.
   precoBase: numeric("preco_base", { precision: 12, scale: 2 }),
+  // Outlet pricing engine — separado do preço do crawler.
+  // factoryCost = precoBase * (1 - supplier_discount_percent / 100)
+  // outletPrice  = factoryCost * (1 + outlet_markup_percent / 100) ou override manual
+  factoryCost: numeric("factory_cost", { precision: 12, scale: 2 }),
+  outletMarkupPercent: numeric("outlet_markup_percent", { precision: 5, scale: 2 }),
+  outletPrice: numeric("outlet_price", { precision: 12, scale: 2 }),
   // Product-family grouping — written by crawler, fallback computed in mapProduto.
   familySlug: text("family_slug"),
   familyName: text("family_name"),

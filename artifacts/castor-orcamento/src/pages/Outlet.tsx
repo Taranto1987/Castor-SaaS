@@ -17,6 +17,9 @@ import { useState } from "react";
 type ProdutoOutlet = CatalogoProduto & {
   prazoEncomenda?: string | null;
   custoBRL?: string | null;
+  outletPrice?: number | null;
+  factoryCost?: number | null;
+  outletMarkupPercent?: number | null;
 };
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -25,14 +28,11 @@ const FALLBACK_IMG = "https://images.unsplash.com/photo-1584031402256-c787e148e0
 const DEFAULT_PRAZO = "15 a 20 dias úteis";
 
 function precoVendaOutlet(p: ProdutoOutlet): string | null {
-  if (p.precoPix) return p.precoPix;
-  if (p.custoBRL) {
-    const v = parseFloat(p.custoBRL.replace(/[^0-9,.]/g, "").replace(",", "."));
-    if (v > 0) {
-      const venda = Math.ceil(v * 1.6);
-      return `R$ ${venda.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}`;
-    }
+  // Priority: engine-calculated outletPrice > precoPix fallback
+  if (p.outletPrice && p.outletPrice > 0) {
+    return `R$ ${p.outletPrice.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}`;
   }
+  if (p.precoPix) return p.precoPix;
   return null;
 }
 

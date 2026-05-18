@@ -29,6 +29,25 @@ interface ProdutoGestao {
   familyName?: string | null;
   encomenda: boolean;
   prazoEncomenda?: string | null;
+  precoBase?: number | null;
+  factoryCost?: number | null;
+  outletMarkupPercent?: number | null;
+  outletPrice?: number | null;
+}
+
+interface PricingConfig {
+  supplierDiscountPercent: number;
+  outletMarkupPercent: number;
+}
+
+function formatBRL(v: number) {
+  return `R$ ${v.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+}
+
+function calcPreview(precoBase: number, supplierDiscount: number, markup: number) {
+  const factoryCost = precoBase * (1 - supplierDiscount / 100);
+  const outletPrice = factoryCost * (1 + markup / 100);
+  return { factoryCost, outletPrice };
 }
 
 const CAT_LABELS: Record<string, string> = {
@@ -171,16 +190,31 @@ function ProdutoModoRow({
   produto,
   onToggle,
   isPending,
+  pricingConfig,
 }: {
   produto: ProdutoGestao;
   onToggle: (id: number, encomenda: boolean) => void;
   isPending: boolean;
+  pricingConfig: PricingConfig;
 }) {
   const isOutlet = produto.encomenda;
   const label = produto.familyName ?? produto.nome;
 
+  const previewOutlet = produto.precoBase && !isOutlet
+    ? calcPreview(produto.precoBase, pricingConfig.supplierDiscountPercent, pricingConfig.outletMarkupPercent)
+    : null;
+
+  const currentOutletPrice = produto.outletPrice ?? (
+    produto.precoBase && isOutlet
+      ? calcPreview(produto.precoBase, pricingConfig.supplierDiscountPercent, pricingConfig.outletMarkupPercent).outletPrice
+      : null
+  );
+
   return (
-    <div className="flex items-center gap-3 py-2 px-3 bg-white border border-slate-100 rounded-xl">
+    <div className={cn(
+      "flex items-center gap-3 py-2 px-3 border rounded-xl transition-colors",
+      isOutlet ? "bg-orange-50/50 border-orange-100" : "bg-white border-slate-100"
+    )}>
       <div className="flex-1 min-w-0">
         <p className="text-sm font-semibold text-slate-900 truncate">
           {label}
@@ -188,7 +222,15 @@ function ProdutoModoRow({
             <span className="ml-1.5 text-xs font-normal text-slate-400">{produto.size}</span>
           )}
         </p>
-        {produto.medidas && <p className="text-[11px] text-slate-400">{produto.medidas}</p>}
+        <div className="flex items-center gap-2 flex-wrap">
+          {produto.medidas && <p className="text-[11px] text-slate-400">{produto.medidas}</p>}
+          {isOutlet && currentOutletPrice && (
+            <span className="text-[11px] font-bold text-orange-600">{formatBRL(currentOutletPrice)}</span>
+          )}
+          {!isOutlet && previewOutlet && (
+            <span className="text-[11px] text-slate-300">→ outlet: {formatBRL(previewOutlet.outletPrice)}</span>
+          )}
+        </div>
       </div>
       <div className="flex gap-1 shrink-0">
         <button
@@ -285,6 +327,41 @@ export default function Estoque() {
   const [catGestao, setCatGestao] = useState("todos");
   const [buscaGestao, setBuscaGestao] = useState("");
   const [pendingIds, setPendingIds] = useState<Set<number>>(new Set());
+  const [editingPricing, setEditingPricing] = useState(false);
+  const [markupInput, setMarkupInput] = useState<string>("");
+  const [discountInput, setDiscountInput] = useState<string>("");
+
+  const lojaId = user?.papel === "dono" ? 1 : null; // loja 1 = Cabo Frio default
+
+  const { data: pricingConfig = { supplierDiscountPercent: 32.5, outletMarkupPercent: 60 }, refetch: refetchPricing } = useQuery<PricingConfig>({
+    queryKey: ["loja-pricing", lojaId],
+    queryFn: async () => {
+      const res = await fetch(`/api/loja/${lojaId}/pricing`, {
+        headers: { "x-session-token": user?.sessionToken ?? "" },
+      });
+      if (!res.ok) return { supplierDiscountPercent: 32.5, outletMarkupPercent: 60 };
+      return res.json();
+    },
+    enabled: aba === "modos" && isDono && lojaId !== null,
+  });
+
+  const savePricing = useMutation({
+    mutationFn: async (cfg: Partial<PricingConfig>) => {
+      const res = await fetch(`/api/loja/${lojaId}/pricing`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json", "x-session-token": user?.sessionToken ?? "" },
+        body: JSON.stringify(cfg),
+      });
+      if (!res.ok) throw new Error("Erro");
+      return res.json();
+    },
+    onSuccess: () => {
+      refetchPricing();
+      setEditingPricing(false);
+      toast({ title: "Configuração de pricing salva!" });
+    },
+    onError: () => toast({ title: "Erro ao salvar pricing", variant: "destructive" }),
+  });
 
   const { data: todosProdutos = [], isLoading: isLoadingGestao, refetch: refetchGestao } = useQuery<ProdutoGestao[]>({
     queryKey: ["gestao-produtos", catGestao, buscaGestao],
@@ -317,12 +394,22 @@ export default function Estoque() {
       const res = await fetch(`/api/produtos/${id}/encomenda`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ encomenda }),
+        body: JSON.stringify({
+          encomenda,
+          ...(encomenda ? { outletMarkupPercent: pricingConfig.outletMarkupPercent } : {}),
+        }),
       });
       if (!res.ok) throw new Error("Erro");
+      const updated = await res.json();
       queryClient.setQueryData<ProdutoGestao[]>(
         ["gestao-produtos", catGestao, buscaGestao],
-        prev => prev?.map(p => p.id === id ? { ...p, encomenda } : p) ?? []
+        prev => prev?.map(p => p.id === id ? {
+          ...p,
+          encomenda,
+          factoryCost: updated.factoryCost,
+          outletPrice: updated.outletPrice,
+          outletMarkupPercent: updated.outletMarkupPercent,
+        } : p) ?? []
       );
       queryClient.invalidateQueries({ queryKey: ["estoque-produtos"] });
     } catch {
@@ -345,7 +432,11 @@ export default function Estoque() {
           "Content-Type": "application/json",
           "x-session-token": user?.sessionToken ?? "",
         },
-        body: JSON.stringify({ ids, encomenda }),
+        body: JSON.stringify({
+          ids,
+          encomenda,
+          ...(encomenda ? { outletMarkupPercent: pricingConfig.outletMarkupPercent } : {}),
+        }),
       });
       if (!res.ok) throw new Error("Erro");
       queryClient.setQueryData<ProdutoGestao[]>(
@@ -487,15 +578,86 @@ export default function Estoque() {
       {/* ── Aba Catálogo / Outlet ─────────────────────────────────────────────── */}
       {aba === "modos" && isDono && (
         <>
-          {/* Info banner */}
-          <div className="bg-slate-50 border border-slate-200 rounded-2xl p-4 flex gap-3 text-sm">
-            <div className="flex-1 space-y-1">
-              <p className="font-bold text-slate-800">Como funciona?</p>
-              <p className="text-slate-500 text-xs leading-relaxed">
-                <span className="font-semibold text-blue-700">Catálogo</span> = showroom, estoque local, pronta entrega.{" "}
-                <span className="font-semibold text-orange-600">Outlet</span> = encomenda direta da fábrica, prazo maior, preço reduzido.
-                Use os botões abaixo para mover produtos entre os dois modos.
-              </p>
+          {/* Pricing engine config panel */}
+          <div className="bg-slate-50 border border-slate-200 rounded-2xl p-4 space-y-3">
+            <div className="flex items-center justify-between">
+              <p className="text-sm font-bold text-slate-800">Pricing Engine — Outlet</p>
+              {!editingPricing ? (
+                <button
+                  onClick={() => {
+                    setMarkupInput(String(pricingConfig.outletMarkupPercent));
+                    setDiscountInput(String(pricingConfig.supplierDiscountPercent));
+                    setEditingPricing(true);
+                  }}
+                  className="text-xs font-bold text-blue-600 hover:text-blue-700 px-2 py-1 rounded-lg hover:bg-blue-50 transition-colors"
+                >
+                  Editar
+                </button>
+              ) : (
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => setEditingPricing(false)}
+                    className="text-xs text-slate-400 px-2 py-1 rounded-lg hover:bg-slate-100"
+                  >
+                    Cancelar
+                  </button>
+                  <button
+                    onClick={() => savePricing.mutate({
+                      supplierDiscountPercent: parseFloat(discountInput),
+                      outletMarkupPercent: parseFloat(markupInput),
+                    })}
+                    disabled={savePricing.isPending}
+                    className="text-xs font-bold text-white bg-blue-600 px-3 py-1 rounded-lg hover:bg-blue-700 disabled:opacity-50"
+                  >
+                    {savePricing.isPending ? "..." : "Salvar"}
+                  </button>
+                </div>
+              )}
+            </div>
+
+            <div className="grid grid-cols-2 gap-3">
+              <div className="bg-white border border-slate-200 rounded-xl p-3">
+                <p className="text-[10px] text-slate-400 font-medium uppercase tracking-wide mb-1">Desconto Castor</p>
+                {editingPricing ? (
+                  <div className="flex items-center gap-1">
+                    <input
+                      type="number"
+                      value={discountInput}
+                      onChange={e => setDiscountInput(e.target.value)}
+                      className="w-16 text-sm font-bold border border-slate-200 rounded-lg px-2 py-1 focus:outline-none focus:ring-2 focus:ring-blue-500/30"
+                    />
+                    <span className="text-sm text-slate-500">%</span>
+                  </div>
+                ) : (
+                  <p className="text-xl font-extrabold text-slate-900">{pricingConfig.supplierDiscountPercent}%</p>
+                )}
+                <p className="text-[10px] text-slate-400 mt-0.5">off tabela indústria</p>
+              </div>
+              <div className="bg-orange-50 border border-orange-200 rounded-xl p-3">
+                <p className="text-[10px] text-orange-500 font-medium uppercase tracking-wide mb-1">Markup Outlet</p>
+                {editingPricing ? (
+                  <div className="flex items-center gap-1">
+                    <input
+                      type="number"
+                      value={markupInput}
+                      onChange={e => setMarkupInput(e.target.value)}
+                      className="w-16 text-sm font-bold border border-orange-200 rounded-lg px-2 py-1 focus:outline-none focus:ring-2 focus:ring-orange-500/30"
+                    />
+                    <span className="text-sm text-orange-500">%</span>
+                  </div>
+                ) : (
+                  <p className="text-xl font-extrabold text-orange-700">{pricingConfig.outletMarkupPercent}%</p>
+                )}
+                <p className="text-[10px] text-orange-400 mt-0.5">sobre custo real</p>
+              </div>
+            </div>
+
+            <div className="bg-white border border-slate-100 rounded-xl px-4 py-2.5 text-xs text-slate-500 flex items-center gap-2">
+              <span className="font-mono text-slate-400">Tabela</span>
+              <span>→ −{pricingConfig.supplierDiscountPercent}% →</span>
+              <span className="font-mono text-slate-400">Custo real</span>
+              <span>→ +{pricingConfig.outletMarkupPercent}% →</span>
+              <span className="font-bold text-orange-600">Preço outlet</span>
             </div>
           </div>
 
@@ -605,6 +767,7 @@ export default function Estoque() {
                   produto={p}
                   onToggle={toggleModo}
                   isPending={pendingIds.has(p.id)}
+                  pricingConfig={pricingConfig}
                 />
               ))}
             </div>
