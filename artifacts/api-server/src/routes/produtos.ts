@@ -357,6 +357,58 @@ router.patch("/:id/estoque", async (req, res) => {
   }
 });
 
+// Dono-only: all products with encomenda status for catalog management UI.
+router.get("/gestao", requireDono, async (req, res) => {
+  try {
+    const lojaId = resolveLojaId(req);
+    const busca = req.query.busca as string | undefined;
+    const categoria = req.query.categoria as string | undefined;
+
+    const conds: SQL[] = [
+      eq(produtosTable.disponivel, true),
+      eq(produtosTable.lojaId, lojaId),
+    ];
+    if (categoria && categoria !== "todos") conds.push(eq(produtosTable.categoria, categoria));
+    if (busca) conds.push(ilike(produtosTable.nome, `%${busca}%`));
+
+    const rows = await db.select({
+      id: produtosTable.id,
+      nome: produtosTable.nome,
+      sku: produtosTable.sku,
+      categoria: produtosTable.categoria,
+      medidas: produtosTable.medidas,
+      size: produtosTable.size,
+      familyName: produtosTable.familyName,
+      encomenda: produtosTable.encomenda,
+      prazoEncomenda: produtosTable.prazoEncomenda,
+    }).from(produtosTable)
+      .where(and(...conds))
+      .orderBy(produtosTable.categoria, produtosTable.nome)
+      .limit(600);
+
+    res.json(rows);
+  } catch (error) {
+    console.error("Erro ao listar gestao:", error);
+    res.status(500).json({ error: "Erro interno" });
+  }
+});
+
+// Dono-only: bulk-toggle encomenda for multiple product IDs.
+router.patch("/gestao/bulk-encomenda", requireDono, async (req, res) => {
+  try {
+    const { ids, encomenda } = req.body as { ids: number[]; encomenda: boolean };
+    if (!Array.isArray(ids) || ids.length === 0 || typeof encomenda !== "boolean") {
+      res.status(400).json({ error: "ids (array) e encomenda (boolean) são obrigatórios" });
+      return;
+    }
+    await db.update(produtosTable).set({ encomenda }).where(inArray(produtosTable.id, ids));
+    res.json({ updated: ids.length });
+  } catch (error) {
+    console.error("Erro ao bulk-encomenda:", error);
+    res.status(500).json({ error: "Erro interno" });
+  }
+});
+
 // Public PDP endpoint — matches slug stored in DB or derived from legacy link.
 // Never exposes the upstream Castor URL; that stays in the DB only.
 router.get("/slug/:slug", async (req, res) => {
