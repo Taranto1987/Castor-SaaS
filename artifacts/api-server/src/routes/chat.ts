@@ -6,6 +6,8 @@ import { processarLeadDaConversa } from "../services/chat/lead-extractor";
 import { SYSTEM_PROMPT, buildFallbackMessage } from "../services/chat/prompt";
 import type { ChatMessage } from "../services/chat/lead-extractor";
 import { resolveLojaId } from "../middlewares/auth";
+import { emitEvent } from "../services/events/emit";
+import { classifyMessage, extractProductIds } from "../services/events/classifier";
 
 const router = Router();
 
@@ -21,11 +23,16 @@ function sendSSE(res: Response, payload: Record<string, unknown>) {
 
 router.post("/", async (req, res) => {
   try {
-    const { messages } = req.body as { messages: ChatMessage[] };
+    const { messages, sessionId: clientSessionId } = req.body as {
+      messages: ChatMessage[];
+      sessionId?: string;
+    };
     if (!messages || !Array.isArray(messages) || messages.length === 0) {
       res.status(400).json({ error: "messages array is required" });
       return;
     }
+
+    const sessionId = clientSessionId ?? crypto.randomUUID();
 
     const chatMessages = messages
       .filter((m) => m.role === "user" || m.role === "assistant")
@@ -39,6 +46,14 @@ router.post("/", async (req, res) => {
     const lastUserMessage =
       [...chatMessages].reverse().find((m) => m.role === "user")?.content ?? "";
     const client = getAnthropicClient();
+    const lojaId = resolveLojaId(req);
+
+    emitEvent({
+      type: "session_started",
+      sessionId,
+      lojaId,
+      messageCount: chatMessages.length,
+    });
 
     if (!client) {
       sendSSE(res, { content: buildFallbackMessage(lastUserMessage) });
@@ -47,7 +62,6 @@ router.post("/", async (req, res) => {
       return;
     }
 
-    const lojaId = resolveLojaId(req);
     const productContext = await getProductContext(lojaId);
     let fullAssistantText = "";
 
@@ -71,9 +85,43 @@ router.post("/", async (req, res) => {
     res.end();
 
     setImmediate(() => {
-      processarLeadDaConversa(chatMessages, fullAssistantText).catch((err) =>
-        console.error("[Chat] Erro no processamento de lead:", err)
-      );
+      const classification = classifyMessage(lastUserMessage);
+
+      if (classification.pains.length > 0 || classification.intent !== "low" || classification.objections.length > 0) {
+        emitEvent({ type: "intent_classified", sessionId, lojaId, ...classification });
+      }
+
+      for (const pain of classification.pains) {
+        emitEvent({ type: "pain_detected", sessionId, lojaId, pain });
+      }
+
+      for (const objection of classification.objections) {
+        emitEvent({ type: "objection_detected", sessionId, lojaId, objection });
+      }
+
+      if (classification.intent === "high" || classification.intent === "closing") {
+        emitEvent({ type: "high_intent_detected", sessionId, lojaId });
+      }
+
+      const productIds = extractProductIds(fullAssistantText);
+      if (productIds.length > 0) {
+        emitEvent({ type: "product_recommended", sessionId, lojaId, productIds });
+      }
+
+      processarLeadDaConversa(chatMessages, fullAssistantText)
+        .then((lead) => {
+          if (lead?.deveSalvar) {
+            emitEvent({
+              type: "lead_captured",
+              sessionId,
+              lojaId,
+              hasName: !!lead.nomeCliente,
+              hasPhone: !!lead.telefone,
+              productIds: lead.produtoIds,
+            });
+          }
+        })
+        .catch((err) => console.error("[Chat] Erro no processamento de lead:", err));
     });
   } catch (error) {
     console.error("Chat error:", error);
