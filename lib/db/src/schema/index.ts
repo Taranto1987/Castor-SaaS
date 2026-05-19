@@ -8,3 +8,5 @@ export * from "./colaboradores";
 export * from "./follow-ups";
 export * from "./usuarios";
 export * from "./chat-events";
+export * from "./customer-profiles";
+export * from "./relational-capsules";
