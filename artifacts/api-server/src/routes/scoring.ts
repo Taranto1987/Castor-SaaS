@@ -1,9 +1,10 @@
 import { Router } from "express";
-import { db, leadScoresTable, leadScoreHistoryTable, customerProfilesTable } from "@workspace/db";
+import { db, leadScoresTable, leadScoreHistoryTable, customerProfilesTable, automationLogTable, lojasTable } from "@workspace/db";
 import { eq, and, gte, desc, sql } from "drizzle-orm";
 import { requireDono, type AuthRequest } from "../middlewares/auth";
 import { computeScore } from "../services/scoring/engine";
 import { CATEGORY_THRESHOLDS, getCategoryMeta } from "../services/scoring/weights";
+import { AUTOMATION_RULES } from "../services/scoring/rules";
 import type { StoredSignals } from "../services/scoring/engine";
 
 const router = Router();
@@ -253,6 +254,140 @@ router.get("/scoring/trend-history", requireDono, async (req: AuthRequest, res) 
   } catch (err) {
     console.error("[Scoring] /trend-history error:", err);
     res.status(500).json({ error: "Erro ao carregar histórico" });
+  }
+});
+
+/**
+ * GET /api/scoring/automations
+ * Log of all fired automations for the loja.
+ */
+router.get("/scoring/automations", requireDono, async (req: AuthRequest, res) => {
+  try {
+    const lojaId = req.session!.lojaId;
+    const days = Math.min(Number(req.query.days ?? 30), 90);
+    const since = new Date(Date.now() - days * 24 * 60 * 60 * 1000);
+    const limit = Math.min(Number(req.query.limit ?? 100), 500);
+
+    const rows = await db
+      .select({
+        id: automationLogTable.id,
+        customerId: automationLogTable.customerId,
+        ruleId: automationLogTable.ruleId,
+        score: automationLogTable.score,
+        category: automationLogTable.category,
+        channel: automationLogTable.channel,
+        dispararadoEm: automationLogTable.dispararadoEm,
+        name: customerProfilesTable.name,
+        phone: customerProfilesTable.phone,
+      })
+      .from(automationLogTable)
+      .leftJoin(customerProfilesTable, eq(automationLogTable.customerId, customerProfilesTable.id))
+      .where(
+        and(
+          eq(automationLogTable.lojaId, lojaId),
+          gte(automationLogTable.dispararadoEm, since),
+        ),
+      )
+      .orderBy(desc(automationLogTable.dispararadoEm))
+      .limit(limit);
+
+    // Aggregation per rule
+    const byRule: Record<string, number> = {};
+    for (const r of rows) {
+      byRule[r.ruleId] = (byRule[r.ruleId] ?? 0) + 1;
+    }
+
+    res.json({
+      period: { days, since: since.toISOString() },
+      total: rows.length,
+      byRule,
+      rules: AUTOMATION_RULES.map((r) => ({
+        id: r.id,
+        scoreThreshold: r.scoreThreshold,
+        triggerSignal: r.triggerSignal,
+        cooldownHours: r.cooldownHours,
+        firedCount: byRule[r.id] ?? 0,
+      })),
+      log: rows,
+    });
+  } catch (err) {
+    console.error("[Scoring] /automations error:", err);
+    res.status(500).json({ error: "Erro ao carregar automações" });
+  }
+});
+
+/**
+ * PATCH /api/scoring/config
+ * Configure alert phone number for scoring automations.
+ * Body: { alertaWhatsapp: "5522999999999" }
+ */
+router.patch("/scoring/config", requireDono, async (req: AuthRequest, res) => {
+  try {
+    const lojaId = req.session!.lojaId;
+    const { alertaWhatsapp } = req.body as { alertaWhatsapp?: string };
+
+    const [loja] = await db
+      .select({ configJson: lojasTable.configJson })
+      .from(lojasTable)
+      .where(eq(lojasTable.id, lojaId))
+      .limit(1);
+
+    if (!loja) {
+      res.status(404).json({ error: "Loja não encontrada" });
+      return;
+    }
+
+    const current = (loja.configJson ?? {}) as Record<string, unknown>;
+    const updated = { ...current };
+
+    if (alertaWhatsapp !== undefined) {
+      if (alertaWhatsapp) {
+        updated.alertaWhatsapp = alertaWhatsapp.replace(/\D/g, "");
+      } else {
+        delete updated.alertaWhatsapp;
+      }
+    }
+
+    await db
+      .update(lojasTable)
+      .set({ configJson: updated })
+      .where(eq(lojasTable.id, lojaId));
+
+    res.json({ ok: true, alertaWhatsapp: updated.alertaWhatsapp ?? null });
+  } catch (err) {
+    console.error("[Scoring] /config error:", err);
+    res.status(500).json({ error: "Erro ao salvar configuração" });
+  }
+});
+
+/**
+ * GET /api/scoring/config
+ * Read current scoring automation config.
+ */
+router.get("/scoring/config", requireDono, async (req: AuthRequest, res) => {
+  try {
+    const lojaId = req.session!.lojaId;
+
+    const [loja] = await db
+      .select({ configJson: lojasTable.configJson })
+      .from(lojasTable)
+      .where(eq(lojasTable.id, lojaId))
+      .limit(1);
+
+    const config = (loja?.configJson ?? {}) as Record<string, unknown>;
+
+    res.json({
+      alertaWhatsapp: config.alertaWhatsapp ?? null,
+      rules: AUTOMATION_RULES.map((r) => ({
+        id: r.id,
+        scoreThreshold: r.scoreThreshold,
+        triggerSignal: r.triggerSignal,
+        cooldownHours: r.cooldownHours,
+      })),
+    });
+  } catch (err) {
+    console.error("[Scoring] /config GET error:", err);
+    res.status(500).json({ error: "Erro ao carregar configuração" });
   }
 });
 

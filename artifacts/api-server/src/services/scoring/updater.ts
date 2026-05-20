@@ -1,6 +1,7 @@
 import { db, leadScoresTable, leadScoreHistoryTable } from "@workspace/db";
 import { eq } from "drizzle-orm";
 import { applySignals, computeScore, type StoredSignals } from "./engine";
+import { checkAndFireAutomations } from "./automations";
 
 export async function persistLeadScore(
   customerId: number,
@@ -66,6 +67,9 @@ export async function persistLeadScore(
     delta: result.delta,
     triggerEvent,
   });
+
+  // Check automation rules after score is persisted
+  await checkAndFireAutomations({ customerId, lojaId, previousScore, result, incomingSignals });
 }
 
 /** Fire-and-forget wrapper — never blocks the HTTP response. */
