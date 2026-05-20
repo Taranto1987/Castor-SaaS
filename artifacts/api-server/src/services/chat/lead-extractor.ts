@@ -62,9 +62,10 @@ async function extrairDadosConversa(
 export async function processarLeadDaConversa(
   messages: ChatMessage[],
   ultimaRespostaAssistente: string
-): Promise<void> {
+): Promise<ExtracaoLead | null> {
   const dados = await extrairDadosConversa(messages, ultimaRespostaAssistente);
-  if (!dados?.deveSalvar) return;
-  if (!dados.nomeCliente || !dados.telefone || !dados.produtoIds.length) return;
+  if (!dados?.deveSalvar) return null;
+  if (!dados.nomeCliente || !dados.telefone || !dados.produtoIds.length) return null;
   await autoSalvarOrcamentoDaConversa(dados.nomeCliente, dados.telefone, dados.produtoIds);
+  return dados;
 }
