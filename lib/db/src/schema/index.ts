@@ -10,3 +10,5 @@ export * from "./usuarios";
 export * from "./chat-events";
 export * from "./customer-profiles";
 export * from "./relational-capsules";
+export * from "./lead-scores";
+export * from "./automation-log";

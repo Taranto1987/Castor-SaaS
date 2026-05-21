@@ -8,8 +8,10 @@ import type { ChatMessage } from "../services/chat/lead-extractor";
 import { resolveLojaId } from "../middlewares/auth";
 import { emitEvent } from "../services/events/emit";
 import { classifyMessage, extractProductIds } from "../services/events/classifier";
-import { resolveOrCreateCustomer, mergePhoneIdentity } from "../services/memory/identity";
+import { resolveOrCreateCustomer, stitchIdentityByPhone } from "../services/memory/identity";
 import { loadCapsule, buildStateBlock, generateAndSaveCapsule } from "../services/memory/capsule";
+import { extractSessionSignals } from "../services/scoring/signals";
+import { scheduleLeadScoreUpdate } from "../services/scoring/updater";
 
 const router = Router();
 
@@ -62,6 +64,7 @@ router.post("/", async (req, res) => {
       try {
         customerId = await resolveOrCreateCustomer(anonymousId, lojaId);
         capsuleState = await loadCapsule(customerId);
+        console.log(`[Memory] Customer ${customerId} | capsule: ${capsuleState ? "yes" : "no"} | sessions: ${capsuleState?.sessionCount ?? 0}`);
       } catch (err) {
         console.error("[Memory] Identity resolution failed:", err);
       }
@@ -107,7 +110,12 @@ router.post("/", async (req, res) => {
     // fire-and-forget post-processing
     setImmediate(() => {
       (async () => {
-        const classification = classifyMessage(lastUserMessage);
+        // Classify the full conversation for richer signal extraction
+        const allUserText = chatMessages
+          .filter((m) => m.role === "user")
+          .map((m) => m.content)
+          .join(" ");
+        const classification = classifyMessage(allUserText);
 
         if (classification.pains.length > 0 || classification.intent !== "low" || classification.objections.length > 0) {
           emitEvent({ type: "intent_classified", sessionId, lojaId, ...classification });
@@ -137,21 +145,40 @@ router.post("/", async (req, res) => {
             productIds: lead.produtoIds,
           });
 
-          // merge phone into customer identity when captured
+          // Phone stitching: links this device to any existing customer with the same phone,
+          // enabling cross-device identity continuity when the user provides their number.
           if (customerId && lead.telefone) {
-            await mergePhoneIdentity(customerId, lead.telefone, lead.nomeCliente);
+            await stitchIdentityByPhone(customerId, lead.telefone, lead.nomeCliente, lojaId);
           }
         }
 
-        // generate relational state capsule at end of session
+        // Generate relational state capsule — include the current assistant response so
+        // even a single-exchange conversation produces a valid capsule for the next session.
         if (customerId) {
+          const messagesForCapsule: ChatMessage[] = [
+            ...chatMessages,
+            ...(fullAssistantText ? [{ role: "assistant" as const, content: fullAssistantText }] : []),
+          ];
           await generateAndSaveCapsule(
             customerId,
             lojaId,
-            chatMessages,
+            messagesForCapsule,
             capsuleState?.capsule ?? null,
             capsuleState?.sessionCount ?? 0
           );
+        }
+
+        // update lead score from this session's signals
+        if (customerId) {
+          const sessionSignals = extractSessionSignals(
+            chatMessages,
+            classification,
+            capsuleState,
+            productIds,
+            !!(lead?.deveSalvar),
+          );
+          const nextSessionCount = (capsuleState?.sessionCount ?? 0) + 1;
+          scheduleLeadScoreUpdate(customerId, lojaId, sessionSignals, nextSessionCount, chatMessages.length);
         }
       })().catch((err) => console.error("[Chat] Post-processing error:", err));
     });
