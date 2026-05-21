@@ -8,7 +8,7 @@ import type { ChatMessage } from "../services/chat/lead-extractor";
 import { resolveLojaId } from "../middlewares/auth";
 import { emitEvent } from "../services/events/emit";
 import { classifyMessage, extractProductIds } from "../services/events/classifier";
-import { resolveOrCreateCustomer, mergePhoneIdentity } from "../services/memory/identity";
+import { resolveOrCreateCustomer, stitchIdentityByPhone } from "../services/memory/identity";
 import { loadCapsule, buildStateBlock, generateAndSaveCapsule } from "../services/memory/capsule";
 import { extractSessionSignals } from "../services/scoring/signals";
 import { scheduleLeadScoreUpdate } from "../services/scoring/updater";
@@ -64,6 +64,7 @@ router.post("/", async (req, res) => {
       try {
         customerId = await resolveOrCreateCustomer(anonymousId, lojaId);
         capsuleState = await loadCapsule(customerId);
+        console.log(`[Memory] Customer ${customerId} | capsule: ${capsuleState ? "yes" : "no"} | sessions: ${capsuleState?.sessionCount ?? 0}`);
       } catch (err) {
         console.error("[Memory] Identity resolution failed:", err);
       }
@@ -144,17 +145,24 @@ router.post("/", async (req, res) => {
             productIds: lead.produtoIds,
           });
 
+          // Phone stitching: links this device to any existing customer with the same phone,
+          // enabling cross-device identity continuity when the user provides their number.
           if (customerId && lead.telefone) {
-            await mergePhoneIdentity(customerId, lead.telefone, lead.nomeCliente);
+            await stitchIdentityByPhone(customerId, lead.telefone, lead.nomeCliente, lojaId);
           }
         }
 
-        // generate relational state capsule at end of session
+        // Generate relational state capsule — include the current assistant response so
+        // even a single-exchange conversation produces a valid capsule for the next session.
         if (customerId) {
+          const messagesForCapsule: ChatMessage[] = [
+            ...chatMessages,
+            ...(fullAssistantText ? [{ role: "assistant" as const, content: fullAssistantText }] : []),
+          ];
           await generateAndSaveCapsule(
             customerId,
             lojaId,
-            chatMessages,
+            messagesForCapsule,
             capsuleState?.capsule ?? null,
             capsuleState?.sessionCount ?? 0
           );
