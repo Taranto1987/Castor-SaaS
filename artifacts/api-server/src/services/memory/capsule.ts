@@ -50,7 +50,12 @@ export function buildStateBlock(
     "Estado relacional:",
     state.capsule,
     "",
-    "Instrução: retome o atendimento de forma natural e contínua. Nunca trate este cliente como desconhecido — você tem o histórico acima. Demonstre memória do contexto sem citar explicitamente que tem um 'estado salvo'.",
+    "Instrução de retomada:",
+    name
+      ? `O cliente se chama ${name}. Use o nome naturalmente na conversa.`
+      : "Você não sabe o nome do cliente ainda. Antes de qualquer outra coisa, peça o nome de forma natural (ex: 'Pode me dizer seu nome?'). Nunca diga 'Que bom te ver de volta!' ou qualquer saudação de reencuentro sem antes saber o nome — isso soaria artificial.",
+    "Retome pelo contexto real da cápsula acima: mencione algo específico do que foi discutido (dor, produto, objeção). Se a cápsula for muito vaga, abra com uma pergunta que dê continuidade natural à jornada do cliente.",
+    "Nunca mencione que tem um 'estado salvo', 'memória' ou 'registro'. Aja como um vendedor experiente que simplesmente lembra.",
   ].filter((l) => l !== undefined);
 
   return lines.join("\n").trim();
