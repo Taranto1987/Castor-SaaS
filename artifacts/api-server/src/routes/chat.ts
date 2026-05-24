@@ -12,6 +12,9 @@ import { resolveOrCreateCustomer, stitchIdentityByPhone } from "../services/memo
 import { loadCapsule, buildStateBlock, generateAndSaveCapsule } from "../services/memory/capsule";
 import { extractSessionSignals } from "../services/scoring/signals";
 import { scheduleLeadScoreUpdate } from "../services/scoring/updater";
+import { CASTOR_READ_TOOLS } from "../lib/tools/definitions";
+import { runTools } from "../lib/tool-runner";
+import { logger } from "../lib/logger";
 
 const router = Router();
 
@@ -91,21 +94,66 @@ router.post("/", async (req, res) => {
       systemBlocks.push({ type: "text", text: stateBlock });
     }
 
+    // ── Tool-aware streaming ──────────────────────────────────────────────────
+    // Pass 1: streaming with tools. If the model calls a tool we buffer and
+    // don't forward to SSE; then we execute the tools and stream pass 2.
+    // If no tool use, text is forwarded directly — zero latency penalty.
+
+    let hasToolUse = false;
     const stream = client.messages.stream({
       model: "claude-sonnet-4-6",
       max_tokens: 1024,
       system: systemBlocks,
       messages: chatMessages,
+      tools: CASTOR_READ_TOOLS,
+    });
+
+    stream.on("streamEvent", (event) => {
+      if (event.type === "content_block_start" && event.content_block.type === "tool_use") hasToolUse = true;
     });
 
     stream.on("text", (text) => {
-      fullAssistantText += text;
-      res.write(`data: ${JSON.stringify({ content: text })}\n\n`);
+      if (!hasToolUse) {
+        fullAssistantText += text;
+        res.write(`data: ${JSON.stringify({ content: text })}\n\n`);
+      }
     });
 
-    await stream.finalMessage();
+    const firstResponse = await stream.finalMessage();
+
+    if (firstResponse.stop_reason === "tool_use") {
+      const toolBlocks = firstResponse.content.filter(
+        (b): b is Anthropic.Messages.ToolUseBlock => b.type === "tool_use"
+      );
+      const toolResults = await runTools(toolBlocks, lojaId);
+
+      // Pass 2: stream final answer with tool results injected
+      const stream2 = client.messages.stream({
+        model: "claude-sonnet-4-6",
+        max_tokens: 1024,
+        system: systemBlocks,
+        messages: [
+          ...chatMessages,
+          { role: "assistant" as const, content: firstResponse.content },
+          { role: "user" as const, content: toolResults },
+        ],
+        // No tools on second call — prevents recursion
+      });
+
+      stream2.on("text", (text) => {
+        fullAssistantText += text;
+        res.write(`data: ${JSON.stringify({ content: text })}\n\n`);
+      });
+
+      await stream2.finalMessage();
+    }
+
     res.write(`data: ${JSON.stringify({ done: true })}\n\n`);
     res.end();
+
+    if (hasToolUse) {
+      logger.info({ lojaId, tools: firstResponse.content.filter(b => b.type === "tool_use").map(b => b.type === "tool_use" ? b.name : "") }, "chat tools used");
+    }
 
     // fire-and-forget post-processing
     setImmediate(() => {
