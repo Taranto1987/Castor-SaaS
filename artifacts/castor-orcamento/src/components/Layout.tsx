@@ -58,7 +58,7 @@ function useSections(isDono: boolean): NavSection[] {
             label: "Sistema",
             donoOnly: true,
             items: [
-              { path: "/crawler", label: "Sincronizar Preços", icon: RefreshCw },
+              { path: "/crawler", label: "Atualizador de Preços", icon: RefreshCw },
             ],
           },
         ]
@@ -66,7 +66,6 @@ function useSections(isDono: boolean): NavSection[] {
   ];
 }
 
-// Bottom bar pinned items (most-used by sales team)
 const PINNED_PATHS = ["/equipe", "/orcamento", "/dashboard", "/logistica"];
 
 // ── Sidebar nav item ──────────────────────────────────────────────────────────
@@ -100,14 +99,12 @@ function Sidebar({
   const { user, logout } = useAuth();
   return (
     <aside className="hidden md:flex flex-col w-56 lg:w-64 shrink-0 bg-white border-r border-slate-200 h-screen sticky top-0 overflow-y-auto z-40">
-      {/* Logo */}
       <div className="px-4 py-4 border-b border-slate-100">
         <Link href="/" className="flex items-center cursor-pointer">
           <img src="/logo-castor.webp" alt="Castor" className="h-11 w-auto" />
         </Link>
       </div>
 
-      {/* User pill */}
       {user && (
         <div className="px-4 py-3 border-b border-slate-100">
           <div
@@ -127,7 +124,6 @@ function Sidebar({
         </div>
       )}
 
-      {/* Nav sections */}
       <nav className="flex-1 px-3 py-4 space-y-5 overflow-y-auto">
         {sections.map((section) => (
           <div key={section.label}>
@@ -147,7 +143,6 @@ function Sidebar({
         ))}
       </nav>
 
-      {/* Logout */}
       <div className="px-3 py-4 border-t border-slate-100">
         <button
           onClick={logout}
@@ -223,7 +218,6 @@ function MobileDrawer({
             transition={{ type: "spring", damping: 30, stiffness: 300 }}
             className="md:hidden fixed bottom-0 left-0 right-0 z-[70] bg-white rounded-t-3xl shadow-2xl max-h-[88vh] flex flex-col"
           >
-            {/* Header */}
             <div className="flex items-center justify-between px-5 pt-4 pb-3 border-b border-slate-100">
               {user && (
                 <div
@@ -249,7 +243,6 @@ function MobileDrawer({
               </button>
             </div>
 
-            {/* Sections */}
             <div className="overflow-y-auto flex-1 px-4 py-3 space-y-4">
               {sections.map((section) => (
                 <div key={section.label}>
@@ -270,7 +263,6 @@ function MobileDrawer({
               ))}
             </div>
 
-            {/* Logout */}
             <div className="px-4 pb-8 pt-2 border-t border-slate-100">
               <button
                 onClick={() => { logout(); onClose(); }}
@@ -303,10 +295,8 @@ export default function Layout({ children }: LayoutProps) {
 
   return (
     <div className="min-h-screen flex relative">
-      {/* ── Desktop sidebar ─────────────────────────────────────────────── */}
       <Sidebar sections={sections} location={location} />
 
-      {/* ── Page area ───────────────────────────────────────────────────── */}
       <div className="flex-1 flex flex-col min-w-0">
         {/* Mobile header */}
         <header className="md:hidden sticky top-0 z-50 bg-white border-b border-slate-200/80">
@@ -323,7 +313,6 @@ export default function Layout({ children }: LayoutProps) {
           </div>
         </header>
 
-        {/* Main content */}
         <main className="flex-1 w-full max-w-5xl mx-auto px-4 sm:px-6 py-6 pb-24 md:pb-8">
           {children}
         </main>
@@ -365,7 +354,6 @@ export default function Layout({ children }: LayoutProps) {
         </div>
       </div>
 
-      {/* Mobile drawer */}
       <MobileDrawer
         open={drawerOpen}
         onClose={() => setDrawerOpen(false)}

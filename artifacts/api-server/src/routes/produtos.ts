@@ -1,9 +1,10 @@
 import { Router, type IRouter, type Request, type Response, type NextFunction } from "express";
-import { db } from "@workspace/db";
-import { produtosTable, outletInteressesTable } from "@workspace/db/schema";
+import { db, extractFamilyInfo } from "@workspace/db";
+import { produtosTable, outletInteressesTable, lojasTable } from "@workspace/db/schema";
 import { ilike, or, eq, and, isNull, gt, desc, count, max, inArray, type SQL } from "drizzle-orm";
 import { getSession, isDono as isDonoSession } from "../lib/sessions";
 import { resolveLojaId } from "../middlewares/auth";
+import { getPricingConfig, calcOutletPrice } from "./loja";
 
 function requireDono(req: Request, res: Response, next: NextFunction) {
   const token = (req.headers["x-session-token"] || "") as string;
@@ -17,6 +18,11 @@ function requireDono(req: Request, res: Response, next: NextFunction) {
 const router: IRouter = Router();
 
 function mapProduto(p: typeof produtosTable.$inferSelect) {
+  // Prefer DB-stored values (written by crawler); fall back to runtime extraction
+  // for products that pre-date the family columns or were added via outlet/manual entry.
+  const family = (p.familySlug && p.familyName)
+    ? { familySlug: p.familySlug, familyName: p.familyName, size: p.size }
+    : extractFamilyInfo(p.slug, p.nome);
   return {
     id: p.id,
     nome: p.nome,
@@ -35,8 +41,19 @@ function mapProduto(p: typeof produtosTable.$inferSelect) {
     prazoEncomenda: p.prazoEncomenda,
     estoque: p.estoque,
     precoBase: p.precoBase ? parseFloat(String(p.precoBase)) : null,
+    factoryCost: p.factoryCost ? parseFloat(String(p.factoryCost)) : null,
+    outletMarkupPercent: p.outletMarkupPercent ? parseFloat(String(p.outletMarkupPercent)) : null,
+    outletPrice: p.outletPrice ? parseFloat(String(p.outletPrice)) : null,
+    familySlug: family.familySlug,
+    familyName: family.familyName,
+    size: family.size,
     criadoEm: p.criadoEm,
   };
+}
+
+async function getLojaPricing(lojaId: number) {
+  const [loja] = await db.select({ configJson: lojasTable.configJson }).from(lojasTable).where(eq(lojasTable.id, lojaId)).limit(1);
+  return getPricingConfig(loja?.configJson);
 }
 
 router.get("/", async (req, res) => {
@@ -106,15 +123,51 @@ router.post("/outlet", async (req, res) => {
 router.patch("/:id/encomenda", async (req, res) => {
   try {
     const id = parseInt(req.params.id);
-    const { encomenda } = req.body;
+    const { encomenda, outletMarkupPercent: markupOverride, prazoEncomenda } = req.body as {
+      encomenda: boolean;
+      outletMarkupPercent?: number;
+      prazoEncomenda?: string;
+    };
     if (typeof encomenda !== "boolean") {
       res.status(400).json({ error: "Campo encomenda (boolean) obrigatório" });
       return;
     }
+
+    const token = (req.headers["x-session-token"] ?? "") as string;
+    const session = getSession(token);
+    const lojaId = session?.lojaId ?? 1;
+
+    let pricingFields: Partial<typeof produtosTable.$inferInsert> = {};
+
+    if (encomenda) {
+      // Moving to outlet: auto-calculate pricing from precoBase
+      const [produto] = await db.select({ precoBase: produtosTable.precoBase }).from(produtosTable).where(eq(produtosTable.id, id)).limit(1);
+      const tablePrice = produto?.precoBase ? parseFloat(String(produto.precoBase)) : 0;
+
+      if (tablePrice > 0) {
+        const lojaPricing = await getLojaPricing(lojaId);
+        const markup = markupOverride ?? lojaPricing.outletMarkupPercent;
+        const { factoryCost, outletPrice } = calcOutletPrice(tablePrice, {
+          supplierDiscountPercent: lojaPricing.supplierDiscountPercent,
+          outletMarkupPercent: markup,
+        });
+        pricingFields = {
+          factoryCost: String(factoryCost),
+          outletMarkupPercent: String(markup),
+          outletPrice: String(outletPrice),
+        };
+      }
+    }
+
     const updated = await db.update(produtosTable)
-      .set({ encomenda })
+      .set({
+        encomenda,
+        ...pricingFields,
+        ...(prazoEncomenda !== undefined ? { prazoEncomenda } : {}),
+      })
       .where(eq(produtosTable.id, id))
       .returning();
+
     if (updated.length === 0) {
       res.status(404).json({ error: "Produto não encontrado" });
       return;
@@ -345,6 +398,94 @@ router.patch("/:id/estoque", async (req, res) => {
     res.json(mapProduto(updated[0]));
   } catch (error) {
     console.error("Erro ao atualizar estoque:", error);
+    res.status(500).json({ error: "Erro interno" });
+  }
+});
+
+// Dono-only: all products with encomenda status for catalog management UI.
+router.get("/gestao", requireDono, async (req, res) => {
+  try {
+    const lojaId = resolveLojaId(req);
+    const busca = req.query.busca as string | undefined;
+    const categoria = req.query.categoria as string | undefined;
+
+    const conds: SQL[] = [
+      eq(produtosTable.disponivel, true),
+      eq(produtosTable.lojaId, lojaId),
+    ];
+    if (categoria && categoria !== "todos") conds.push(eq(produtosTable.categoria, categoria));
+    if (busca) conds.push(ilike(produtosTable.nome, `%${busca}%`));
+
+    const rows = await db.select({
+      id: produtosTable.id,
+      nome: produtosTable.nome,
+      sku: produtosTable.sku,
+      categoria: produtosTable.categoria,
+      medidas: produtosTable.medidas,
+      size: produtosTable.size,
+      familyName: produtosTable.familyName,
+      encomenda: produtosTable.encomenda,
+      prazoEncomenda: produtosTable.prazoEncomenda,
+    }).from(produtosTable)
+      .where(and(...conds))
+      .orderBy(produtosTable.categoria, produtosTable.nome)
+      .limit(600);
+
+    res.json(rows);
+  } catch (error) {
+    console.error("Erro ao listar gestao:", error);
+    res.status(500).json({ error: "Erro interno" });
+  }
+});
+
+// Dono-only: bulk-toggle encomenda for multiple product IDs.
+router.patch("/gestao/bulk-encomenda", requireDono, async (req, res) => {
+  try {
+    const { ids, encomenda, outletMarkupPercent: markupOverride } = req.body as {
+      ids: number[];
+      encomenda: boolean;
+      outletMarkupPercent?: number;
+    };
+    if (!Array.isArray(ids) || ids.length === 0 || typeof encomenda !== "boolean") {
+      res.status(400).json({ error: "ids (array) e encomenda (boolean) são obrigatórios" });
+      return;
+    }
+
+    const token = (req.headers["x-session-token"] ?? "") as string;
+    const session = getSession(token);
+    const lojaId = session?.lojaId ?? 1;
+
+    if (encomenda) {
+      // Calculate outlet pricing per product based on its precoBase
+      const lojaPricing = await getLojaPricing(lojaId);
+      const markup = markupOverride ?? lojaPricing.outletMarkupPercent;
+      const produtos = await db
+        .select({ id: produtosTable.id, precoBase: produtosTable.precoBase })
+        .from(produtosTable)
+        .where(inArray(produtosTable.id, ids));
+
+      for (const p of produtos) {
+        const tablePrice = p.precoBase ? parseFloat(String(p.precoBase)) : 0;
+        const { factoryCost, outletPrice } = tablePrice > 0
+          ? calcOutletPrice(tablePrice, { supplierDiscountPercent: lojaPricing.supplierDiscountPercent, outletMarkupPercent: markup })
+          : { factoryCost: 0, outletPrice: 0 };
+
+        await db.update(produtosTable).set({
+          encomenda: true,
+          outletMarkupPercent: String(markup),
+          ...(tablePrice > 0 ? {
+            factoryCost: String(factoryCost),
+            outletPrice: String(outletPrice),
+          } : {}),
+        }).where(eq(produtosTable.id, p.id));
+      }
+    } else {
+      await db.update(produtosTable).set({ encomenda: false }).where(inArray(produtosTable.id, ids));
+    }
+
+    res.json({ updated: ids.length });
+  } catch (error) {
+    console.error("Erro ao bulk-encomenda:", error);
     res.status(500).json({ error: "Erro interno" });
   }
 });

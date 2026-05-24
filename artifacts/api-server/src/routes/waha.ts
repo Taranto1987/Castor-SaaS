@@ -11,6 +11,17 @@ const router = Router();
 const sessionByPhone = new Map<string, string>();
 
 router.post("/webhook/waha", async (req: Request, res: Response) => {
+  // Optional pre-shared secret: configure WAHA_WEBHOOK_SECRET and set the same
+  // value in WAHA's webhook settings → Custom Headers → X-Waha-Token.
+  const secret = process.env.WAHA_WEBHOOK_SECRET;
+  if (secret) {
+    const provided = req.headers["x-waha-token"] ?? req.headers["x-webhook-secret"];
+    if (provided !== secret) {
+      res.sendStatus(401);
+      return;
+    }
+  }
+
   // Responde 200 imediatamente para o WAHA não retentar
   res.sendStatus(200);
 

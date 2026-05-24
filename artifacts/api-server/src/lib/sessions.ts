@@ -176,18 +176,28 @@ export async function seedColaboradores(): Promise<void> {
     }
 
     // Seed novo: usuariosTable com bcrypt
-    const existingUsuarios = await db
-      .select({ id: usuariosTable.id })
-      .from(usuariosTable)
-      .limit(1);
-
-    if (existingUsuarios.length === 0) {
-      for (const u of SEED_USUARIOS) {
-        const senhaHash = await bcrypt.hash(u.senha, 10);
-        await db
-          .insert(usuariosTable)
-          .values({
-            email: u.email,
+    // Usa upsert (onConflictDoUpdate) para garantir que as senhas seed
+    // estejam sempre corretas mesmo após redeployy ou banco recriado.
+    for (const u of SEED_USUARIOS) {
+      const senhaHash = await bcrypt.hash(u.senha, 10);
+      await db
+        .insert(usuariosTable)
+        .values({
+          email: u.email,
+          senhaHash,
+          nome: u.nome,
+          cargo: u.cargo,
+          lojaId: u.lojaId,
+          operacao: u.operacao,
+          wa: u.wa,
+          waRaw: u.waRaw,
+          tom: u.tom,
+          header: u.header,
+          assinatura: u.assinatura,
+        })
+        .onConflictDoUpdate({
+          target: usuariosTable.email,
+          set: {
             senhaHash,
             nome: u.nome,
             cargo: u.cargo,
@@ -198,11 +208,10 @@ export async function seedColaboradores(): Promise<void> {
             tom: u.tom,
             header: u.header,
             assinatura: u.assinatura,
-          })
-          .onConflictDoNothing();
-      }
-      console.log("[Sessions] Usuários seedados com bcrypt.");
+          },
+        });
     }
+    console.log("[Sessions] Usuários seed sincronizados.");
   } catch (err) {
     console.error("[Sessions] Erro ao seedar:", err);
   }

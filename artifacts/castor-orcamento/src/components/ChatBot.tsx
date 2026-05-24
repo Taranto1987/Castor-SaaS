@@ -20,6 +20,14 @@ export default function ChatBot() {
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
+  // persistent identity across sessions (localStorage) + ephemeral session id (per tab)
+  const [anonymousId] = useState<string>(() => {
+    let id = localStorage.getItem("cid");
+    if (!id) { id = crypto.randomUUID(); localStorage.setItem("cid", id); }
+    return id;
+  });
+  const [sessionId] = useState<string>(() => crypto.randomUUID());
+
   const scrollToBottom = useCallback(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, []);
@@ -60,7 +68,7 @@ export default function ChatBot() {
       const response = await fetch("/api/chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ messages: apiMessages }),
+        body: JSON.stringify({ messages: apiMessages, anonymousId, sessionId }),
       });
 
       if (!response.ok) throw new Error("Chat request failed");

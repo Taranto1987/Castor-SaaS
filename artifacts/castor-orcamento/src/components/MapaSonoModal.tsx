@@ -60,7 +60,7 @@ export default function MapaSonoModal({ open, onClose }: Props) {
               <div className="flex items-center gap-3">
                 <div className="relative shrink-0">
                   <img
-                    src="/thalles-avatar.jpg"
+                    src="/thalles-avatar.webp"
                     alt="Especialista"
                     className="w-9 h-9 rounded-full object-cover object-top border-2 border-red-100"
                   />
@@ -82,7 +82,7 @@ export default function MapaSonoModal({ open, onClose }: Props) {
 
             {/* Conteúdo com scroll */}
             <div className="overflow-y-auto flex-1 overscroll-contain">
-              <MapaSono />
+              <MapaSono embedded />
             </div>
           </motion.div>
         </motion.div>

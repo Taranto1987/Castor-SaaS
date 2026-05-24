@@ -15,6 +15,8 @@ import agentRouter from "./agent";
 import wahaRouter from "./waha";
 import diagnosticoRouter from "./diagnostico";
 import lojaRouter from "./loja";
+import analyticsRouter from "./analytics";
+import scoringRouter from "./scoring";
 
 const router: IRouter = Router();
 
@@ -35,5 +37,7 @@ router.use(agentRouter);
 router.use(wahaRouter);
 router.use(diagnosticoRouter);
 router.use(lojaRouter);
+router.use(analyticsRouter);
+router.use(scoringRouter);
 
 export default router;

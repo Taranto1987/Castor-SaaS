@@ -52,7 +52,7 @@ router.get("/historico", requireAuth, async (req: AuthRequest, res) => {
   }
 });
 
-router.post("/:id/fechar", requireAuth, async (req, res) => {
+router.post("/:id/fechar", requireAuth, async (req: AuthRequest, res) => {
   try {
     const id = parseInt(req.params.id as string, 10);
     if (!id || isNaN(id)) { res.status(400).json({ error: "ID inválido" }); return; }
@@ -60,6 +60,7 @@ router.post("/:id/fechar", requireAuth, async (req, res) => {
 
     const orc = await findOrcamentoById(id);
     if (!orc) { res.status(404).json({ error: "Orçamento não encontrado" }); return; }
+    if (orc.lojaId !== req.session!.lojaId) { res.status(403).json({ error: "Acesso negado" }); return; }
     if (orc.status === "vendido") { res.status(409).json({ error: "Orçamento já foi fechado como venda" }); return; }
 
     const entrega = await fecharVendaTransaction(id, orc, { endereco, observacoes, dataEntrega });

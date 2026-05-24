@@ -2,7 +2,7 @@ import { Router, type IRouter } from "express";
 import { db } from "@workspace/db";
 import { orcamentosTable, produtosTable, entregasTable } from "@workspace/db/schema";
 import { desc, eq, and, sql } from "drizzle-orm";
-import { resolveLojaId } from "../middlewares/auth";
+import { requireAuth, type AuthRequest } from "../middlewares/auth";
 
 const router: IRouter = Router();
 
@@ -13,10 +13,10 @@ function parseBRL(valor?: string | null): number {
   return isNaN(num) ? 0 : num;
 }
 
-router.get("/", async (req, res) => {
+router.get("/", requireAuth, async (req: AuthRequest, res) => {
   try {
     const { vendedor, papel } = req.query as { vendedor?: string; papel?: string };
-    const lojaId = resolveLojaId(req);
+    const lojaId = req.session!.lojaId;
     const filtraPorVendedor = vendedor && papel !== "dono";
 
     const orcCols = {

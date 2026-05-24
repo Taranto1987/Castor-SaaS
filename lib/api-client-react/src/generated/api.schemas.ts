@@ -77,10 +77,23 @@ export interface CriarUsuarioInput {
   assinatura?: string;
 }
 
+/**
+ * Size variant for this specific product
+ */
+export type ProdutoSize = (typeof ProdutoSize)[keyof typeof ProdutoSize];
+
+export const ProdutoSize = {
+  King: "King",
+  Queen: "Queen",
+  Casal: "Casal",
+  Solteiro: "Solteiro",
+} as const;
+
 export interface Produto {
   id: number;
   nome: string;
   sku?: string;
+  slug?: string;
   preco?: string;
   precoPix?: string;
   parcelamento?: string;
@@ -88,7 +101,15 @@ export interface Produto {
   altura?: string;
   categoria: string;
   imagem?: string;
-  link?: string;
+  disponivel?: boolean;
+  encomenda?: boolean;
+  estoque?: number;
+  /** Canonical family key shared by all size variants of a model */
+  familySlug?: string;
+  /** Display name for the product family (size-stripped) */
+  familyName?: string;
+  /** Size variant for this specific product */
+  size?: ProdutoSize;
   criadoEm?: string;
 }
 

@@ -1,3 +1,4 @@
+import { lazy, Suspense } from "react";
 import { Switch, Route, Router as WouterRouter, useLocation, Redirect } from "wouter";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
@@ -11,36 +12,38 @@ import LoginScreen from "@/components/LoginScreen";
 import PublicLayout from "@/components/PublicLayout";
 import Layout from "@/components/Layout";
 
-// Public pages
+// ── Public pages — loaded eagerly (above the fold, SEO-critical) ──────────
 import Landing from "@/pages/Landing";
 import Catalogo from "@/pages/Catalogo";
 import MapaSono from "@/pages/MapaSono";
 import ProdutoDetalhe from "@/pages/ProdutoDetalhe";
 
-// Landing Pages — conversion-optimized
-import LuxoCaboFrio from "@/pages/lp/LuxoCaboFrio";
-import CamaBoxAraruama from "@/pages/lp/CamaBoxAraruama";
-import OutletPromocao from "@/pages/lp/OutletPromocao";
-import SaudeColuna from "@/pages/lp/SaudeColuna";
-import Entrega24h from "@/pages/lp/Entrega24h";
+// ── Landing Pages — lazy (conversion pages, not critical path) ─────────────
+const LuxoCaboFrio    = lazy(() => import("@/pages/lp/LuxoCaboFrio"));
+const CamaBoxAraruama = lazy(() => import("@/pages/lp/CamaBoxAraruama"));
+const OutletPromocao  = lazy(() => import("@/pages/lp/OutletPromocao"));
+const SaudeColuna     = lazy(() => import("@/pages/lp/SaudeColuna"));
+const Entrega24h      = lazy(() => import("@/pages/lp/Entrega24h"));
 
-// Private pages
-import Home from "@/pages/Home";
-import Orcamento from "@/pages/Orcamento";
-import Historico from "@/pages/Historico";
-import Crawler from "@/pages/Crawler";
-import Dashboard from "@/pages/Dashboard";
-import Logistica from "@/pages/Logistica";
-import Clientes from "@/pages/Clientes";
-import Outlet from "@/pages/Outlet";
-import Estoque from "@/pages/Estoque";
-import RankingOutlet from "@/pages/RankingOutlet";
-import EntradaEstoque from "@/pages/EntradaEstoque";
-import Financeiro from "@/pages/Financeiro";
-import Usuarios from "@/pages/Usuarios";
-import AceitarConvite from "@/pages/auth/AceitarConvite";
-import RedefinirSenha from "@/pages/auth/RedefinirSenha";
-import NotFound from "@/pages/not-found";
+// ── Auth pages — lazy (only visited once) ─────────────────────────────────
+const AceitarConvite = lazy(() => import("@/pages/auth/AceitarConvite"));
+const RedefinirSenha = lazy(() => import("@/pages/auth/RedefinirSenha"));
+
+// ── Admin/private pages — lazy (never loaded by public visitors) ───────────
+const Home          = lazy(() => import("@/pages/Home"));
+const Orcamento     = lazy(() => import("@/pages/Orcamento"));
+const Historico     = lazy(() => import("@/pages/Historico"));
+const Dashboard     = lazy(() => import("@/pages/Dashboard"));
+const Logistica     = lazy(() => import("@/pages/Logistica"));
+const Crawler       = lazy(() => import("@/pages/Crawler"));
+const Clientes      = lazy(() => import("@/pages/Clientes"));
+const Outlet        = lazy(() => import("@/pages/Outlet"));
+const Estoque       = lazy(() => import("@/pages/Estoque"));
+const RankingOutlet = lazy(() => import("@/pages/RankingOutlet"));
+const EntradaEstoque= lazy(() => import("@/pages/EntradaEstoque"));
+const Financeiro    = lazy(() => import("@/pages/Financeiro"));
+const Usuarios      = lazy(() => import("@/pages/Usuarios"));
+const NotFound      = lazy(() => import("@/pages/not-found"));
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -55,13 +58,22 @@ const queryClient = new QueryClient({
   },
 });
 
-// ── Wraps private pages: shows Login if not authenticated ──────────────────
+function PageLoader() {
+  return (
+    <div className="flex items-center justify-center min-h-screen">
+      <div className="w-8 h-8 border-4 border-red-600 border-t-transparent rounded-full animate-spin" />
+    </div>
+  );
+}
+
 function PrivateRoute({ component: Component }: { component: React.ComponentType }) {
   const { isAuthenticated } = useAuth();
   if (!isAuthenticated) return <LoginScreen />;
   return (
     <Layout>
-      <Component />
+      <Suspense fallback={<PageLoader />}>
+        <Component />
+      </Suspense>
     </Layout>
   );
 }
@@ -76,56 +88,60 @@ function DonoRoute({ component: Component }: { component: React.ComponentType })
   }
   return (
     <Layout>
-      <Component />
+      <Suspense fallback={<PageLoader />}>
+        <Component />
+      </Suspense>
     </Layout>
   );
 }
 
 function AppRoutes() {
   return (
-    <Switch>
-      {/* ── PUBLIC ─────────────────────────────────────────────────────── */}
-      <Route path="/">
-        <PublicLayout><Landing /></PublicLayout>
-      </Route>
-      <Route path="/catalogo">
-        <PublicLayout><Catalogo /></PublicLayout>
-      </Route>
-      <Route path="/mapa-sono">
-        <PublicLayout><MapaSono /></PublicLayout>
-      </Route>
-      <Route path="/produto/:slug">
-        <ProdutoDetalhe />
-      </Route>
+    <Suspense fallback={<PageLoader />}>
+      <Switch>
+        {/* ── PUBLIC ───────────────────────────────────────────────────── */}
+        <Route path="/">
+          <PublicLayout><Landing /></PublicLayout>
+        </Route>
+        <Route path="/catalogo">
+          <PublicLayout><Catalogo /></PublicLayout>
+        </Route>
+        <Route path="/mapa-sono">
+          <PublicLayout><MapaSono /></PublicLayout>
+        </Route>
+        <Route path="/produto/:slug">
+          <ProdutoDetalhe />
+        </Route>
 
-      {/* ── AUTH público (convite / reset) ─────────────────────────────── */}
-      <Route path="/aceitar-convite"><AceitarConvite /></Route>
-      <Route path="/redefinir-senha"><RedefinirSenha /></Route>
+        {/* ── AUTH ─────────────────────────────────────────────────────── */}
+        <Route path="/aceitar-convite"><AceitarConvite /></Route>
+        <Route path="/redefinir-senha"><RedefinirSenha /></Route>
 
-      {/* ── LANDING PAGES ──────────────────────────────────────────────── */}
-      <Route path="/lp/luxo"><LuxoCaboFrio /></Route>
-      <Route path="/lp/box-bau"><CamaBoxAraruama /></Route>
-      <Route path="/lp/outlet"><OutletPromocao /></Route>
-      <Route path="/lp/saude-coluna"><SaudeColuna /></Route>
-      <Route path="/lp/entrega-24h"><Entrega24h /></Route>
+        {/* ── LANDING PAGES ────────────────────────────────────────────── */}
+        <Route path="/lp/luxo"><LuxoCaboFrio /></Route>
+        <Route path="/lp/box-bau"><CamaBoxAraruama /></Route>
+        <Route path="/lp/outlet"><OutletPromocao /></Route>
+        <Route path="/lp/saude-coluna"><SaudeColuna /></Route>
+        <Route path="/lp/entrega-24h"><Entrega24h /></Route>
 
-      {/* ── PRIVATE ────────────────────────────────────────────────────── */}
-      <Route path="/equipe"             component={() => <PrivateRoute component={Home} />} />
-      <Route path="/orcamento"          component={() => <PrivateRoute component={Orcamento} />} />
-      <Route path="/historico"          component={() => <PrivateRoute component={Historico} />} />
-      <Route path="/dashboard"          component={() => <PrivateRoute component={Dashboard} />} />
-      <Route path="/logistica"          component={() => <PrivateRoute component={Logistica} />} />
-      <Route path="/crawler"            component={() => <PrivateRoute component={Crawler} />} />
-      <Route path="/equipe/clientes"    component={() => <PrivateRoute component={Clientes} />} />
-      <Route path="/outlet"             component={() => <PrivateRoute component={Outlet} />} />
-      <Route path="/estoque"            component={() => <DonoRoute component={Estoque} />} />
-      <Route path="/ranking-outlet"     component={() => <DonoRoute component={RankingOutlet} />} />
-      <Route path="/entrada-estoque"   component={() => <DonoRoute component={EntradaEstoque} />} />
-      <Route path="/financeiro"         component={() => <PrivateRoute component={Financeiro} />} />
-      <Route path="/usuarios"           component={() => <DonoRoute component={Usuarios} />} />
+        {/* ── PRIVATE ──────────────────────────────────────────────────── */}
+        <Route path="/equipe"           component={() => <PrivateRoute component={Home} />} />
+        <Route path="/orcamento"        component={() => <PrivateRoute component={Orcamento} />} />
+        <Route path="/historico"        component={() => <PrivateRoute component={Historico} />} />
+        <Route path="/dashboard"        component={() => <PrivateRoute component={Dashboard} />} />
+        <Route path="/logistica"        component={() => <PrivateRoute component={Logistica} />} />
+        <Route path="/crawler"          component={() => <PrivateRoute component={Crawler} />} />
+        <Route path="/equipe/clientes"  component={() => <PrivateRoute component={Clientes} />} />
+        <Route path="/outlet"           component={() => <PrivateRoute component={Outlet} />} />
+        <Route path="/estoque"          component={() => <DonoRoute component={Estoque} />} />
+        <Route path="/ranking-outlet"   component={() => <DonoRoute component={RankingOutlet} />} />
+        <Route path="/entrada-estoque"  component={() => <DonoRoute component={EntradaEstoque} />} />
+        <Route path="/financeiro"       component={() => <PrivateRoute component={Financeiro} />} />
+        <Route path="/usuarios"         component={() => <DonoRoute component={Usuarios} />} />
 
-      <Route component={NotFound} />
-    </Switch>
+        <Route component={NotFound} />
+      </Switch>
+    </Suspense>
   );
 }
 

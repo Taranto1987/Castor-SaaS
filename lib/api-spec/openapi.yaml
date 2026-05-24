@@ -1312,6 +1312,8 @@ components:
           type: string
         sku:
           type: string
+        slug:
+          type: string
         preco:
           type: string
         precoPix:
@@ -1326,8 +1328,22 @@ components:
           type: string
         imagem:
           type: string
-        link:
+        disponivel:
+          type: boolean
+        encomenda:
+          type: boolean
+        estoque:
+          type: number
+        familySlug:
           type: string
+          description: Canonical family key shared by all size variants of a model
+        familyName:
+          type: string
+          description: Display name for the product family (size-stripped)
+        size:
+          type: string
+          enum: [King, Queen, Casal, Solteiro]
+          description: Size variant for this specific product
         criadoEm:
           type: string
       required: [id, nome, categoria]

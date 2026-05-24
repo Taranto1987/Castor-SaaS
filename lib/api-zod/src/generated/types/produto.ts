@@ -5,11 +5,13 @@
  * Castor Orçamento API
  * OpenAPI spec version: 0.1.0
  */
+import type { ProdutoSize } from "./produtoSize";
 
 export interface Produto {
   id: number;
   nome: string;
   sku?: string;
+  slug?: string;
   preco?: string;
   precoPix?: string;
   parcelamento?: string;
@@ -17,6 +19,14 @@ export interface Produto {
   altura?: string;
   categoria: string;
   imagem?: string;
-  link?: string;
+  disponivel?: boolean;
+  encomenda?: boolean;
+  estoque?: number;
+  /** Canonical family key shared by all size variants of a model */
+  familySlug?: string;
+  /** Display name for the product family (size-stripped) */
+  familyName?: string;
+  /** Size variant for this specific product */
+  size?: ProdutoSize;
   criadoEm?: string;
 }

@@ -41,7 +41,7 @@ export default function Catalogo() {
   const [activeCategory, setActiveCategory] = useState<string>("Todas");
   const waInfo = useWAInfo();
   const { lojaId } = useLoja();
-  const avatarSrc = lojaId === 2 ? "/marcela-avatar.jpg" : "/thalles-avatar.jpg";
+  const avatarSrc = lojaId === 2 ? "/marcela-avatar.webp" : "/thalles-avatar.webp";
 
   useEffect(() => { trackPageView("catalogo"); trackCatalogoView(); }, []);
 

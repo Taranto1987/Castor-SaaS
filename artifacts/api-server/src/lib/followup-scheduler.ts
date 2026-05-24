@@ -1,6 +1,7 @@
 import { db } from "@workspace/db";
 import { orcamentosTable, followUpsTable } from "@workspace/db/schema";
-import { eq, and, lte } from "drizzle-orm";
+import { eq, and, lte, isNull } from "drizzle-orm";
+import { enviarWhatsApp } from "../services/whatsapp";
 
 function sanitizarTelefone(tel: string | null | undefined): string | null {
   if (!tel) return null;
@@ -13,7 +14,7 @@ function primeiroNome(nomeCompleto: string): string {
   return nomeCompleto.trim().split(/\s+/)[0] ?? nomeCompleto;
 }
 
-function gerarMensagemFollowUp(
+function gerarMensagem(
   tipo: string,
   cliente: string,
   produtos: string,
@@ -32,117 +33,99 @@ function gerarMensagemFollowUp(
     case "dia14":
       return `Oi ${nome}, tudo bem? ${remetente} da Castor.\n\nSeu orçamento${valor} está prestes a expirar. Quer garantir o preço especial ainda? Me avisa que finalizo agora! 🙏`;
     default:
-      return `Oi ${nome}! ${remetente} da Castor. Passando pra dar um alô sobre seu orçamento${valor}. Podemos ajudar? 😊`;
+      return `Oi ${nome}! ${remetente} da Castor. Passando pra dar um alô sobre seu orçamento${valor}. Posso ajudar? 😊`;
   }
 }
 
-interface JanelaFollowUp {
-  tipo: string;
-  minDias: number;
-  maxDias: number;
-}
-
-const JANELAS: JanelaFollowUp[] = [
+const JANELAS = [
   { tipo: "dia3",  minDias: 3,  maxDias: 6  },
   { tipo: "dia7",  minDias: 7,  maxDias: 13 },
   { tipo: "dia14", minDias: 14, maxDias: 45 },
 ];
 
-async function gerarFollowUpsPendentes(): Promise<number> {
+async function ciclo(): Promise<void> {
   const agora = new Date();
-  let gerados = 0;
 
+  // ── 1. Gerar follow-ups que ainda não existem ────────────────────────────
   for (const janela of JANELAS) {
-    // limite superior: orçamentos criados há pelo menos minDias dias
     const corte = new Date(agora);
     corte.setDate(corte.getDate() - janela.minDias);
 
     const orcamentos = await db
       .select()
       .from(orcamentosTable)
-      .where(
-        and(
-          eq(orcamentosTable.status, "pendente"),
-          lte(orcamentosTable.criadoEm, corte)
-        )
-      );
+      .where(and(eq(orcamentosTable.status, "pendente"), lte(orcamentosTable.criadoEm, corte)));
 
     for (const orc of orcamentos) {
       if (!orc.criadoEm) continue;
-
-      const diasDesde = Math.floor(
-        (agora.getTime() - new Date(orc.criadoEm).getTime()) / (1000 * 60 * 60 * 24)
-      );
-
-      // Só processa na janela correta
+      const diasDesde = Math.floor((agora.getTime() - new Date(orc.criadoEm).getTime()) / 86_400_000);
       if (diasDesde < janela.minDias || diasDesde > janela.maxDias) continue;
 
-      // Garante idempotência: não cria duplicata para o mesmo tipo
       const existente = await db
         .select({ id: followUpsTable.id })
         .from(followUpsTable)
-        .where(
-          and(
-            eq(followUpsTable.orcamentoId, orc.id),
-            eq(followUpsTable.tipo, janela.tipo)
-          )
-        )
+        .where(and(eq(followUpsTable.orcamentoId, orc.id), eq(followUpsTable.tipo, janela.tipo)))
         .limit(1);
 
       if (existente.length > 0) continue;
 
       interface ProdutoItem { nome?: string }
-      const prodItems = (Array.isArray(orc.produtosJson)
-        ? orc.produtosJson as ProdutoItem[]
-        : []);
-      const produtos =
-        prodItems.map((p) => p.nome).filter(Boolean).join(", ") || "o produto";
-
-      const mensagem = gerarMensagemFollowUp(
-        janela.tipo,
-        orc.cliente,
-        produtos,
-        orc.totalPix,
-        orc.vendedor
-      );
-
+      const prodItems = Array.isArray(orc.produtosJson) ? orc.produtosJson as ProdutoItem[] : [];
+      const produtos = prodItems.map((p) => p.nome).filter(Boolean).join(", ") || "o produto";
+      const mensagem = gerarMensagem(janela.tipo, orc.cliente, produtos, orc.totalPix, orc.vendedor);
       const tel = sanitizarTelefone(orc.whatsapp);
-      const waLink = tel
-        ? `https://wa.me/${tel}?text=${encodeURIComponent(mensagem)}`
-        : null;
+      const waLink = tel ? `https://wa.me/${tel}?text=${encodeURIComponent(mensagem)}` : null;
 
       await db.insert(followUpsTable).values({
+        lojaId: orc.lojaId ?? 1,
         orcamentoId: orc.id,
         tipo: janela.tipo,
         mensagem,
         waLink,
       });
 
-      gerados++;
+      console.log(`[FollowUp] Gerado ${janela.tipo} para orçamento #${orc.id} (${orc.cliente})`);
     }
   }
 
-  return gerados;
+  // ── 2. Enviar via WAHA os que ainda não foram enviados ──────────────────
+  const pendentes = await db
+    .select()
+    .from(followUpsTable)
+    .where(isNull(followUpsTable.executadoEm));
+
+  for (const fu of pendentes) {
+    const [orc] = await db
+      .select({ whatsapp: orcamentosTable.whatsapp, status: orcamentosTable.status })
+      .from(orcamentosTable)
+      .where(eq(orcamentosTable.id, fu.orcamentoId))
+      .limit(1);
+
+    // Não enviar se o orçamento já foi vendido/cancelado entre a geração e o envio
+    if (!orc || orc.status !== "pendente") {
+      await db.update(followUpsTable).set({ executadoEm: new Date() }).where(eq(followUpsTable.id, fu.id));
+      continue;
+    }
+
+    const tel = sanitizarTelefone(orc.whatsapp);
+    if (!tel) continue;
+
+    try {
+      await enviarWhatsApp(tel, fu.mensagem);
+      await db.update(followUpsTable).set({ executadoEm: new Date() }).where(eq(followUpsTable.id, fu.id));
+      console.log(`[FollowUp] Enviado ${fu.tipo} → ${tel} (orçamento #${fu.orcamentoId})`);
+    } catch (err) {
+      // WAHA offline ou não configurado — será tentado no próximo ciclo
+      console.error(`[FollowUp] Falha ao enviar ${fu.tipo} para #${fu.orcamentoId}:`, err);
+    }
+  }
 }
 
-export function iniciarSchedulerFollowUps() {
-  // Executa imediatamente no startup
-  gerarFollowUpsPendentes()
-    .then((g) => {
-      if (g > 0)
-        console.log(`[FollowUp] ${g} follow-up(s) gerado(s) automaticamente`);
-    })
-    .catch((err) =>
-      console.error("[FollowUp] Erro ao gerar follow-ups:", err)
-    );
+export function iniciarSchedulerFollowUps(): void {
+  ciclo().catch((err) => console.error("[FollowUp] Erro no ciclo inicial:", err));
 
-  // Verifica a cada 6 horas
   const MS_6H = 6 * 60 * 60 * 1000;
   setInterval(() => {
-    gerarFollowUpsPendentes()
-      .then((g) => {
-        if (g > 0) console.log(`[FollowUp] ${g} follow-up(s) gerado(s)`);
-      })
-      .catch((err) => console.error("[FollowUp] Erro:", err));
+    ciclo().catch((err) => console.error("[FollowUp] Erro no ciclo:", err));
   }, MS_6H);
 }
