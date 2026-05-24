@@ -1,4 +1,5 @@
 export * from "./utils/family";
+export * from "./utils/normalizeSize";
 
 import { drizzle } from "drizzle-orm/node-postgres";
 import pg from "pg";

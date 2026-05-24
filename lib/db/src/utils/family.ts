@@ -1,4 +1,4 @@
-export type ProductSize = "King" | "Queen" | "Casal" | "Solteiro";
+import type { ProductSize } from "./normalizeSize";
 
 export interface FamilyInfo {
   familySlug: string;

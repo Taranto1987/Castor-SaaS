@@ -12,3 +12,4 @@ export * from "./customer-profiles";
 export * from "./relational-capsules";
 export * from "./lead-scores";
 export * from "./automation-log";
+export * from "./product-families";
