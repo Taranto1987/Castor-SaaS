@@ -145,14 +145,34 @@ router.post("/", async (req, res) => {
         res.write(`data: ${JSON.stringify({ content: text })}\n\n`);
       });
 
-      await stream2.finalMessage();
+      const finalMsg2 = await stream2.finalMessage();
+      logger.info({
+        lojaId,
+        sessionId,
+        pass: 2,
+        inputTokens: finalMsg2.usage.input_tokens,
+        outputTokens: finalMsg2.usage.output_tokens,
+        cacheReadTokens: (finalMsg2.usage as unknown as Record<string, number>)["cache_read_input_tokens"] ?? 0,
+        cacheCreationTokens: (finalMsg2.usage as unknown as Record<string, number>)["cache_creation_input_tokens"] ?? 0,
+      }, "chat token usage");
     }
 
     res.write(`data: ${JSON.stringify({ done: true })}\n\n`);
     res.end();
 
+    logger.info({
+      lojaId,
+      sessionId,
+      pass: 1,
+      inputTokens: firstResponse.usage.input_tokens,
+      outputTokens: firstResponse.usage.output_tokens,
+      cacheReadTokens: (firstResponse.usage as unknown as Record<string, number>)["cache_read_input_tokens"] ?? 0,
+      cacheCreationTokens: (firstResponse.usage as unknown as Record<string, number>)["cache_creation_input_tokens"] ?? 0,
+      hasToolUse,
+    }, "chat token usage");
+
     if (hasToolUse) {
-      logger.info({ lojaId, tools: firstResponse.content.filter(b => b.type === "tool_use").map(b => b.type === "tool_use" ? b.name : "") }, "chat tools used");
+      logger.info({ lojaId, sessionId, tools: firstResponse.content.filter(b => b.type === "tool_use").map(b => b.type === "tool_use" ? b.name : "") }, "chat tools used");
     }
 
     // fire-and-forget post-processing
