@@ -71,7 +71,7 @@ router.post("/", async (req, res) => {
     }
 
     if (!client) {
-      sendSSE(res, { content: buildFallbackMessage(lastUserMessage) });
+      sendSSE(res, { content: buildFallbackMessage() });
       sendSSE(res, { done: true });
       res.end();
       return;
