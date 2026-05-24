@@ -26,6 +26,7 @@ export const usuariosTable = pgTable("usuarios", {
 export const convitesTable = pgTable("convites", {
   id: serial("id").primaryKey(),
   usuarioId: integer("usuario_id").notNull().references(() => usuariosTable.id, { onDelete: "cascade" }),
+  lojaId: integer("loja_id").notNull().default(1),
   token: text("token").notNull().unique(),
   expiresAt: timestamp("expires_at").notNull(),
   usado: boolean("usado").notNull().default(false),
@@ -35,6 +36,7 @@ export const convitesTable = pgTable("convites", {
 export const resetSenhaTokensTable = pgTable("reset_senha_tokens", {
   id: serial("id").primaryKey(),
   usuarioId: integer("usuario_id").notNull().references(() => usuariosTable.id, { onDelete: "cascade" }),
+  lojaId: integer("loja_id").notNull().default(1),
   token: text("token").notNull().unique(),
   expiresAt: timestamp("expires_at").notNull(),
   usado: boolean("usado").notNull().default(false),

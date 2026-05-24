@@ -1,9 +1,10 @@
 import crypto from "crypto";
 import bcrypt from "bcryptjs";
 import { db } from "@workspace/db";
-import { colaboradoresTable, usuariosTable, type Cargo } from "@workspace/db/schema";
-import { eq } from "drizzle-orm";
+import { colaboradoresTable, usuariosTable, sessionsTable, type Cargo } from "@workspace/db/schema";
+import { eq, gt, lt } from "drizzle-orm";
 import { updateUltimoLogin, registrarAudit } from "../services/usuarios/repository";
+import { logger } from "./logger";
 
 // ─── Session ──────────────────────────────────────────────────────────────────
 
@@ -211,9 +212,9 @@ export async function seedColaboradores(): Promise<void> {
           },
         });
     }
-    console.log("[Sessions] Usuários seed sincronizados.");
+    logger.info("[Sessions] Usuários seed sincronizados.");
   } catch (err) {
-    console.error("[Sessions] Erro ao seedar:", err);
+    logger.error({ err }, "[Sessions] Erro ao seedar");
   }
 }
 
@@ -263,6 +264,7 @@ export async function createSessionByEmail(
   const token = crypto.randomBytes(32).toString("hex");
   const session = buildSession(token, usuario);
   sessions.set(token, session);
+  await persistSession(session);
   return session;
 }
 
@@ -307,6 +309,7 @@ export async function createSession(code: string): Promise<Session | null> {
     criadoEm: Date.now(),
   };
   sessions.set(token, session);
+  await persistSession(session);
   return session;
 }
 
@@ -322,6 +325,9 @@ export function getSession(token: string): Session | null {
 
 export function destroySession(token: string): void {
   sessions.delete(token);
+  db.delete(sessionsTable).where(eq(sessionsTable.token, token)).catch((err: unknown) => {
+    logger.error({ err }, "Failed to delete session from DB");
+  });
 }
 
 export function getAllUserSessions(userId: number): string[] {
@@ -333,8 +339,61 @@ export function getAllUserSessions(userId: number): string[] {
 }
 
 export function destroyAllUserSessions(userId: number): void {
-  for (const token of getAllUserSessions(userId)) {
-    sessions.delete(token);
+  const tokens = getAllUserSessions(userId);
+  for (const token of tokens) sessions.delete(token);
+  // Store with Math.abs for legacy negative colaborador IDs
+  db.delete(sessionsTable).where(eq(sessionsTable.usuarioId, Math.abs(userId))).catch((err: unknown) => {
+    logger.error({ err }, "Failed to delete user sessions from DB");
+  });
+}
+
+// ─── DB persistence helpers ───────────────────────────────────────────────────
+
+async function persistSession(session: Session): Promise<void> {
+  try {
+    const expiresAt = new Date(session.criadoEm + SESSION_TTL_MS);
+    await db.insert(sessionsTable).values({
+      token: session.token,
+      usuarioId: Math.abs(session.userId), // legacy colaboradores use negative id
+      lojaId: session.lojaId,
+      payload: session as unknown as Record<string, unknown>,
+      expiresAt,
+    }).onConflictDoNothing();
+  } catch (err) {
+    logger.error({ err }, "Failed to persist session to DB");
+  }
+}
+
+/**
+ * Loads active sessions from the DB into the in-memory Map.
+ * Call once at server startup so sessions survive restarts.
+ */
+export async function hydrateSessionsFromDB(): Promise<void> {
+  try {
+    const rows = await db
+      .select()
+      .from(sessionsTable)
+      .where(gt(sessionsTable.expiresAt, new Date()));
+
+    for (const row of rows) {
+      const session = row.payload as Session;
+      if (session?.token) sessions.set(session.token, session);
+    }
+    logger.info({ count: rows.length }, "[Sessions] hydrated from DB");
+  } catch (err) {
+    // Table may not exist yet (pre-push). Warn and continue — in-memory mode.
+    logger.warn({ err }, "[Sessions] hydration skipped — sessionsTable not ready");
+  }
+}
+
+/**
+ * Deletes all sessions expired before now. Call once at startup.
+ */
+export async function cleanupExpiredSessions(): Promise<void> {
+  try {
+    await db.delete(sessionsTable).where(lt(sessionsTable.expiresAt, new Date()));
+  } catch {
+    // silently ignore — cleanup is best-effort
   }
 }
 

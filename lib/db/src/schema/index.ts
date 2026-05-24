@@ -13,3 +13,5 @@ export * from "./relational-capsules";
 export * from "./lead-scores";
 export * from "./automation-log";
 export * from "./product-families";
+export * from "./sessions";
+export * from "./eventos-operacionais";
