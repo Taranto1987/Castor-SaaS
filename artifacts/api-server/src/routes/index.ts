@@ -18,6 +18,7 @@ import lojaRouter from "./loja";
 import analyticsRouter from "./analytics";
 import scoringRouter from "./scoring";
 import catalogRouter from "./catalog";
+import mcpRouter from "./mcp";
 
 const router: IRouter = Router();
 
@@ -41,5 +42,6 @@ router.use(lojaRouter);
 router.use(analyticsRouter);
 router.use(scoringRouter);
 router.use(catalogRouter);
+router.use(mcpRouter);
 
 export default router;
