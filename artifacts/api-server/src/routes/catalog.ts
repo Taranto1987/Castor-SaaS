@@ -50,22 +50,51 @@ async function deriveFamiliesFromProdutos(lojaId: number): Promise<CatalogFamily
     .where(and(eq(produtosTable.disponivel, true), eq(produtosTable.lojaId, lojaId)));
 
   const familyMap = new Map<string, { name: string; category: string; products: typeof products }>();
+  const standalone: CatalogFamily[] = [];
 
   for (const p of products) {
     const size = normalizeSize(p.size);
-    if (!p.familySlug || !size) continue;
-    const key = `${p.categoria}::${p.familySlug}`;
-    if (!familyMap.has(key)) {
-      familyMap.set(key, {
+
+    if (p.familySlug && size) {
+      // Grouped: belongs to a size family
+      const key = `${p.categoria}::${p.familySlug}`;
+      if (!familyMap.has(key)) {
+        familyMap.set(key, {
+          name: p.familyName ?? p.nome,
+          category: p.categoria,
+          products: [],
+        });
+      }
+      familyMap.get(key)!.products.push(p);
+    } else {
+      // Standalone: no family slug or unrecognised size
+      const fallbackSize: ProductSize = size ?? "Casal";
+      standalone.push({
+        id: `single::${p.id}`,
         name: p.familyName ?? p.nome,
         category: p.categoria,
-        products: [],
+        ranking: 0,
+        imageUrl: p.imagem ?? null,
+        availableSizes: [fallbackSize],
+        variants: [{
+          size: fallbackSize,
+          produtoId: p.id,
+          slug: p.slug ?? null,
+          preco: p.preco ?? null,
+          precoPix: p.precoPix ?? null,
+          parcelamento: p.parcelamento ?? null,
+          medidas: p.medidas ?? null,
+          altura: p.altura ?? null,
+          imagem: p.imagem ?? null,
+          disponivel: p.disponivel ?? true,
+          encomenda: p.encomenda ?? false,
+          estoque: p.estoque ?? null,
+        }],
       });
     }
-    familyMap.get(key)!.products.push(p);
   }
 
-  const families: CatalogFamily[] = [];
+  const grouped: CatalogFamily[] = [];
   for (const [, { name, category, products: fps }] of familyMap) {
     const variantMap = new Map<ProductSize, CatalogVariant>();
     for (const p of fps) {
@@ -91,7 +120,7 @@ async function deriveFamiliesFromProdutos(lojaId: number): Promise<CatalogFamily
     );
     if (variants.length === 0) continue;
     const key = `${category}::${fps[0]?.familySlug}`;
-    families.push({
+    grouped.push({
       id: fps[0]?.familySlug ?? key,
       name,
       category,
@@ -102,7 +131,11 @@ async function deriveFamiliesFromProdutos(lojaId: number): Promise<CatalogFamily
     });
   }
 
-  return families.sort((a, b) => a.name.localeCompare(b.name, "pt-BR"));
+  const all = [
+    ...grouped.sort((a, b) => a.name.localeCompare(b.name, "pt-BR")),
+    ...standalone.sort((a, b) => a.name.localeCompare(b.name, "pt-BR")),
+  ];
+  return all;
 }
 
 // ── GET /api/catalog/families ─────────────────────────────────────────────────
@@ -112,13 +145,23 @@ router.get("/catalog/families", async (req: Request, res: Response) => {
   const category = req.query.category as string | undefined;
 
   try {
-    const families = await db
-      .select()
-      .from(productFamiliesTable)
-      .where(eq(productFamiliesTable.isActive, true))
-      .orderBy(asc(productFamiliesTable.ranking), asc(productFamiliesTable.name));
+    // If product_families table doesn't exist yet (pre-migration), treat as empty
+    type FamilyRow = typeof productFamiliesTable.$inferSelect;
+    let families: FamilyRow[] = [];
+    try {
+      families = await db
+        .select()
+        .from(productFamiliesTable)
+        .where(eq(productFamiliesTable.isActive, true))
+        .orderBy(asc(productFamiliesTable.ranking), asc(productFamiliesTable.name));
+    } catch (tableErr: unknown) {
+      const msg = tableErr instanceof Error ? tableErr.message : "";
+      // Postgres 42P01: "relation 'product_families' does not exist"
+      if (!msg.includes("product_families") && !msg.includes("42P01")) throw tableErr;
+      // Fall through to crawler-based derivation
+    }
 
-    // Fallback: Castor Core empty → derive from crawler data
+    // Fallback: Castor Core empty or not yet created → derive from crawler data
     if (families.length === 0) {
       let fallback = await deriveFamiliesFromProdutos(lojaId);
       if (category) fallback = fallback.filter(f => f.category === category);
