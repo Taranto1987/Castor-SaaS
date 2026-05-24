@@ -17,6 +17,7 @@ import diagnosticoRouter from "./diagnostico";
 import lojaRouter from "./loja";
 import analyticsRouter from "./analytics";
 import scoringRouter from "./scoring";
+import catalogRouter from "./catalog";
 
 const router: IRouter = Router();
 
@@ -39,5 +40,6 @@ router.use(diagnosticoRouter);
 router.use(lojaRouter);
 router.use(analyticsRouter);
 router.use(scoringRouter);
+router.use(catalogRouter);
 
 export default router;

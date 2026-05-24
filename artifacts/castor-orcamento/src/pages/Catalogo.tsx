@@ -2,30 +2,55 @@ import { useState, useEffect, useMemo } from "react";
 import { Search, Loader2, PackageX, MessageCircle, Moon } from "lucide-react";
 import { useLocation } from "wouter";
 import { motion } from "framer-motion";
+import { useQuery } from "@tanstack/react-query";
 import { useDebounce } from "@/hooks/use-debounce";
 import { useWAInfo } from "@/hooks/use-wa-info";
 import { useLoja } from "@/contexts/LojaContext";
 import { ProductCardGrouped } from "@/components/ProductCardGrouped";
-import {
-  useListProdutos,
-  useBuscarProdutos,
-  useListCategorias,
-} from "@workspace/api-client-react";
 import { cn } from "@/lib/utils";
-import { groupProducts } from "@/utils/groupProducts";
-import type { CatalogoProduto } from "@/utils/groupProducts";
+import { SIZE_ORDER } from "@/utils/normalizeSize";
+import type { ProductSize } from "@/utils/normalizeSize";
+import type { ProductGroup, Variant } from "@/utils/groupProducts";
 import { trackPageView, trackCatalogoWhatsApp, trackCatalogoView } from "@/lib/tracking";
 
+// ── Types ─────────────────────────────────────────────────────────────────────
+
+interface CatalogVariant {
+  size: ProductSize;
+  produtoId: number | null;
+  slug: string | null;
+  preco: string | null;
+  precoPix: string | null;
+  parcelamento: string | null;
+  medidas: string | null;
+  altura: string | null;
+  imagem: string | null;
+  disponivel: boolean;
+  encomenda: boolean;
+  estoque: number | null;
+}
+
+interface CatalogFamily {
+  id: string;
+  name: string;
+  category: string;
+  ranking: number;
+  imageUrl: string | null;
+  availableSizes: ProductSize[];
+  variants: CatalogVariant[];
+}
+
+// ── Category config ───────────────────────────────────────────────────────────
+
 const CATEGORY_LABELS: Record<string, string> = {
-  "colchoes": "Colchões",
+  "colchoes":         "Colchões",
   "cama-box-colchao": "Box + Colchão",
-  "cama-box": "Cama Box",
-  "travesseiros": "Travesseiros",
-  "protetor": "Protetores",
-  "roupa-de-cama": "Roupa de Cama",
+  "cama-box":         "Cama Box",
+  "travesseiros":     "Travesseiros",
+  "protetor":         "Protetores",
+  "roupa-de-cama":    "Roupa de Cama",
 };
 
-// Defines the display order of category filter buttons; "Todas" always appears last.
 const CATEGORY_ORDER = [
   "colchoes",
   "cama-box-colchao",
@@ -34,6 +59,41 @@ const CATEGORY_ORDER = [
   "roupa-de-cama",
   "protetor",
 ];
+
+// ── Converter: CatalogFamily → ProductGroup (for ProductCardGrouped) ──────────
+
+function toProductGroup(family: CatalogFamily): ProductGroup {
+  const variants: Variant[] = family.variants
+    .filter(v => family.availableSizes.includes(v.size))
+    .sort((a, b) => SIZE_ORDER.indexOf(a.size) - SIZE_ORDER.indexOf(b.size))
+    .map(v => ({
+      id: v.produtoId ?? 0,
+      nome: family.name,
+      sku: null,
+      slug: v.slug,
+      preco: v.preco,
+      precoPix: v.precoPix,
+      parcelamento: v.parcelamento,
+      medidas: v.medidas,
+      altura: v.altura,
+      categoria: family.category,
+      imagem: v.imagem,
+      disponivel: v.disponivel,
+      encomenda: v.encomenda,
+      estoque: v.estoque,
+      size: v.size,
+    }));
+
+  return {
+    key: family.id,
+    familia: family.name,
+    categoria: family.category,
+    variants,
+    hasSizes: variants.length > 1,
+  };
+}
+
+// ── Page ──────────────────────────────────────────────────────────────────────
 
 export default function Catalogo() {
   const [location] = useLocation();
@@ -45,7 +105,6 @@ export default function Catalogo() {
 
   useEffect(() => { trackPageView("catalogo"); trackCatalogoView(); }, []);
 
-  // Pick up ?categoria= from URL on mount
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const cat = params.get("categoria");
@@ -53,28 +112,41 @@ export default function Catalogo() {
   }, [location]);
 
   const debouncedSearch = useDebounce(searchTerm, 400);
-  const isSearching = debouncedSearch.length > 0;
 
-  const { data: categoriasData } = useListCategorias();
-  const { data: listData, isLoading: isLoadingList } = useListProdutos(
-    { categoria: activeCategory !== "Todas" ? activeCategory : undefined },
-    { query: { enabled: !isSearching } as any }
-  );
-  const { data: searchData, isLoading: isLoadingSearch } = useBuscarProdutos(
-    { q: debouncedSearch },
-    { query: { enabled: isSearching } as any }
-  );
+  // ── Castor Core: single canonical endpoint ────────────────────────────────
+  const { data: allFamilies = [], isLoading } = useQuery<CatalogFamily[]>({
+    queryKey: ["catalog-families", lojaId],
+    queryFn: async () => {
+      const res = await fetch(`/api/catalog/families?lojaId=${lojaId}`);
+      if (!res.ok) throw new Error("Erro ao carregar catálogo");
+      return res.json();
+    },
+    staleTime: 5 * 60 * 1000,
+  });
 
+  // ── Category list from loaded families ────────────────────────────────────
   const categorias = useMemo(() => {
-    const available = new Set(categoriasData ?? []);
+    const available = new Set(allFamilies.map(f => f.category));
     const ordered = CATEGORY_ORDER.filter(c => available.has(c));
-    const others = (categoriasData ?? []).filter(c => !CATEGORY_ORDER.includes(c));
+    const others = [...available].filter(c => !CATEGORY_ORDER.includes(c)).sort();
     return [...ordered, ...others, "Todas"];
-  }, [categoriasData]);
-  const rawProducts = (isSearching ? searchData : listData) as CatalogoProduto[] | undefined;
-  const isLoading = isSearching ? isLoadingSearch : isLoadingList;
+  }, [allFamilies]);
 
-  const groups = useMemo(() => groupProducts(rawProducts ?? []), [rawProducts]);
+  // ── Client-side filter: category + search ────────────────────────────────
+  const groups = useMemo<ProductGroup[]>(() => {
+    let filtered = allFamilies;
+
+    if (activeCategory !== "Todas") {
+      filtered = filtered.filter(f => f.category === activeCategory);
+    }
+
+    if (debouncedSearch) {
+      const q = debouncedSearch.toLowerCase();
+      filtered = filtered.filter(f => f.name.toLowerCase().includes(q));
+    }
+
+    return filtered.map(toProductGroup);
+  }, [allFamilies, activeCategory, debouncedSearch]);
 
   return (
     <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-10 pb-20 space-y-8">
@@ -86,7 +158,8 @@ export default function Catalogo() {
             Catálogo de Produtos
           </h1>
           <p className="text-slate-500 mt-2 text-sm max-w-xl">
-            Todos os colchões, boxes, travesseiros e acessórios Castor disponíveis em {waInfo.loja}. Escolha o tamanho e fale com o especialista.
+            Todos os colchões, boxes, travesseiros e acessórios Castor disponíveis em {waInfo.loja}.
+            Escolha o tamanho e fale com o especialista.
           </p>
         </div>
         <div className="w-full md:w-96 relative group">
@@ -96,7 +169,7 @@ export default function Catalogo() {
           <input
             type="text"
             className="w-full pl-11 pr-4 py-3.5 bg-white border-2 border-slate-200 rounded-xl text-slate-900 placeholder:text-slate-400 focus:outline-none focus:border-red-500 focus:ring-4 focus:ring-red-500/10 transition-all shadow-sm"
-            placeholder="Buscar produto..."
+            placeholder="Buscar modelo..."
             value={searchTerm}
             onChange={e => setSearchTerm(e.target.value)}
           />
@@ -112,15 +185,20 @@ export default function Catalogo() {
         <img src={avatarSrc} alt="Especialista" className="w-12 h-12 rounded-xl object-cover object-top border-2 border-white/20 shrink-0" />
         <div className="flex-1 min-w-0">
           <p className="font-extrabold text-sm leading-tight">Não sabe qual colchão escolher?</p>
-          <p className="text-red-100 text-xs mt-0.5">Faça o Mapa do Sono com o Especialista {waInfo.contato} — 13 cliques e descubra o ideal para o seu corpo.</p>
+          <p className="text-red-100 text-xs mt-0.5">
+            Faça o Mapa do Sono com o Especialista {waInfo.contato} — 13 cliques e descubra o ideal para o seu corpo.
+          </p>
         </div>
-        <a href="/mapa-sono" className="shrink-0 flex items-center gap-2 bg-white text-red-700 font-extrabold px-4 py-2.5 rounded-xl text-xs hover:bg-red-50 transition-all active:scale-95 whitespace-nowrap">
+        <a
+          href="/mapa-sono"
+          className="shrink-0 flex items-center gap-2 bg-white text-red-700 font-extrabold px-4 py-2.5 rounded-xl text-xs hover:bg-red-50 transition-all active:scale-95 whitespace-nowrap"
+        >
           <Moon className="w-4 h-4" /> Fazer o Mapa
         </a>
       </motion.div>
 
       {/* Category filters */}
-      {!isSearching && (
+      {!debouncedSearch && (
         <div className="flex flex-wrap gap-2">
           {categorias.map(cat => (
             <button
@@ -159,26 +237,32 @@ export default function Catalogo() {
       ) : groups.length === 0 ? (
         <div className="flex flex-col items-center justify-center py-20 text-center bg-white rounded-3xl border border-dashed border-slate-200">
           <PackageX className="w-12 h-12 text-slate-300 mb-4" />
-          <h3 className="text-xl font-bold text-slate-800">Nenhum produto encontrado</h3>
+          <h3 className="text-xl font-bold text-slate-800">Nenhum modelo encontrado</h3>
           <p className="text-slate-500 mt-2 max-w-sm text-sm">
-            {isSearching
-              ? `Nada para "${searchTerm}". Tente outros termos.`
-              : "Ainda não há produtos nesta categoria."}
+            {debouncedSearch
+              ? `Nada para "${debouncedSearch}". Tente outros termos.`
+              : "Ainda não há modelos nesta categoria."}
           </p>
         </div>
       ) : (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-          {groups.map((group, index) => (
-            <motion.div
-              key={group.key}
-              initial={{ opacity: 0, scale: 0.95, y: 20 }}
-              animate={{ opacity: 1, scale: 1, y: 0 }}
-              transition={{ duration: 0.3, delay: Math.min(index * 0.04, 0.4) }}
-            >
-              <ProductCardGrouped group={group} waInfo={waInfo} />
-            </motion.div>
-          ))}
-        </div>
+        <>
+          <p className="text-xs text-slate-400 font-medium">
+            {groups.length} modelo{groups.length !== 1 ? "s" : ""} disponíveis
+            {activeCategory !== "Todas" ? ` em ${CATEGORY_LABELS[activeCategory] ?? activeCategory}` : ""}
+          </p>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+            {groups.map((group, index) => (
+              <motion.div
+                key={group.key}
+                initial={{ opacity: 0, scale: 0.95, y: 20 }}
+                animate={{ opacity: 1, scale: 1, y: 0 }}
+                transition={{ duration: 0.3, delay: Math.min(index * 0.04, 0.4) }}
+              >
+                <ProductCardGrouped group={group} waInfo={waInfo} />
+              </motion.div>
+            ))}
+          </div>
+        </>
       )}
 
       {/* Floating WhatsApp */}

@@ -1,6 +1,9 @@
-export type Size = "King" | "Queen" | "Casal" | "Solteiro";
+import { normalizeSize, SIZE_ORDER } from "./normalizeSize";
+import type { ProductSize } from "./normalizeSize";
 
-export const SIZE_ORDER: readonly Size[] = ["King", "Queen", "Casal", "Solteiro"];
+// Re-export for components that import from this module
+export type { ProductSize as Size } from "./normalizeSize";
+export { SIZE_ORDER };
 
 export type CatalogoProduto = {
   id: number;
@@ -22,7 +25,7 @@ export type CatalogoProduto = {
   size?: string | null;
 };
 
-export type Variant = CatalogoProduto & { size: Size };
+export type Variant = CatalogoProduto & { size: ProductSize };
 
 export type ProductGroup = {
   key: string;
@@ -32,15 +35,21 @@ export type ProductGroup = {
   hasSizes: boolean;
 };
 
+/**
+ * Groups a flat crawler product list into family cards with normalised sizes.
+ * Used by Outlet.tsx (reads raw crawler data).
+ *
+ * Catalogo.tsx uses /api/catalog/families which returns pre-grouped
+ * Castor Core data and does NOT call this function.
+ */
 export function groupProducts(products: CatalogoProduto[]): ProductGroup[] {
   const groupMap = new Map<string, { familia: string; categoria: string; variants: Variant[] }>();
   const ungrouped: ProductGroup[] = [];
 
   for (const p of products) {
-    const validSize = SIZE_ORDER.includes(p.size as Size) ? (p.size as Size) : null;
+    const validSize = normalizeSize(p.size);
 
     if (p.familySlug && validSize) {
-      // Products with family data from the database — the correct path.
       const key = `${p.categoria}::${p.familySlug}`;
       if (!groupMap.has(key)) {
         groupMap.set(key, {
@@ -54,12 +63,11 @@ export function groupProducts(products: CatalogoProduto[]): ProductGroup[] {
         entry.variants.push({ ...p, size: validSize });
       }
     } else {
-      // Standalone product (no size, or family data not yet backfilled).
       ungrouped.push({
         key: `single::${p.id}`,
         familia: p.familyName ?? p.nome,
         categoria: p.categoria,
-        variants: [{ ...p, size: (validSize ?? "King") as Size }],
+        variants: [{ ...p, size: (validSize ?? "Casal") as ProductSize }],
         hasSizes: false,
       });
     }

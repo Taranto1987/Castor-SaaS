@@ -4,8 +4,12 @@ import helmet from "helmet";
 import rateLimit from "express-rate-limit";
 import router from "./routes";
 import sitemapRouter from "./routes/sitemap.js";
+import { requestContextMiddleware } from "./middleware/request-context";
 
 const app: Express = express();
+
+// Observability: request ID + correlation ID on every request
+app.use(requestContextMiddleware);
 
 // Security: HTTP headers
 app.use(helmet());
