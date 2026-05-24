@@ -2,6 +2,7 @@ import type Anthropic from "@anthropic-ai/sdk";
 
 // Shared tool definitions used by both ThallesZzz (Anthropic tool_use)
 // and the MCP server. lojaId is always injected server-side — never in schema.
+
 export const CASTOR_READ_TOOLS: Anthropic.Messages.Tool[] = [
   {
     name: "search_products",
@@ -68,4 +69,37 @@ export const CASTOR_READ_TOOLS: Anthropic.Messages.Tool[] = [
       required: [],
     },
   },
+];
+
+export const CASTOR_WRITE_TOOLS: Anthropic.Messages.Tool[] = [
+  {
+    name: "create_orcamento",
+    description:
+      "Gera e salva um orçamento para o cliente com os produtos selecionados. " +
+      "Use quando o cliente confirmar interesse em produtos específicos e quiser receber uma proposta. " +
+      "Retorna id do orçamento, totais e link WhatsApp pronto para envio.",
+    input_schema: {
+      type: "object" as const,
+      properties: {
+        cliente: { type: "string", description: "Nome do cliente." },
+        whatsapp: { type: "string", description: "Telefone do cliente (ex: 22999999999)." },
+        produto_ids: {
+          type: "array",
+          items: { type: "number" },
+          description: "IDs dos produtos a incluir. Use search_products para obter os IDs.",
+        },
+        observacoes: { type: "string", description: "Observações livres para o orçamento." },
+        desconto_pix: {
+          type: "number",
+          description: "Desconto extra em pontos percentuais (0–85). O desconto padrão de 15% já está incluído.",
+        },
+      },
+      required: ["cliente", "produto_ids"],
+    },
+  },
+];
+
+export const CASTOR_ALL_TOOLS: Anthropic.Messages.Tool[] = [
+  ...CASTOR_READ_TOOLS,
+  ...CASTOR_WRITE_TOOLS,
 ];
