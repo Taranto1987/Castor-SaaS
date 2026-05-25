@@ -15,3 +15,4 @@ export * from "./automation-log";
 export * from "./product-families";
 export * from "./sessions";
 export * from "./eventos-operacionais";
+export * from "./whatsapp-instances";

@@ -19,6 +19,7 @@ import analyticsRouter from "./analytics";
 import scoringRouter from "./scoring";
 import catalogRouter from "./catalog";
 import mcpRouter from "./mcp";
+import whatsappRouter from "./whatsapp";
 
 const router: IRouter = Router();
 
@@ -43,5 +44,6 @@ router.use(analyticsRouter);
 router.use(scoringRouter);
 router.use(catalogRouter);
 router.use(mcpRouter);
+router.use("/whatsapp", whatsappRouter);
 
 export default router;
