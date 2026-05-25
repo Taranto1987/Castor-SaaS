@@ -12,6 +12,7 @@ export async function runTools(
   const results = await Promise.all(
     toolUseBlocks.map(async (block): Promise<ToolResultBlockParam> => {
       const input = block.input as Record<string, unknown>;
+      const toolStart = Date.now();
       try {
         let data: unknown;
 
@@ -46,7 +47,7 @@ export async function runTools(
             data = { error: `Tool desconhecida: ${block.name}` };
         }
 
-        logger.info({ tool: block.name, lojaId }, "tool executed");
+        logger.info({ tool: block.name, lojaId, latencyMs: Date.now() - toolStart }, "tool executed");
 
         return {
           type: "tool_result",
@@ -54,7 +55,7 @@ export async function runTools(
           content: JSON.stringify(data),
         };
       } catch (err) {
-        logger.error({ err, tool: block.name }, "tool execution failed");
+        logger.error({ err, tool: block.name, lojaId, latencyMs: Date.now() - toolStart }, "tool execution failed");
         return {
           type: "tool_result",
           tool_use_id: block.id,

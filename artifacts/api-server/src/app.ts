@@ -39,6 +39,8 @@ app.use("/api/usuarios/aceitar-convite", makeLimiter(10));      // 10/15min — 
 app.use("/api/agent/",              makeLimiter(20, 60 * 60 * 1000)); // 20/hour per IP
 // Public AI chat (ThallesZzz sales assistant) — streams Anthropic calls
 app.use("/api/chat",                makeLimiter(30));                  // 30/15min per IP
+// MCP Server — external agent access, higher per-window but capped
+app.use("/api/mcp",                 makeLimiter(60, 60 * 60 * 1000)); // 60/hour per IP
 // Sitemap at root (not under /api) for search engine discovery
 app.use(sitemapRouter);
 app.use("/api", router);

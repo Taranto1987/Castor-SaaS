@@ -1,6 +1,14 @@
 import type { Request, Response, NextFunction } from "express";
 import { getSession, isDono, type Session } from "../lib/sessions";
 
+/**
+ * Structurally validates a lojaId. Phase 3 (write tools) must additionally
+ * verify existence in DB and caller authorization for the tenant.
+ */
+export function isValidLojaId(id: number): boolean {
+  return Number.isInteger(id) && id > 0 && id < 100_000;
+}
+
 /** Resolve lojaId from session → x-loja-id header → default 1 (Cabo Frio). */
 export function resolveLojaId(req: Request): number {
   const token = (req.headers["x-session-token"] || "") as string;
