@@ -1,8 +1,15 @@
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
 import { searchProducts, getCatalog, getProductFamily, getStoreInfo } from "../tools/read";
+import { logToolExecution } from "../log-tool-execution";
 
-export function createCastorMcpServer(lojaId: number): McpServer {
+interface McpCtx {
+  lojaId: number;
+  requestId?: string;
+}
+
+export function createCastorMcpServer(ctx: McpCtx): McpServer {
+  const { lojaId, requestId } = ctx;
   const server = new McpServer({
     name: "castor-saas",
     version: "1.0.0",
@@ -18,8 +25,15 @@ export function createCastorMcpServer(lojaId: number): McpServer {
       ),
     },
     async ({ query, category }) => {
-      const data = await searchProducts({ query, category, lojaId });
-      return { content: [{ type: "text", text: JSON.stringify(data, null, 2) }] };
+      const start = Date.now();
+      try {
+        const data = await searchProducts({ query, category, lojaId });
+        logToolExecution({ lojaId, toolName: "search_products", source: "mcp", status: "success", durationMs: Date.now() - start, inputSummary: { query, category }, requestId });
+        return { content: [{ type: "text", text: JSON.stringify(data, null, 2) }] };
+      } catch (err) {
+        logToolExecution({ lojaId, toolName: "search_products", source: "mcp", status: "error", durationMs: Date.now() - start, errorMessage: String(err).slice(0, 500), requestId });
+        throw err;
+      }
     },
   );
 
@@ -32,8 +46,15 @@ export function createCastorMcpServer(lojaId: number): McpServer {
       ),
     },
     async ({ category }) => {
-      const data = await getCatalog({ category, lojaId });
-      return { content: [{ type: "text", text: JSON.stringify(data, null, 2) }] };
+      const start = Date.now();
+      try {
+        const data = await getCatalog({ category, lojaId });
+        logToolExecution({ lojaId, toolName: "get_catalog", source: "mcp", status: "success", durationMs: Date.now() - start, inputSummary: { category }, requestId });
+        return { content: [{ type: "text", text: JSON.stringify(data, null, 2) }] };
+      } catch (err) {
+        logToolExecution({ lojaId, toolName: "get_catalog", source: "mcp", status: "error", durationMs: Date.now() - start, errorMessage: String(err).slice(0, 500), requestId });
+        throw err;
+      }
     },
   );
 
@@ -44,8 +65,15 @@ export function createCastorMcpServer(lojaId: number): McpServer {
       family_id: z.string().describe("Slug da família (ex: colchao-castor-toque-de-luxo)."),
     },
     async ({ family_id }) => {
-      const data = await getProductFamily({ familyId: family_id, lojaId });
-      return { content: [{ type: "text", text: JSON.stringify(data, null, 2) }] };
+      const start = Date.now();
+      try {
+        const data = await getProductFamily({ familyId: family_id, lojaId });
+        logToolExecution({ lojaId, toolName: "get_product_family", source: "mcp", status: "success", durationMs: Date.now() - start, inputSummary: { family_id }, requestId });
+        return { content: [{ type: "text", text: JSON.stringify(data, null, 2) }] };
+      } catch (err) {
+        logToolExecution({ lojaId, toolName: "get_product_family", source: "mcp", status: "error", durationMs: Date.now() - start, errorMessage: String(err).slice(0, 500), requestId });
+        throw err;
+      }
     },
   );
 
@@ -54,8 +82,15 @@ export function createCastorMcpServer(lojaId: number): McpServer {
     "Retorna WhatsApp, endereço e responsável da loja.",
     {},
     async () => {
-      const data = await getStoreInfo({ lojaId });
-      return { content: [{ type: "text", text: JSON.stringify(data, null, 2) }] };
+      const start = Date.now();
+      try {
+        const data = await getStoreInfo({ lojaId });
+        logToolExecution({ lojaId, toolName: "get_store_info", source: "mcp", status: "success", durationMs: Date.now() - start, requestId });
+        return { content: [{ type: "text", text: JSON.stringify(data, null, 2) }] };
+      } catch (err) {
+        logToolExecution({ lojaId, toolName: "get_store_info", source: "mcp", status: "error", durationMs: Date.now() - start, errorMessage: String(err).slice(0, 500), requestId });
+        throw err;
+      }
     },
   );
 

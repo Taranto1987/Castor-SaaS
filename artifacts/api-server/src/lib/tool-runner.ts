@@ -1,17 +1,25 @@
 import type Anthropic from "@anthropic-ai/sdk";
 import { searchProducts, getCatalog, getProductFamily, getStoreInfo } from "./tools/read";
 import { logger } from "./logger";
+import { logToolExecution } from "./log-tool-execution";
 
 type ToolUseBlock = Anthropic.Messages.ToolUseBlock;
 type ToolResultBlockParam = Anthropic.Messages.ToolResultBlockParam;
 
+interface RunToolsCtx {
+  correlationId?: string;
+  requestId?: string;
+}
+
 export async function runTools(
   toolUseBlocks: ToolUseBlock[],
   lojaId: number,
+  ctx?: RunToolsCtx,
 ): Promise<ToolResultBlockParam[]> {
   const results = await Promise.all(
     toolUseBlocks.map(async (block): Promise<ToolResultBlockParam> => {
       const input = block.input as Record<string, unknown>;
+      const start = Date.now();
       try {
         let data: unknown;
 
@@ -46,7 +54,17 @@ export async function runTools(
             data = { error: `Tool desconhecida: ${block.name}` };
         }
 
-        logger.info({ tool: block.name, lojaId }, "tool executed");
+        const durationMs = Date.now() - start;
+        logger.info({ tool: block.name, lojaId, durationMs }, "tool executed");
+        logToolExecution({
+          lojaId,
+          toolName: block.name,
+          source: "chat",
+          status: "success",
+          durationMs,
+          inputSummary: input,
+          ...ctx,
+        });
 
         return {
           type: "tool_result",
@@ -54,7 +72,19 @@ export async function runTools(
           content: JSON.stringify(data),
         };
       } catch (err) {
-        logger.error({ err, tool: block.name }, "tool execution failed");
+        const durationMs = Date.now() - start;
+        const isTimeout = err instanceof Error && err.name === "AbortError";
+        logger.error({ err, tool: block.name, durationMs }, "tool execution failed");
+        logToolExecution({
+          lojaId,
+          toolName: block.name,
+          source: "chat",
+          status: isTimeout ? "timeout" : "error",
+          durationMs,
+          inputSummary: input,
+          errorMessage: String(err).slice(0, 500),
+          ...ctx,
+        });
         return {
           type: "tool_result",
           tool_use_id: block.id,

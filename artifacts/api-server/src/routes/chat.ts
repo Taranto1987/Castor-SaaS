@@ -125,7 +125,10 @@ router.post("/", async (req, res) => {
       const toolBlocks = firstResponse.content.filter(
         (b): b is Anthropic.Messages.ToolUseBlock => b.type === "tool_use"
       );
-      const toolResults = await runTools(toolBlocks, lojaId);
+      const toolResults = await runTools(toolBlocks, lojaId, {
+        correlationId: (res.locals as Record<string, unknown>)["correlationId"] as string | undefined,
+        requestId: (res.locals as Record<string, unknown>)["requestId"] as string | undefined,
+      });
 
       // Pass 2: stream final answer with tool results injected
       const stream2 = client.messages.stream({

@@ -11,7 +11,8 @@ const router = Router();
 // Supports: GET (SSE stream), POST (JSON-RPC), DELETE (session teardown).
 router.all("/mcp", async (req: Request, res: Response) => {
   const lojaId = resolveLojaId(req);
-  const server = createCastorMcpServer(lojaId);
+  const requestId = (res.locals as Record<string, unknown>)["requestId"] as string | undefined;
+  const server = createCastorMcpServer({ lojaId, requestId });
 
   const transport = new StreamableHTTPServerTransport({
     sessionIdGenerator: () => crypto.randomUUID(),
