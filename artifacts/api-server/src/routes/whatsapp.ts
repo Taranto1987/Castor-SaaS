@@ -7,7 +7,7 @@ import {
   createInstance,
   getQRCode,
   getConnectionState,
-  deleteInstance,
+  logoutInstance,
 } from "../services/whatsapp/evolution-client";
 import {
   getOrCreateInstance,
@@ -18,6 +18,9 @@ import { logger } from "../lib/logger";
 import type { Session } from "../lib/sessions";
 
 const router = Router();
+
+// In-memory mutex: prevents concurrent /connect calls for the same tenant
+const pendingConnects = new Set<number>();
 
 function requireDono(req: Request, res: Response): Session | null {
   const token = (req.headers["x-session-token"] ?? "") as string;
@@ -52,29 +55,38 @@ router.post("/connect", async (req: Request, res: Response) => {
   if (!session) return;
 
   const { lojaId } = session;
+
+  if (pendingConnects.has(lojaId)) {
+    res.status(409).json({ error: "Conexão já em andamento" });
+    return;
+  }
+
   const slug = await getLojaSlug(lojaId);
   if (!slug) {
     res.status(404).json({ error: "Loja não encontrada" });
     return;
   }
 
-  const instance = await getOrCreateInstance(lojaId, slug);
-  const { instanceId } = instance;
-
+  pendingConnects.add(lojaId);
   try {
-    await createInstance(instanceId);
-  } catch (err) {
-    // May already exist on Evolution side — non-fatal
-    logger.warn({ err, instanceId }, "createInstance warning");
-  }
+    const instance = await getOrCreateInstance(lojaId, slug);
+    const { instanceId } = instance;
 
-  try {
+    try {
+      await createInstance(instanceId);
+    } catch (err) {
+      // May already exist on Evolution side — non-fatal
+      logger.warn({ err, instanceId }, "createInstance warning");
+    }
+
     const qrcode = await getQRCode(instanceId);
     await updateStatus(instanceId, "awaiting_qr");
     res.json({ qrcode, instanceId, status: "awaiting_qr" });
   } catch (err) {
-    logger.error({ err, instanceId }, "Failed to get QR code");
+    logger.error({ err, lojaId }, "Failed to start WhatsApp connection");
     res.status(500).json({ error: "Falha ao gerar QR Code" });
+  } finally {
+    pendingConnects.delete(lojaId);
   }
 });
 
@@ -113,18 +125,12 @@ router.get("/status", async (req: Request, res: Response) => {
   res.json(instance);
 });
 
-// DELETE /api/whatsapp/disconnect — disconnect and reset to disconnected
+// DELETE /api/whatsapp/disconnect — graceful logout, keeps instance for reconnect
 router.delete("/disconnect", async (req: Request, res: Response) => {
   const session = requireDono(req, res);
   if (!session) return;
 
   const { lojaId } = session;
-  const slug = await getLojaSlug(lojaId);
-  if (!slug) {
-    res.status(404).json({ error: "Loja não encontrada" });
-    return;
-  }
-
   const instance = await getInstanceByLojaId(lojaId);
   if (!instance) {
     res.json({ ok: true });
@@ -132,9 +138,9 @@ router.delete("/disconnect", async (req: Request, res: Response) => {
   }
 
   try {
-    await deleteInstance(instance.instanceId);
+    await logoutInstance(instance.instanceId);
   } catch (err) {
-    logger.warn({ err, instanceId: instance.instanceId }, "deleteInstance warning");
+    logger.warn({ err, instanceId: instance.instanceId }, "logoutInstance warning");
   }
 
   await updateStatus(instance.instanceId, "disconnected");
@@ -142,7 +148,14 @@ router.delete("/disconnect", async (req: Request, res: Response) => {
 });
 
 // POST /api/whatsapp/webhook — Evolution API webhooks (connection.update, qrcode.updated)
+// Auth: optional shared secret via EVOLUTION_WEBHOOK_TOKEN env var
 router.post("/webhook", async (req: Request, res: Response) => {
+  const webhookToken = process.env.EVOLUTION_WEBHOOK_TOKEN ?? "";
+  if (webhookToken && req.headers["apikey"] !== webhookToken) {
+    res.status(401).json({ error: "Unauthorized" });
+    return;
+  }
+
   const payload = req.body as {
     event?: string;
     instance?: string;
