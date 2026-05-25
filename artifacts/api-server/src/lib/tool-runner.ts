@@ -1,5 +1,7 @@
 import type Anthropic from "@anthropic-ai/sdk";
 import { searchProducts, getCatalog, getProductFamily, getStoreInfo } from "./tools/read";
+import { createOrcamento } from "./tools/write/orcamento";
+import type { ToolContext } from "./tools/context";
 import { logger } from "./logger";
 
 type ToolUseBlock = Anthropic.Messages.ToolUseBlock;
@@ -7,8 +9,9 @@ type ToolResultBlockParam = Anthropic.Messages.ToolResultBlockParam;
 
 export async function runTools(
   toolUseBlocks: ToolUseBlock[],
-  lojaId: number,
+  ctx: ToolContext,
 ): Promise<ToolResultBlockParam[]> {
+  const { lojaId } = ctx;
   const results = await Promise.all(
     toolUseBlocks.map(async (block): Promise<ToolResultBlockParam> => {
       const input = block.input as Record<string, unknown>;
@@ -41,6 +44,21 @@ export async function runTools(
 
           case "get_store_info":
             data = await getStoreInfo({ lojaId });
+            break;
+
+          case "create_orcamento":
+            data = await createOrcamento(
+              {
+                cliente: String(input["cliente"] ?? ""),
+                whatsapp: input["whatsapp"] ? String(input["whatsapp"]) : undefined,
+                produto_ids: Array.isArray(input["produto_ids"])
+                  ? (input["produto_ids"] as unknown[]).map(Number).filter((n) => n > 0)
+                  : [],
+                observacoes: input["observacoes"] ? String(input["observacoes"]) : undefined,
+                desconto_pix: input["desconto_pix"] != null ? Number(input["desconto_pix"]) : undefined,
+              },
+              ctx,
+            );
             break;
 
           default:

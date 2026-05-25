@@ -12,8 +12,9 @@ import { resolveOrCreateCustomer, stitchIdentityByPhone } from "../services/memo
 import { loadCapsule, buildStateBlock, generateAndSaveCapsule } from "../services/memory/capsule";
 import { extractSessionSignals } from "../services/scoring/signals";
 import { scheduleLeadScoreUpdate } from "../services/scoring/updater";
-import { CASTOR_READ_TOOLS } from "../lib/tools/definitions";
+import { CASTOR_ALL_TOOLS } from "../lib/tools/definitions";
 import { runTools } from "../lib/tool-runner";
+import type { ToolContext } from "../lib/tools/context";
 import { logger } from "../lib/logger";
 
 const router = Router();
@@ -105,7 +106,7 @@ router.post("/", async (req, res) => {
       max_tokens: 1024,
       system: systemBlocks,
       messages: chatMessages,
-      tools: CASTOR_READ_TOOLS,
+      tools: CASTOR_ALL_TOOLS,
     });
 
     stream.on("streamEvent", (event) => {
@@ -125,7 +126,12 @@ router.post("/", async (req, res) => {
       const toolBlocks = firstResponse.content.filter(
         (b): b is Anthropic.Messages.ToolUseBlock => b.type === "tool_use"
       );
-      const toolResults = await runTools(toolBlocks, lojaId);
+      const toolCtx: ToolContext = {
+        lojaId,
+        requestId: (res.locals as Record<string, unknown>)["requestId"] as string | undefined,
+        actorType: "agente",
+      };
+      const toolResults = await runTools(toolBlocks, toolCtx);
 
       // Pass 2: stream final answer with tool results injected
       const stream2 = client.messages.stream({
