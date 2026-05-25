@@ -17,3 +17,4 @@ export * from "./sessions";
 export * from "./eventos-operacionais";
 export * from "./whatsapp-instances";
 export * from "./tool-executions";
+export * from "./lead-contexts";

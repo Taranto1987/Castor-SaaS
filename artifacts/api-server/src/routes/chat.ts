@@ -15,6 +15,7 @@ import { scheduleLeadScoreUpdate } from "../services/scoring/updater";
 import { CASTOR_READ_TOOLS } from "../lib/tools/definitions";
 import { runTools } from "../lib/tool-runner";
 import { logger } from "../lib/logger";
+import { generateAndSaveLeadContext } from "../services/lead-context";
 
 const router = Router();
 
@@ -200,6 +201,18 @@ router.post("/", async (req, res) => {
           // enabling cross-device identity continuity when the user provides their number.
           if (customerId && lead.telefone) {
             await stitchIdentityByPhone(customerId, lead.telefone, lead.nomeCliente, lojaId);
+          }
+
+          // Sync lead context so WhatsApp path inherits this web conversation's knowledge.
+          if (lead.telefone) {
+            const allMessages = [
+              ...chatMessages,
+              ...(fullAssistantText ? [{ role: "assistant" as const, content: fullAssistantText }] : []),
+            ];
+            setImmediate(() => {
+              generateAndSaveLeadContext(lead.telefone!, lojaId, lead.nomeCliente ?? null, allMessages)
+                .catch((err) => logger.error({ err }, "lead context sync failed"));
+            });
           }
         }
 
