@@ -1,4 +1,4 @@
-import { pgTable, serial, text, boolean, timestamp, integer, jsonb } from "drizzle-orm/pg-core";
+import { pgTable, serial, text, boolean, timestamp, integer, jsonb, index } from "drizzle-orm/pg-core";
 
 export const CARGOS = ["ADMIN", "GERENTE", "VENDEDOR", "FINANCEIRO", "ENTREGA"] as const;
 export type Cargo = typeof CARGOS[number];
@@ -21,7 +21,9 @@ export const usuariosTable = pgTable("usuarios", {
   ativo: boolean("ativo").notNull().default(true),
   ultimoLogin: timestamp("ultimo_login"),
   criadoEm: timestamp("criado_em").defaultNow(),
-});
+}, (t) => [
+  index("usuarios_loja_idx").on(t.lojaId),
+]);
 
 export const convitesTable = pgTable("convites", {
   id: serial("id").primaryKey(),

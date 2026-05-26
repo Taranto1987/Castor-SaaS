@@ -5,7 +5,7 @@ import { getProductContext } from "../services/chat/repository";
 import { processarLeadDaConversa } from "../services/chat/lead-extractor";
 import { SYSTEM_PROMPT, buildFallbackMessage } from "../services/chat/prompt";
 import type { ChatMessage } from "../services/chat/lead-extractor";
-import { resolveLojaId } from "../middlewares/auth";
+import { resolvePublicLojaId } from "../middlewares/auth";
 import { emitEvent } from "../services/events/emit";
 import { classifyMessage, extractProductIds } from "../services/events/classifier";
 import { resolveOrCreateCustomer, stitchIdentityByPhone } from "../services/memory/identity";
@@ -14,7 +14,7 @@ import { extractSessionSignals } from "../services/scoring/signals";
 import { scheduleLeadScoreUpdate } from "../services/scoring/updater";
 import { CASTOR_READ_TOOLS } from "../lib/tools/definitions";
 import { runTools } from "../lib/tool-runner";
-import { logger } from "../lib/logger";
+import { logger, routeLogger } from "../lib/logger";
 import { generateAndSaveLeadContext } from "../services/lead-context";
 
 const router = Router();
@@ -42,7 +42,11 @@ router.post("/", async (req, res) => {
     }
 
     const sessionId = clientSessionId ?? crypto.randomUUID();
-    const lojaId = resolveLojaId(req);
+    const lojaId = resolvePublicLojaId(req);
+    const log = routeLogger(res, lojaId);
+
+    const ac = new AbortController();
+    req.on("close", () => ac.abort());
 
     const chatMessages = messages
       .filter((m) => m.role === "user" || m.role === "assistant")
@@ -107,7 +111,7 @@ router.post("/", async (req, res) => {
       system: systemBlocks,
       messages: chatMessages,
       tools: CASTOR_READ_TOOLS,
-    });
+    }, { signal: ac.signal });
 
     stream.on("streamEvent", (event) => {
       if (event.type === "content_block_start" && event.content_block.type === "tool_use") hasToolUse = true;
@@ -115,6 +119,7 @@ router.post("/", async (req, res) => {
 
     stream.on("text", (text) => {
       if (!hasToolUse) {
+        if (res.writableEnded || ac.signal.aborted) return;
         fullAssistantText += text;
         res.write(`data: ${JSON.stringify({ content: text })}\n\n`);
       }
@@ -145,6 +150,7 @@ router.post("/", async (req, res) => {
       });
 
       stream2.on("text", (text) => {
+        if (res.writableEnded || ac.signal.aborted) return;
         fullAssistantText += text;
         res.write(`data: ${JSON.stringify({ content: text })}\n\n`);
       });
@@ -155,8 +161,7 @@ router.post("/", async (req, res) => {
     res.write(`data: ${JSON.stringify({ done: true })}\n\n`);
     res.end();
 
-    logger.info({
-      lojaId,
+    log.info({
       sessionId,
       model: "claude-sonnet-4-6",
       inputTokens: firstResponse.usage.input_tokens,
@@ -167,7 +172,7 @@ router.post("/", async (req, res) => {
     }, "ai_usage");
 
     if (hasToolUse) {
-      logger.info({ lojaId, tools: firstResponse.content.filter(b => b.type === "tool_use").map(b => b.type === "tool_use" ? b.name : "") }, "chat tools used");
+      log.info({ tools: firstResponse.content.filter(b => b.type === "tool_use").map(b => b.type === "tool_use" ? b.name : "") }, "chat tools used");
     }
 
     // fire-and-forget post-processing

@@ -47,7 +47,9 @@ async function gerarRecorrentesMes(mes: number, ano: number): Promise<number> {
   return geradas;
 }
 
-export function iniciarSchedulerRecorrentes() {
+let _recorrentesHandle: ReturnType<typeof setInterval> | null = null;
+
+export function iniciarSchedulerRecorrentes(): void {
   const now = new Date();
   const mes = now.getMonth() + 1;
   const ano = now.getFullYear();
@@ -63,7 +65,7 @@ export function iniciarSchedulerRecorrentes() {
     });
 
   const MS_PER_HOUR = 60 * 60 * 1000;
-  setInterval(() => {
+  _recorrentesHandle = setInterval(() => {
     const agora = new Date();
     if (agora.getHours() === 0 && agora.getMinutes() < 2) {
       const m = agora.getMonth() + 1;
@@ -75,4 +77,11 @@ export function iniciarSchedulerRecorrentes() {
         .catch((err) => console.error("[Recorrentes] Erro:", err));
     }
   }, MS_PER_HOUR);
+}
+
+export function stopSchedulerRecorrentes(): void {
+  if (_recorrentesHandle) {
+    clearInterval(_recorrentesHandle);
+    _recorrentesHandle = null;
+  }
 }

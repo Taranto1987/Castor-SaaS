@@ -121,11 +121,20 @@ async function ciclo(): Promise<void> {
   }
 }
 
+let _followUpHandle: ReturnType<typeof setInterval> | null = null;
+
 export function iniciarSchedulerFollowUps(): void {
   ciclo().catch((err) => console.error("[FollowUp] Erro no ciclo inicial:", err));
 
   const MS_6H = 6 * 60 * 60 * 1000;
-  setInterval(() => {
+  _followUpHandle = setInterval(() => {
     ciclo().catch((err) => console.error("[FollowUp] Erro no ciclo:", err));
   }, MS_6H);
+}
+
+export function stopSchedulerFollowUps(): void {
+  if (_followUpHandle) {
+    clearInterval(_followUpHandle);
+    _followUpHandle = null;
+  }
 }
