@@ -1,9 +1,9 @@
 import { Router } from "express";
 import type { Response } from "express";
 import Anthropic from "@anthropic-ai/sdk";
-import { getProductContext } from "../services/chat/repository";
+import { getProductContextCompact } from "../services/chat/repository";
 import { processarLeadDaConversa } from "../services/chat/lead-extractor";
-import { SYSTEM_PROMPT, buildFallbackMessage } from "../services/chat/prompt";
+import { SYSTEM_PROMPT, buildFallbackMessage, buildSessionIntentBlock } from "../services/chat/prompt";
 import type { ChatMessage } from "../services/chat/lead-extractor";
 import { resolvePublicLojaId } from "../middlewares/auth";
 import { emitEvent } from "../services/events/emit";
@@ -85,18 +85,26 @@ router.post("/", async (req, res) => {
       return;
     }
 
-    const productContext = await getProductContext(lojaId);
     let fullAssistantText = "";
 
+    // Block 1: static prefix — immutable, cross-tenant cache hit every request
     const systemBlocks: Anthropic.Messages.TextBlockParam[] = [
       { type: "text", text: SYSTEM_PROMPT, cache_control: { type: "ephemeral" } },
-      { type: "text", text: productContext, cache_control: { type: "ephemeral" } },
     ];
 
-    // inject relational state only when there's meaningful history (>1 session)
+    // Block 2: compact product memory — ~60 tokens, no cache needed
+    const compactHints = await getProductContextCompact(lojaId);
+    systemBlocks.push({ type: "text", text: compactHints });
+
+    // Block 3: longTerm relational state — only for returning customers (sessionCount >= 1)
     if (capsuleState && capsuleState.sessionCount >= 1) {
-      const stateBlock = buildStateBlock(customerName, capsuleState);
-      systemBlocks.push({ type: "text", text: stateBlock });
+      systemBlocks.push({ type: "text", text: buildStateBlock(customerName, capsuleState) });
+    }
+
+    // Block 4: shortTerm intent signals — only when current session has meaningful signals
+    const intentBlock = buildSessionIntentBlock(chatMessages);
+    if (intentBlock) {
+      systemBlocks.push({ type: "text", text: intentBlock });
     }
 
     // ── Tool-aware streaming ──────────────────────────────────────────────────

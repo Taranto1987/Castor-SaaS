@@ -11,13 +11,34 @@ interface RunToolsCtx {
   requestId?: string;
 }
 
+const MAX_TOOLS_PER_TURN = 2;
+
 export async function runTools(
   toolUseBlocks: ToolUseBlock[],
   lojaId: number,
   ctx?: RunToolsCtx,
 ): Promise<ToolResultBlockParam[]> {
+  // Hard budget: max 2 tools per turn
+  const sliced = toolUseBlocks.slice(0, MAX_TOOLS_PER_TURN);
+  if (sliced.length < toolUseBlocks.length) {
+    logger.warn({ lojaId, requested: toolUseBlocks.length, executed: sliced.length }, "tool_budget_exceeded");
+  }
+
+  // Semantic dedup: skip calls with identical name + primary input param
+  const seen = new Set<string>();
+  const dedupedBlocks = sliced.filter(block => {
+    const firstParam = Object.values(block.input ?? {})[0] ?? "";
+    const key = `${block.name}:${String(firstParam).toLowerCase().trim()}`;
+    if (seen.has(key)) {
+      logger.warn({ lojaId, tool: block.name }, "tool_dedup_skipped");
+      return false;
+    }
+    seen.add(key);
+    return true;
+  });
+
   const results = await Promise.all(
-    toolUseBlocks.map(async (block): Promise<ToolResultBlockParam> => {
+    dedupedBlocks.map(async (block): Promise<ToolResultBlockParam> => {
       const input = block.input as Record<string, unknown>;
       const start = Date.now();
       try {
