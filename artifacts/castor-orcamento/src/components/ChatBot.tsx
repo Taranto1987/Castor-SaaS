@@ -20,7 +20,7 @@ export default function ChatBot() {
           messages: Message[];
           lastActivity: number;
         };
-        if (Date.now() - lastActivity < 24 * 60 * 60 * 1000 && m.length > 0) return m;
+        if (Date.now() - lastActivity < 7 * 24 * 60 * 60 * 1000 && m.length > 0) return m;
       }
     } catch {}
     return [{ role: "assistant", content: GREETING }];

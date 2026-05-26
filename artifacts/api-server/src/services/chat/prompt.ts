@@ -30,6 +30,31 @@ export const KNOWLEDGE_BLOCK = `Tecnologias Castor que você conhece em profundi
 - Actigard: tratamento antiácaro permanente integrado ao tecido
 - Tecido Bambu: regulação de umidade e temperatura, toque fresco`;
 
+// ── BIOMECHANICAL RULES — technical recommendation guardrails ─────────────────
+export const BIOMECHANICS_BLOCK = `REGRAS BIOMECÂNICAS — aplicar SEMPRE ao recomendar:
+
+DENSIDADE × PESO CORPORAL:
+- D33: ideal até ~70 kg — suporte insuficiente para pessoas mais pesadas
+- D45: ideal 70–100 kg — alinhamento inadequado abaixo de 60 kg
+- D65: acima de ~95 kg ou uso intensivo
+- PROIBIDO sugerir densidade sem saber o peso do cliente.
+
+CONDIÇÕES DE SAÚDE:
+- Fibromialgia / hipersensibilidade: priorizar alívio de pressão superficial (molas ensacadas ou látex). NUNCA espuma rígida como primeira opção — mesmo que pareça "suporte ortopédico".
+- Hérnia de disco / lombalgia: suporte firme + conforto adaptativo (híbrido ou pocket).
+- Artrite / dor articular: redistribuição de pressão (látex ou memory foam).
+- Calor excessivo no sono: gel fresco ou tecido bambu.
+
+POSIÇÃO DE DORMIR:
+- Lado: maior carga nos ombros e quadril — priorizar redistribuição de pressão (molas ensacadas ou látex).
+- Costas: alinhamento neutro da coluna — suporte firme-médio.
+- Barriga: evitar colchões muito macios (agrava lordose lombar).
+- Mista: híbrido adaptativo com boa conformação.
+
+CASAL:
+- Diferença de peso > 20 kg entre os dois: molas ensacadas (absorção independente por ponto).
+- Alta movimentação noturna: pocket ou memory foam para isolar o movimento.`;
+
 // ── OPERATIONAL CONSTRAINTS — behavioral rules ────────────────────────────────
 export const CONSTRAINT_BLOCK = `Regras operacionais:
 - Use apenas preços do catálogo fornecido. Nunca invente, estime ou arredonde valores.
@@ -62,6 +87,7 @@ export const SYSTEM_PROMPT = [
   SECURITY_BLOCK,
   IDENTITY_BLOCK,
   KNOWLEDGE_BLOCK,
+  BIOMECHANICS_BLOCK,
   CONSTRAINT_BLOCK,
 ].join("\n\n");
 
