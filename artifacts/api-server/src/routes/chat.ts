@@ -86,7 +86,7 @@ router.post("/", async (req, res) => {
 
     const systemBlocks: Anthropic.Messages.TextBlockParam[] = [
       { type: "text", text: SYSTEM_PROMPT, cache_control: { type: "ephemeral" } },
-      { type: "text", text: productContext },
+      { type: "text", text: productContext, cache_control: { type: "ephemeral" } },
     ];
 
     // inject relational state only when there's meaningful history (>1 session)
@@ -154,6 +154,17 @@ router.post("/", async (req, res) => {
 
     res.write(`data: ${JSON.stringify({ done: true })}\n\n`);
     res.end();
+
+    logger.info({
+      lojaId,
+      sessionId,
+      model: "claude-sonnet-4-6",
+      inputTokens: firstResponse.usage.input_tokens,
+      outputTokens: firstResponse.usage.output_tokens,
+      cacheReadTokens: firstResponse.usage.cache_read_input_tokens ?? 0,
+      cacheWriteTokens: firstResponse.usage.cache_creation_input_tokens ?? 0,
+      hasToolUse,
+    }, "ai_usage");
 
     if (hasToolUse) {
       logger.info({ lojaId, tools: firstResponse.content.filter(b => b.type === "tool_use").map(b => b.type === "tool_use" ? b.name : "") }, "chat tools used");

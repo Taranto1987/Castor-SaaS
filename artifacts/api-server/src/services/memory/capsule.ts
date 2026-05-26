@@ -43,7 +43,12 @@ export function buildStateBlock(
     "[RESTORE_STATE]",
     name ? `Cliente: ${name}` : "Cliente recorrente",
     daysSince !== null
-      ? `Último contato: ${daysSince === 0 ? "hoje" : `${daysSince} dia${daysSince !== 1 ? "s" : ""} atrás`}`
+      ? `Último contato: ${
+          daysSince === 0 ? "hoje"
+          : daysSince <= 3 ? "há poucos dias"
+          : daysSince <= 14 ? "há algumas semanas"
+          : "há mais de um mês"
+        }`
       : "",
     state.sessionCount > 1 ? `Sessões anteriores: ${state.sessionCount}` : "",
     "",
