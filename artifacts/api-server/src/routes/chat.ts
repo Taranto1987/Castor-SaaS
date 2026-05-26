@@ -66,9 +66,11 @@ router.post("/", async (req, res) => {
 
     if (anonymousId) {
       try {
-        customerId = await resolveOrCreateCustomer(anonymousId, lojaId);
+        const profile = await resolveOrCreateCustomer(anonymousId, lojaId);
+        customerId = profile.id;
+        customerName = profile.name;
         capsuleState = await loadCapsule(customerId);
-        console.log(`[Memory] Customer ${customerId} | capsule: ${capsuleState ? "yes" : "no"} | sessions: ${capsuleState?.sessionCount ?? 0}`);
+        console.log(`[Memory] Customer ${customerId} | name: ${customerName ?? "unknown"} | capsule: ${capsuleState ? "yes" : "no"} | sessions: ${capsuleState?.sessionCount ?? 0}`);
       } catch (err) {
         console.error("[Memory] Identity resolution failed:", err);
       }

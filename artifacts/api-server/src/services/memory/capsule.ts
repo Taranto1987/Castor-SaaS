@@ -53,7 +53,7 @@ export function buildStateBlock(
     "Instrução de retomada:",
     name
       ? `O cliente se chama ${name}. Use o nome naturalmente na conversa.`
-      : "Você não sabe o nome do cliente ainda. Antes de qualquer outra coisa, peça o nome de forma natural (ex: 'Pode me dizer seu nome?'). Nunca diga 'Que bom te ver de volta!' ou qualquer saudação de reencuentro sem antes saber o nome — isso soaria artificial.",
+      : "Você não sabe o nome do cliente. Pergunte apenas em momento natural (ex: ao oferecer orçamento ou personalizar recomendação). Não interrompa a conversa para pedir o nome como primeira ação.",
     "Retome pelo contexto real da cápsula acima: mencione algo específico do que foi discutido (dor, produto, objeção). Se a cápsula for muito vaga, abra com uma pergunta que dê continuidade natural à jornada do cliente.",
     "Nunca mencione que tem um 'estado salvo', 'memória' ou 'registro'. Aja como um vendedor experiente que simplesmente lembra.",
   ].filter((l) => l !== undefined);

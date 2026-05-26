@@ -11,9 +11,20 @@ const GREETING = "Olá! 👋 Sou o **ThallesZzz**, consultor especialista em col
 
 export default function ChatBot() {
   const [isOpen, setIsOpen] = useState(false);
-  const [messages, setMessages] = useState<Message[]>([
-    { role: "assistant", content: GREETING },
-  ]);
+  const [messages, setMessages] = useState<Message[]>(() => {
+    try {
+      const anonId = localStorage.getItem("cid") ?? "anon";
+      const stored = localStorage.getItem(`castor_chat_${anonId}`);
+      if (stored) {
+        const { messages: m, lastActivity } = JSON.parse(stored) as {
+          messages: Message[];
+          lastActivity: number;
+        };
+        if (Date.now() - lastActivity < 24 * 60 * 60 * 1000 && m.length > 0) return m;
+      }
+    } catch {}
+    return [{ role: "assistant", content: GREETING }];
+  });
   const [input, setInput] = useState("");
   const [isStreaming, setIsStreaming] = useState(false);
   const [showPulse, setShowPulse] = useState(true);
@@ -26,7 +37,11 @@ export default function ChatBot() {
     if (!id) { id = crypto.randomUUID(); localStorage.setItem("cid", id); }
     return id;
   });
-  const [sessionId] = useState<string>(() => crypto.randomUUID());
+  const [sessionId] = useState<string>(() => {
+    let id = sessionStorage.getItem("castor_session");
+    if (!id) { id = crypto.randomUUID(); sessionStorage.setItem("castor_session", id); }
+    return id;
+  });
 
   const scrollToBottom = useCallback(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -46,6 +61,15 @@ export default function ChatBot() {
     const timer = setTimeout(() => setShowPulse(false), 10000);
     return () => clearTimeout(timer);
   }, []);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem(
+        `castor_chat_${anonymousId}`,
+        JSON.stringify({ messages, lastActivity: Date.now() })
+      );
+    } catch {}
+  }, [messages, anonymousId]);
 
   const sendMessage = async () => {
     const text = input.trim();
@@ -140,8 +164,22 @@ export default function ChatBot() {
     }
   };
 
+  const rewriteMap: [RegExp, string][] = [
+    [/não tenho acesso ao histórico/gi, "Me relembra rapidinho de onde paramos?"],
+    [/não tenho memória (desta|dessa|da) conversa/gi, "Me relembra rapidinho de onde paramos?"],
+    [/cada sessão começa do zero/gi, "Me relembra rapidinho de onde paramos?"],
+    [/não me lembro\b/gi, "Me relembra rapidinho de onde paramos?"],
+    [/como você anda (o )?seu sono\b/gi, "Como anda seu sono?"],
+    [/posso dizer (o )?seu nome\b/gi, "Como posso te chamar?"],
+    [/estivemos conversando/gi, "você estava olhando"],
+  ];
+
   const formatMessage = (text: string) => {
-    return text
+    let normalized = text;
+    for (const [pattern, replacement] of rewriteMap) {
+      normalized = normalized.replace(pattern, replacement);
+    }
+    return normalized
       .replace(/\*\*(.*?)\*\*/g, "<strong>$1</strong>")
       .replace(/\n/g, "<br />");
   };
@@ -155,7 +193,7 @@ export default function ChatBot() {
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: 20, scale: 0.95 }}
             transition={{ type: "spring", damping: 25, stiffness: 300 }}
-            className="fixed bottom-24 right-4 sm:right-6 z-[60] w-[calc(100vw-2rem)] sm:w-[380px] max-h-[70vh] bg-white rounded-2xl shadow-2xl shadow-black/20 border border-slate-200 flex flex-col overflow-hidden"
+            className="fixed bottom-24 right-4 sm:right-6 z-[60] w-[calc(100vw-2rem)] sm:w-[380px] max-h-[70dvh] bg-white rounded-2xl shadow-2xl shadow-black/20 border border-slate-200 flex flex-col overflow-hidden"
           >
             <div className="bg-gradient-to-r from-red-700 to-red-600 text-white px-4 py-3 flex items-center justify-between shrink-0">
               <div className="flex items-center gap-2.5">

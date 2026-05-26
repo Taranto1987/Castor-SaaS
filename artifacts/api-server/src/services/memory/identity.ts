@@ -4,9 +4,9 @@ import { eq, and } from "drizzle-orm";
 export async function resolveOrCreateCustomer(
   anonymousId: string,
   lojaId: number
-): Promise<number> {
+): Promise<{ id: number; name: string | null }> {
   const existing = await db
-    .select({ id: customerProfilesTable.id })
+    .select({ id: customerProfilesTable.id, name: customerProfilesTable.name })
     .from(customerProfilesTable)
     .where(
       and(
@@ -16,14 +16,14 @@ export async function resolveOrCreateCustomer(
     )
     .limit(1);
 
-  if (existing[0]) return existing[0].id;
+  if (existing[0]) return { id: existing[0].id, name: existing[0].name ?? null };
 
   const [created] = await db
     .insert(customerProfilesTable)
     .values({ anonymousId, lojaId })
     .returning({ id: customerProfilesTable.id });
 
-  return created.id;
+  return { id: created.id, name: null };
 }
 
 /**
