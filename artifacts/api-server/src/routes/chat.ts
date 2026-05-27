@@ -65,7 +65,7 @@ router.post("/", async (req, res) => {
     // resolve relational memory (only on first message of a session to avoid extra DB round-trips)
     let customerId: number | null = null;
     let capsuleState: Awaited<ReturnType<typeof loadCapsule>> = null;
-    const customerName: string | null = null;
+    let customerName: string | null = null;
 
     if (anonymousId) {
       try {
