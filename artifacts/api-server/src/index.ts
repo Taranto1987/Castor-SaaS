@@ -34,16 +34,18 @@ const server = app.listen(port, () => {
   seedLojas().catch((err: unknown) => logger.error({ err }, "seedLojas failed"));
   seedColaboradores().catch((err: unknown) => logger.error({ err }, "seedColaboradores failed"));
   refreshLojaRegistry().catch(() => null);
-  setInterval(() => refreshLojaRegistry().catch(() => null), 5 * 60_000);
+  _refreshHandle = setInterval(() => refreshLojaRegistry().catch(() => null), 5 * 60_000);
 });
 
 let shuttingDown = false;
+let _refreshHandle: ReturnType<typeof setInterval> | null = null;
 
 async function shutdown(signal: string): Promise<void> {
   if (shuttingDown) return;
   shuttingDown = true;
   logger.info({ signal }, "Graceful shutdown started");
 
+  if (_refreshHandle) { clearInterval(_refreshHandle); _refreshHandle = null; }
   stopSchedulerRecorrentes();
   stopSchedulerFollowUps();
 

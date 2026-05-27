@@ -237,17 +237,18 @@ router.get("/buscar", async (req, res) => {
   }
 });
 
-router.patch("/:id/disponibilidade", async (req, res) => {
+router.patch("/:id/disponibilidade", requireDono, async (req, res) => {
   try {
-    const id = parseInt(req.params.id);
+    const id = parseInt(req.params.id as string);
     const { disponivel } = req.body;
     if (typeof disponivel !== "boolean") {
       res.status(400).json({ error: "Campo disponivel (boolean) obrigatório" });
       return;
     }
+    const lojaId = resolveLojaId(req);
     const updated = await db.update(produtosTable)
       .set({ disponivel })
-      .where(eq(produtosTable.id, id))
+      .where(and(eq(produtosTable.id, id), eq(produtosTable.lojaId, lojaId)))
       .returning();
     if (updated.length === 0) {
       res.status(404).json({ error: "Produto não encontrado" });
@@ -280,8 +281,9 @@ router.post("/outlet/:id/interesse", async (req, res) => {
   }
 });
 
-router.get("/outlet/ranking", requireDono, async (_req, res) => {
+router.get("/outlet/ranking", requireDono, async (req, res) => {
   try {
+    const lojaId = resolveLojaId(req);
     const ranking = await db
       .select({
         produtoId: outletInteressesTable.produtoId,
@@ -298,7 +300,8 @@ router.get("/outlet/ranking", requireDono, async (_req, res) => {
       return;
     }
 
-    const produtos = await db.select().from(produtosTable).where(inArray(produtosTable.id, produtoIds));
+    const produtos = await db.select().from(produtosTable)
+      .where(and(inArray(produtosTable.id, produtoIds), eq(produtosTable.lojaId, lojaId)));
     const produtoMap = new Map(produtos.map(p => [p.id, p]));
 
     const result = ranking
@@ -327,7 +330,9 @@ router.post("/outlet/:id/promover", requireDono, async (req, res) => {
       res.status(400).json({ error: "ID inválido" });
       return;
     }
-    const [produto] = await db.select().from(produtosTable).where(eq(produtosTable.id, id)).limit(1);
+    const lojaId = resolveLojaId(req);
+    const [produto] = await db.select().from(produtosTable)
+      .where(and(eq(produtosTable.id, id), eq(produtosTable.lojaId, lojaId))).limit(1);
     if (!produto) {
       res.status(404).json({ error: "Produto não encontrado" });
       return;
@@ -351,7 +356,7 @@ router.post("/outlet/:id/promover", requireDono, async (req, res) => {
     }
     const updated = await db.update(produtosTable)
       .set(setData)
-      .where(eq(produtosTable.id, id))
+      .where(and(eq(produtosTable.id, id), eq(produtosTable.lojaId, lojaId)))
       .returning();
     res.json(mapProduto(updated[0]));
   } catch (error) {
@@ -375,9 +380,9 @@ router.get("/estoque", async (req, res) => {
   }
 });
 
-router.patch("/:id/estoque", async (req, res) => {
+router.patch("/:id/estoque", requireDono, async (req, res) => {
   try {
-    const id = parseInt(req.params.id);
+    const id = parseInt(req.params.id as string);
     if (isNaN(id)) {
       res.status(400).json({ error: "ID inválido" });
       return;
@@ -387,9 +392,10 @@ router.patch("/:id/estoque", async (req, res) => {
       res.status(400).json({ error: "Campo estoque (inteiro >= 0) obrigatório" });
       return;
     }
+    const lojaId = resolveLojaId(req);
     const updated = await db.update(produtosTable)
       .set({ estoque, disponivel: estoque > 0 })
-      .where(eq(produtosTable.id, id))
+      .where(and(eq(produtosTable.id, id), eq(produtosTable.lojaId, lojaId)))
       .returning();
     if (updated.length === 0) {
       res.status(404).json({ error: "Produto não encontrado" });

@@ -24,22 +24,25 @@ export async function runTools(
     logger.warn({ lojaId, requested: toolUseBlocks.length, executed: sliced.length }, "tool_budget_exceeded");
   }
 
-  // Semantic dedup: skip calls with identical name + primary input param
+  // Semantic dedup: return synthetic result for duplicate calls to satisfy Anthropic's
+  // requirement that every tool_use_id in the assistant message has a matching tool_result.
   const seen = new Set<string>();
-  const dedupedBlocks = sliced.filter(block => {
-    const firstParam = Object.values(block.input ?? {})[0] ?? "";
-    const key = `${block.name}:${String(firstParam).toLowerCase().trim()}`;
-    if (seen.has(key)) {
-      logger.warn({ lojaId, tool: block.name }, "tool_dedup_skipped");
-      return false;
-    }
-    seen.add(key);
-    return true;
-  });
 
   const results = await Promise.all(
-    dedupedBlocks.map(async (block): Promise<ToolResultBlockParam> => {
+    sliced.map(async (block): Promise<ToolResultBlockParam> => {
       const input = block.input as Record<string, unknown>;
+      const firstParam = Object.values(input)[0] ?? "";
+      const key = `${block.name}:${String(firstParam).toLowerCase().trim()}`;
+      if (seen.has(key)) {
+        logger.warn({ lojaId, tool: block.name }, "tool_dedup_skipped");
+        return {
+          type: "tool_result",
+          tool_use_id: block.id,
+          content: "Duplicate tool call — see previous result for same query.",
+        };
+      }
+      seen.add(key);
+
       const start = Date.now();
       try {
         let data: unknown;

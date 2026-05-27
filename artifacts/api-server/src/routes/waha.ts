@@ -7,7 +7,7 @@ import {
 
 const router = Router();
 
-// Mantém sessão do agente por número de telefone (em memória)
+// Mantém sessão do agente por `${lojaId}:${phone}` — escopo por tenant
 const sessionByPhone = new Map<string, string>();
 
 router.post("/webhook/waha", async (req: Request, res: Response) => {
@@ -34,13 +34,15 @@ router.post("/webhook/waha", async (req: Request, res: Response) => {
 
     const texto: string = payload.body ?? "";
     const numero: string = payload.from ?? "";
+    const lojaId = parseInt(process.env.WAHA_LOJA_ID ?? "1") || 1;
 
     if (!texto.trim() || !numero) return;
 
     // Reutiliza sessão existente do cliente ou cria nova
-    const existingSession = sessionByPhone.get(numero);
+    const sessionKey = `${lojaId}:${numero}`;
+    const existingSession = sessionByPhone.get(sessionKey);
     const sessionId = existingSession ?? (await createCastorSession(`waha-${numero}`)).id;
-    sessionByPhone.set(numero, sessionId);
+    sessionByPhone.set(sessionKey, sessionId);
 
     await sendCastorMessage(sessionId, texto);
 

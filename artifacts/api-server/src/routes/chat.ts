@@ -155,7 +155,7 @@ router.post("/", async (req, res) => {
           { role: "user" as const, content: toolResults },
         ],
         // No tools on second call — prevents recursion
-      });
+      }, { signal: ac.signal });
 
       stream2.on("text", (text) => {
         if (res.writableEnded || ac.signal.aborted) return;
@@ -166,8 +166,10 @@ router.post("/", async (req, res) => {
       await stream2.finalMessage();
     }
 
-    res.write(`data: ${JSON.stringify({ done: true })}\n\n`);
-    res.end();
+    if (!res.writableEnded && !ac.signal.aborted) {
+      res.write(`data: ${JSON.stringify({ done: true })}\n\n`);
+    }
+    if (!res.writableEnded) res.end();
 
     log.info({
       sessionId,
