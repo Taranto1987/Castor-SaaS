@@ -1,4 +1,5 @@
-import { pgTable, serial, integer, text, timestamp } from "drizzle-orm/pg-core";
+import { pgTable, serial, integer, text, timestamp, index } from "drizzle-orm/pg-core";
+import { sql } from "drizzle-orm";
 import { orcamentosTable } from "./orcamentos";
 
 export const followUpsTable = pgTable("follow_ups", {
@@ -10,6 +11,9 @@ export const followUpsTable = pgTable("follow_ups", {
   waLink: text("wa_link"),
   geradoEm: timestamp("gerado_em").defaultNow().notNull(),
   executadoEm: timestamp("executado_em"),
-});
+}, (t) => [
+  index("follow_ups_orcamento_tipo_idx").on(t.orcamentoId, t.tipo),
+  index("follow_ups_pendentes_idx").on(t.executadoEm).where(sql`${t.executadoEm} IS NULL`),
+]);
 
 export type FollowUp = typeof followUpsTable.$inferSelect;

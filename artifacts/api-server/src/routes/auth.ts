@@ -17,6 +17,27 @@ import {
   marcarResetTokenUsado,
   registrarAudit,
 } from "../services/usuarios/repository";
+import { db } from "@workspace/db";
+import { lojasTable } from "@workspace/db/schema";
+import { eq } from "drizzle-orm";
+import { getFeatureFlags } from "../lib/feature-flags";
+
+// Cache de configJson por lojaId — evita query no DB a cada /auth/me
+const lojaConfigCache = new Map<number, { config: unknown; expiresAt: number }>();
+const CONFIG_CACHE_TTL = 5 * 60 * 1000; // 5 min
+
+async function getLojaConfig(lojaId: number): Promise<unknown> {
+  const cached = lojaConfigCache.get(lojaId);
+  if (cached && cached.expiresAt > Date.now()) return cached.config;
+  try {
+    const [loja] = await db.select({ configJson: lojasTable.configJson }).from(lojasTable).where(eq(lojasTable.id, lojaId)).limit(1);
+    const config = loja?.configJson ?? null;
+    lojaConfigCache.set(lojaId, { config, expiresAt: Date.now() + CONFIG_CACHE_TTL });
+    return config;
+  } catch {
+    return null;
+  }
+}
 
 const router: IRouter = Router();
 
@@ -90,11 +111,13 @@ router.post("/login", async (req, res) => {
   res.status(400).json({ error: "Forneça email+senha ou code" });
 });
 
-router.get("/me", (req, res) => {
+router.get("/me", async (req, res) => {
   const token = (req.headers["x-session-token"] || "") as string;
   if (!token) { res.status(401).json({ error: "Token ausente" }); return; }
   const session = getSession(token);
   if (!session) { res.status(401).json({ error: "Sessão inválida ou expirada" }); return; }
+  const lojaConfig = await getLojaConfig(session.lojaId);
+  const features = getFeatureFlags(lojaConfig);
   res.json({
     userId: session.userId,
     nome: session.nome,
@@ -107,6 +130,7 @@ router.get("/me", (req, res) => {
     tom: session.tom,
     header: session.header,
     assinatura: session.assinatura,
+    features,
   });
 });
 

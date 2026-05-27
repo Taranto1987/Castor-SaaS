@@ -1,4 +1,4 @@
-import { pgTable, serial, text, timestamp, jsonb, integer } from "drizzle-orm/pg-core";
+import { pgTable, serial, text, timestamp, jsonb, integer, index } from "drizzle-orm/pg-core";
 
 export const orcamentosTable = pgTable("orcamentos", {
   id: serial("id").primaryKey(),
@@ -17,6 +17,8 @@ export const orcamentosTable = pgTable("orcamentos", {
   precoBaseTotal: text("preco_base_total"),   // soma dos preços cheios (formatted BRL)
   descontoAplicado: text("desconto_aplicado"), // valor total descontado (formatted BRL)
   criadoEm: timestamp("criado_em").defaultNow(),
-});
+}, (t) => [
+  index("orcamentos_loja_status_criado_idx").on(t.lojaId, t.status, t.criadoEm),
+]);
 
 export type Orcamento = typeof orcamentosTable.$inferSelect;

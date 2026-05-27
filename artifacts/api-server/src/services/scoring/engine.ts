@@ -33,6 +33,7 @@ export interface ScoreResult {
   breakdown: ScoreBreakdown;
   signals: StoredSignals;
   delta: number;
+  decayPenalty: number;
 }
 
 /** Merge incoming session signals into existing accumulated signals, respecting maxApplications caps. */
@@ -60,6 +61,7 @@ export function computeScore(
   signals: StoredSignals,
   previousScore: number,
   sessionCount: number,
+  lastSeenAt: Date = new Date(),
 ): ScoreResult {
   const positive: AppliedSignal[] = [];
   const negative: AppliedSignal[] = [];
@@ -85,7 +87,11 @@ export function computeScore(
   positive.sort((a, b) => b.totalContribution - a.totalContribution);
   negative.sort((a, b) => a.totalContribution - b.totalContribution);
 
-  const score = Math.max(0, Math.min(100, Math.round(rawScore * 10) / 10));
+  const daysSinceLastSeen = (Date.now() - lastSeenAt.getTime()) / (1000 * 60 * 60 * 24);
+  const decayDays = Math.max(0, daysSinceLastSeen - 7);
+  const decayPenalty = Math.round(Math.min(decayDays * 0.5, 30) * 10) / 10;
+
+  const score = Math.max(0, Math.min(100, Math.round((rawScore - decayPenalty) * 10) / 10));
   const delta = Math.round((score - previousScore) * 10) / 10;
 
   const category = (CATEGORY_THRESHOLDS.find((t) => score >= t.minScore) ?? CATEGORY_THRESHOLDS[5]).category;
@@ -105,6 +111,7 @@ export function computeScore(
     breakdown: { positive, negative, rawScore },
     signals,
     delta,
+    decayPenalty,
   };
 }
 

@@ -1,12 +1,33 @@
 import type { Request, Response, NextFunction } from "express";
 import { getSession, isDono, type Session } from "../lib/sessions";
+import { db } from "@workspace/db";
+import { lojasTable } from "@workspace/db/schema";
+import { eq } from "drizzle-orm";
+
+// Live set of active loja IDs, refreshed every 5 min from DB.
+// Bootstrapped with known IDs to allow startup before first DB round-trip.
+let VALID_LOJA_IDS = new Set<number>([1, 2]);
+
+export async function refreshLojaRegistry(): Promise<void> {
+  const rows = await db.select({ id: lojasTable.id }).from(lojasTable).where(eq(lojasTable.ativa, true));
+  VALID_LOJA_IDS = new Set(rows.map((r) => r.id));
+}
 
 /**
- * Structurally validates a lojaId. Phase 3 (write tools) must additionally
- * verify existence in DB and caller authorization for the tenant.
+ * Structurally validates a lojaId against the live registry.
  */
 export function isValidLojaId(id: number): boolean {
-  return Number.isInteger(id) && id > 0 && id < 100_000;
+  return Number.isInteger(id) && id > 0 && VALID_LOJA_IDS.has(id);
+}
+
+/** Resolve lojaId for public routes: x-loja-id header → default 1 (Cabo Frio). */
+export function resolvePublicLojaId(req: Request): number {
+  const header = req.headers["x-loja-id"];
+  if (header) {
+    const id = parseInt(String(header), 10);
+    if (!isNaN(id) && id > 0 && VALID_LOJA_IDS.has(id)) return id;
+  }
+  return 1;
 }
 
 /** Resolve lojaId from session → x-loja-id header → default 1 (Cabo Frio). */

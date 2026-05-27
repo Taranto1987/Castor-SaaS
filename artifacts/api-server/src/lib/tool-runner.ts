@@ -55,7 +55,7 @@ export async function runTools(
                   ? (input["produto_ids"] as unknown[]).map(Number).filter((n) => n > 0)
                   : [],
                 observacoes: input["observacoes"] ? String(input["observacoes"]) : undefined,
-                desconto_pix: input["desconto_pix"] != null ? Number(input["desconto_pix"]) : undefined,
+                desconto_pix: input["desconto_pix"] !== null && input["desconto_pix"] !== undefined ? Number(input["desconto_pix"]) : undefined,
               },
               ctx,
             );

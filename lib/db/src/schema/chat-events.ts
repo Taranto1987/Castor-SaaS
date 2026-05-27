@@ -1,4 +1,4 @@
-import { pgTable, serial, text, integer, jsonb, timestamp } from "drizzle-orm/pg-core";
+import { pgTable, serial, text, integer, jsonb, timestamp, index } from "drizzle-orm/pg-core";
 
 export const chatEventsTable = pgTable("chat_events", {
   id: serial("id").primaryKey(),
@@ -7,6 +7,9 @@ export const chatEventsTable = pgTable("chat_events", {
   lojaId: integer("loja_id"),
   payload: jsonb("payload").notNull().default({}),
   criadoEm: timestamp("criado_em").defaultNow(),
-});
+}, (t) => [
+  index("chat_events_loja_criado_idx").on(t.lojaId, t.criadoEm),
+  index("chat_events_session_idx").on(t.sessionId),
+]);
 
 export type ChatEventRow = typeof chatEventsTable.$inferSelect;

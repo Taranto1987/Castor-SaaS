@@ -15,7 +15,7 @@ import { scheduleLeadScoreUpdate } from "../services/scoring/updater";
 import { CASTOR_ALL_TOOLS } from "../lib/tools/definitions";
 import { runTools } from "../lib/tool-runner";
 import type { ToolContext } from "../lib/tools/context";
-import { logger } from "../lib/logger";
+import { routeLogger } from "../lib/logger";
 
 const router = Router();
 
@@ -43,6 +43,7 @@ router.post("/", async (req, res) => {
 
     const sessionId = clientSessionId ?? crypto.randomUUID();
     const lojaId = resolveLojaId(req);
+    const log = routeLogger(res, lojaId);
 
     const chatMessages = messages
       .filter((m) => m.role === "user" || m.role === "assistant")
@@ -53,8 +54,10 @@ router.post("/", async (req, res) => {
     res.setHeader("Cache-Control", "no-cache");
     res.setHeader("Connection", "keep-alive");
 
-    const lastUserMessage =
-      [...chatMessages].reverse().find((m) => m.role === "user")?.content ?? "";
+    // Cancel the Anthropic stream if the client disconnects early
+    const ac = new AbortController();
+    req.on("close", () => ac.abort());
+
     const client = getAnthropicClient();
 
     emitEvent({ type: "session_started", sessionId, lojaId, messageCount: chatMessages.length });
@@ -116,7 +119,7 @@ router.post("/", async (req, res) => {
       system: systemBlocks,
       messages: chatMessages,
       tools: CASTOR_ALL_TOOLS,
-    });
+    }, { signal: ac.signal });
 
     stream.on("streamEvent", (event) => {
       if (event.type === "content_block_start" && event.content_block.type === "tool_use") hasToolUse = true;
@@ -124,6 +127,7 @@ router.post("/", async (req, res) => {
 
     stream.on("text", (text) => {
       if (!hasToolUse) {
+        if (res.writableEnded || ac.signal.aborted) return;
         fullAssistantText += text;
         res.write(`data: ${JSON.stringify({ content: text })}\n\n`);
       }
@@ -156,13 +160,13 @@ router.post("/", async (req, res) => {
       });
 
       stream2.on("text", (text) => {
+        if (res.writableEnded || ac.signal.aborted) return;
         fullAssistantText += text;
         res.write(`data: ${JSON.stringify({ content: text })}\n\n`);
       });
 
       const finalMsg2 = await stream2.finalMessage();
-      logger.info({
-        lojaId,
+      log.info({
         sessionId,
         pass: 2,
         inputTokens: finalMsg2.usage.input_tokens,
@@ -172,11 +176,12 @@ router.post("/", async (req, res) => {
       }, "chat token usage");
     }
 
-    res.write(`data: ${JSON.stringify({ done: true })}\n\n`);
-    res.end();
+    if (!res.writableEnded) {
+      res.write(`data: ${JSON.stringify({ done: true })}\n\n`);
+      res.end();
+    }
 
-    logger.info({
-      lojaId,
+    log.info({
       sessionId,
       pass: 1,
       inputTokens: firstResponse.usage.input_tokens,
@@ -187,7 +192,7 @@ router.post("/", async (req, res) => {
     }, "chat token usage");
 
     if (hasToolUse) {
-      logger.info({ lojaId, sessionId, tools: firstResponse.content.filter(b => b.type === "tool_use").map(b => b.type === "tool_use" ? b.name : "") }, "chat tools used");
+      log.info({ sessionId, tools: firstResponse.content.filter(b => b.type === "tool_use").map(b => b.type === "tool_use" ? b.name : "") }, "chat tools used");
     }
 
     // fire-and-forget post-processing

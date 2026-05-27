@@ -4,15 +4,99 @@ import {
   sendCastorMessage,
   streamCastorEvents,
 } from "../lib/castor-agent";
+import { db, conversasWhatsappTable, mensagensWhatsappTable, lojasTable } from "@workspace/db";
+import { eq, and, sql } from "drizzle-orm";
+import { broadcastToLoja } from "./inbox";
+import { logEvent } from "../lib/log-event";
 
 const router = Router();
 
 // Mantém sessão do agente por número de telefone (em memória)
 const sessionByPhone = new Map<string, string>();
 
+// Fast-path deduplication: IDs de mensagens já processadas (evita round-trip ao DB)
+// Max 2000 entradas; entradas antigas são removidas por ordem de inserção (FIFO)
+const processedMessageIds = new Set<string>();
+const MAX_PROCESSED_CACHE = 2000;
+
+function markProcessed(id: string) {
+  if (processedMessageIds.size >= MAX_PROCESSED_CACHE) {
+    const first = processedMessageIds.values().next().value;
+    if (first) processedMessageIds.delete(first);
+  }
+  processedMessageIds.add(id);
+}
+
+// Resolve lojaId pelo número WAHA destino (multi-tenant) ou fallback = 1
+async function resolveLojaByWahaPhone(toPhone?: string): Promise<number> {
+  if (!toPhone) return 1;
+  try {
+    const rows = await db
+      .select({ id: lojasTable.id })
+      .from(lojasTable)
+      .where(sql`${lojasTable.configJson}->>'wahaPhone' = ${toPhone}`)
+      .limit(1);
+    return rows[0]?.id ?? 1;
+  } catch {
+    return 1;
+  }
+}
+
+async function persistirMensagem(
+  lojaId: number,
+  phone: string,
+  texto: string,
+  direcao: "inbound" | "outbound",
+  atendente?: string,
+  wahaMessageId?: string,
+) {
+  let [conversa] = await db
+    .select()
+    .from(conversasWhatsappTable)
+    .where(and(eq(conversasWhatsappTable.lojaId, lojaId), eq(conversasWhatsappTable.phone, phone)));
+
+  if (!conversa) {
+    [conversa] = await db
+      .insert(conversasWhatsappTable)
+      .values({ lojaId, phone, status: "bot" })
+      .returning();
+  }
+
+  let mensagem;
+  try {
+    [mensagem] = await db
+      .insert(mensagensWhatsappTable)
+      .values({
+        lojaId,
+        conversaId: conversa.id,
+        from: direcao === "inbound" ? phone : "loja",
+        to: direcao === "inbound" ? "loja" : phone,
+        body: texto,
+        tipo: "text",
+        direcao,
+        status: "enviado",
+        atendente: atendente ?? null,
+        lida: direcao === "outbound",
+        wahaMessageId: wahaMessageId ?? null,
+      })
+      .returning();
+  } catch (err: unknown) {
+    // Unique constraint violation = duplicate wahaMessageId — idempotent success
+    if ((err as { code?: string }).code === "23505") return { conversa, mensagem: null };
+    throw err;
+  }
+
+  await db
+    .update(conversasWhatsappTable)
+    .set({ ultimaMensagemEm: new Date() })
+    .where(eq(conversasWhatsappTable.id, conversa.id));
+
+  broadcastToLoja(lojaId, { type: "nova_mensagem", phone, mensagem, conversa });
+
+  return { conversa, mensagem };
+}
+
 router.post("/webhook/waha", async (req: Request, res: Response) => {
-  // Optional pre-shared secret: configure WAHA_WEBHOOK_SECRET and set the same
-  // value in WAHA's webhook settings → Custom Headers → X-Waha-Token.
   const secret = process.env.WAHA_WEBHOOK_SECRET;
   if (secret) {
     const provided = req.headers["x-waha-token"] ?? req.headers["x-webhook-secret"];
@@ -34,10 +118,55 @@ router.post("/webhook/waha", async (req: Request, res: Response) => {
 
     const texto: string = payload.body ?? "";
     const numero: string = payload.from ?? "";
+    const wahaMessageId: string | undefined = payload.id ?? undefined;
 
     if (!texto.trim() || !numero) return;
 
-    // Reutiliza sessão existente do cliente ou cria nova
+    // ── Deduplicação (Prioridade 1) ──────────────────────────────────────────
+    if (wahaMessageId) {
+      // Fast-path: cache em memória
+      if (processedMessageIds.has(wahaMessageId)) {
+        return; // duplicata já processada neste processo
+      }
+
+      // Slow-path: checar DB (cobre restart do processo)
+      const existing = await db
+        .select({ id: mensagensWhatsappTable.id })
+        .from(mensagensWhatsappTable)
+        .where(eq(mensagensWhatsappTable.wahaMessageId, wahaMessageId))
+        .limit(1);
+
+      if (existing.length > 0) {
+        return; // duplicata já no banco
+      }
+
+      markProcessed(wahaMessageId);
+    }
+
+    // ── Resolve loja (multi-tenant) ──────────────────────────────────────────
+    const lojaId = await resolveLojaByWahaPhone(payload.to as string | undefined);
+
+    // ── Persiste mensagem inbound ────────────────────────────────────────────
+    await persistirMensagem(lojaId, numero, texto.trim(), "inbound", undefined, wahaMessageId);
+
+    logEvent({
+      lojaId,
+      entidade: "whatsapp",
+      entidadeId: wahaMessageId,
+      acao: "whatsapp.message_received",
+      atorTipo: "sistema",
+      payload: { phone: numero, length: texto.length },
+    });
+
+    // Verifica se conversa está em modo humano — não processa com bot
+    const [conversa] = await db
+      .select()
+      .from(conversasWhatsappTable)
+      .where(and(eq(conversasWhatsappTable.lojaId, lojaId), eq(conversasWhatsappTable.phone, numero)));
+
+    if (conversa?.status === "humano") return;
+
+    // ── Processa com bot ─────────────────────────────────────────────────────
     const existingSession = sessionByPhone.get(numero);
     const sessionId = existingSession ?? (await createCastorSession(`waha-${numero}`)).id;
     sessionByPhone.set(numero, sessionId);
@@ -55,8 +184,6 @@ router.post("/webhook/waha", async (req: Request, res: Response) => {
       if (event?.type === "session.status_idle" || event?.type === "session.status_terminated") break;
     }
 
-    const result = { text: text.trim() };
-
     const wahaUrl = process.env.WAHA_URL;
     const wahaSession = process.env.WAHA_SESSION_NAME ?? "castor";
 
@@ -65,15 +192,15 @@ router.post("/webhook/waha", async (req: Request, res: Response) => {
       return;
     }
 
+    const respostaTexto = text.trim() || "Recebi sua mensagem 👍";
     await fetch(`${wahaUrl}/api/sendText`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        session: wahaSession,
-        chatId: numero,
-        text: result.text || "Recebi sua mensagem 👍",
-      }),
+      body: JSON.stringify({ session: wahaSession, chatId: numero, text: respostaTexto }),
     });
+
+    // Persiste resposta do bot
+    await persistirMensagem(lojaId, numero, respostaTexto, "outbound", "ThallesZzz IA");
   } catch (e) {
     console.error("[waha] erro ao processar mensagem:", e);
   }

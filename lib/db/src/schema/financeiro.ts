@@ -1,4 +1,5 @@
-import { pgTable, serial, text, timestamp, integer, numeric, boolean } from "drizzle-orm/pg-core";
+import { pgTable, serial, text, timestamp, integer, numeric, boolean, index } from "drizzle-orm/pg-core";
+import { sql } from "drizzle-orm";
 
 export const despesasTable = pgTable("despesas", {
   id: serial("id").primaryKey(),
@@ -12,7 +13,9 @@ export const despesasTable = pgTable("despesas", {
   confirmada: boolean("confirmada").notNull().default(true),
   data: timestamp("data").notNull().defaultNow(),
   criadoEm: timestamp("criado_em").defaultNow(),
-});
+}, (t) => [
+  index("despesas_loja_data_idx").on(t.lojaId, t.data),
+]);
 
 export type Despesa = typeof despesasTable.$inferSelect;
 
@@ -25,7 +28,9 @@ export const despesasRecorrentesTable = pgTable("despesas_recorrentes", {
   ativo: boolean("ativo").notNull().default(true),
   diaVencimento: integer("dia_vencimento").notNull().default(1),
   criadoEm: timestamp("criado_em").defaultNow(),
-});
+}, (t) => [
+  index("despesas_recorrentes_loja_ativo_idx").on(t.lojaId, t.ativo).where(sql`${t.ativo} = true`),
+]);
 
 export type DespesaRecorrente = typeof despesasRecorrentesTable.$inferSelect;
 

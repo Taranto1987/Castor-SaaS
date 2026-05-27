@@ -1,4 +1,4 @@
-import type { LeadCategory, StoredSignals } from "./weights";
+import type { StoredSignals } from "./weights";
 import type { ScoreResult } from "./engine";
 import type { StructuredProfile } from "../memory/capsule";
 

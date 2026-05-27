@@ -14,7 +14,7 @@ interface Props {
 }
 
 function isOutOfStock(v: Variant): boolean {
-  return v.disponivel === false || (v.estoque != null && v.estoque === 0);
+  return v.disponivel === false || (v.estoque !== null && v.estoque !== undefined && v.estoque === 0);
 }
 
 export function ProductCardGrouped({ group, waInfo, className }: Props) {

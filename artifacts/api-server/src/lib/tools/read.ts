@@ -106,7 +106,7 @@ export async function getCatalog(params: {
     );
 
   // Try productFamiliesTable first for canonical names/order
-  let familyNames: Record<string, string> = {};
+  const familyNames: Record<string, string> = {};
   try {
     const families = await db.select({ id: productFamiliesTable.id, name: productFamiliesTable.name })
       .from(productFamiliesTable)
