@@ -7,6 +7,8 @@ import { Analytics } from "@vercel/analytics/react";
 
 import { AuthProvider, useAuth } from "@/contexts/AuthContext";
 import { LojaProvider } from "@/contexts/LojaContext";
+import { ThemeProvider } from "@/contexts/ThemeContext";
+import { CommandPaletteProvider } from "@/components/CommandPalette";
 import ErrorBoundary from "@/components/ErrorBoundary";
 import LoginScreen from "@/components/LoginScreen";
 import PublicLayout from "@/components/PublicLayout";
@@ -41,9 +43,11 @@ const Outlet        = lazy(() => import("@/pages/Outlet"));
 const Estoque       = lazy(() => import("@/pages/Estoque"));
 const RankingOutlet = lazy(() => import("@/pages/RankingOutlet"));
 const EntradaEstoque= lazy(() => import("@/pages/EntradaEstoque"));
-const Financeiro    = lazy(() => import("@/pages/Financeiro"));
-const Usuarios      = lazy(() => import("@/pages/Usuarios"));
-const NotFound      = lazy(() => import("@/pages/not-found"));
+const Financeiro      = lazy(() => import("@/pages/Financeiro"));
+const Usuarios        = lazy(() => import("@/pages/Usuarios"));
+const ClienteDetalhe  = lazy(() => import("@/pages/ClienteDetalhe"));
+const Inbox           = lazy(() => import("@/pages/Inbox"));
+const NotFound        = lazy(() => import("@/pages/not-found"));
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -131,7 +135,9 @@ function AppRoutes() {
         <Route path="/dashboard"        component={() => <PrivateRoute component={Dashboard} />} />
         <Route path="/logistica"        component={() => <PrivateRoute component={Logistica} />} />
         <Route path="/crawler"          component={() => <PrivateRoute component={Crawler} />} />
+        <Route path="/equipe/clientes/:id" component={() => <PrivateRoute component={ClienteDetalhe} />} />
         <Route path="/equipe/clientes"  component={() => <PrivateRoute component={Clientes} />} />
+        <Route path="/inbox"            component={() => <PrivateRoute component={Inbox} />} />
         <Route path="/outlet"           component={() => <PrivateRoute component={Outlet} />} />
         <Route path="/estoque"          component={() => <DonoRoute component={Estoque} />} />
         <Route path="/ranking-outlet"   component={() => <DonoRoute component={RankingOutlet} />} />
@@ -149,17 +155,21 @@ function App() {
   return (
     <QueryClientProvider client={queryClient}>
       <TooltipProvider>
-        <LojaProvider>
-          <AuthProvider>
-            <WouterRouter base={import.meta.env.BASE_URL.replace(/\/$/, "")}>
-              <ErrorBoundary>
-                <AppRoutes />
-              </ErrorBoundary>
-            </WouterRouter>
-            <Toaster />
-            <Analytics />
-          </AuthProvider>
-        </LojaProvider>
+        <ThemeProvider>
+          <LojaProvider>
+            <AuthProvider>
+              <CommandPaletteProvider>
+                <WouterRouter base={import.meta.env.BASE_URL.replace(/\/$/, "")}>
+                  <ErrorBoundary>
+                    <AppRoutes />
+                  </ErrorBoundary>
+                </WouterRouter>
+                <Toaster />
+                <Analytics />
+              </CommandPaletteProvider>
+            </AuthProvider>
+          </LojaProvider>
+        </ThemeProvider>
       </TooltipProvider>
     </QueryClientProvider>
   );
