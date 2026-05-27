@@ -12,7 +12,7 @@ export async function buildTruthState(params: {
 }): Promise<TruthState> {
   const { messages, lojaId, sessionId, anonymousId } = params;
 
-  const [productContext, customerId] = await Promise.all([
+  const [productContext, customerProfile] = await Promise.all([
     getProductContext(lojaId),
     anonymousId
       ? resolveOrCreateCustomer(anonymousId, lojaId).catch((err) => {
@@ -21,6 +21,8 @@ export async function buildTruthState(params: {
         })
       : Promise.resolve(null),
   ]);
+
+  const customerId = customerProfile?.id ?? null;
 
   const memory = customerId
     ? await loadCapsule(customerId).catch(() => null)

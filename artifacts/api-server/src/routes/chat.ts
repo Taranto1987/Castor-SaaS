@@ -9,7 +9,7 @@ import { resolveLojaId } from "../middlewares/auth";
 import { emitEvent } from "../services/events/emit";
 import { classifyMessage, extractProductIds } from "../services/events/classifier";
 import { resolveOrCreateCustomer, stitchIdentityByPhone } from "../services/memory/identity";
-import { loadCapsule, buildStateBlock, generateAndSaveCapsule } from "../services/memory/capsule";
+import { loadCapsule, buildStateBlock, generateAndSaveCapsule, getMemoryConfidence } from "../services/memory/capsule";
 import { extractSessionSignals } from "../services/scoring/signals";
 import { scheduleLeadScoreUpdate } from "../services/scoring/updater";
 import { CASTOR_ALL_TOOLS } from "../lib/tools/definitions";
@@ -66,9 +66,11 @@ router.post("/", async (req, res) => {
 
     if (anonymousId) {
       try {
-        customerId = await resolveOrCreateCustomer(anonymousId, lojaId);
+        const profile = await resolveOrCreateCustomer(anonymousId, lojaId);
+        customerId = profile.id;
+        customerName = profile.name;
         capsuleState = await loadCapsule(customerId);
-        console.log(`[Memory] Customer ${customerId} | capsule: ${capsuleState ? "yes" : "no"} | sessions: ${capsuleState?.sessionCount ?? 0}`);
+        console.log(`[Memory] Customer ${customerId} | name: ${customerName ?? "unknown"} | capsule: ${capsuleState ? "yes" : "no"} | sessions: ${capsuleState?.sessionCount ?? 0}`);
       } catch (err) {
         console.error("[Memory] Identity resolution failed:", err);
       }
@@ -89,10 +91,17 @@ router.post("/", async (req, res) => {
       { type: "text", text: productContext },
     ];
 
-    // inject relational state only when there's meaningful history (>1 session)
-    if (capsuleState && capsuleState.sessionCount >= 1) {
-      const stateBlock = buildStateBlock(customerName, capsuleState);
+    // inject relational state only when memory confidence is above threshold
+    const daysSinceContact = capsuleState?.lastContactAt
+      ? Math.floor((Date.now() - capsuleState.lastContactAt.getTime()) / 86_400_000)
+      : null;
+    const memoryConfidence = getMemoryConfidence(daysSinceContact);
+    if (capsuleState && capsuleState.sessionCount >= 1 && memoryConfidence > 0) {
+      const stateBlock = buildStateBlock(customerName, capsuleState, memoryConfidence);
       systemBlocks.push({ type: "text", text: stateBlock });
+      console.log(`[Memory] Injecting stateBlock | confidence=${memoryConfidence} | daysSince=${daysSinceContact ?? "unknown"}`);
+    } else if (capsuleState && memoryConfidence === 0) {
+      console.log(`[Memory] Cold memory (${daysSinceContact} days) — skipping stateBlock injection`);
     }
 
     // ── Tool-aware streaming ──────────────────────────────────────────────────

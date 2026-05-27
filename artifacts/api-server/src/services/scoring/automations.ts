@@ -3,6 +3,7 @@ import { and, eq, gte } from "drizzle-orm";
 import { enviarWhatsApp } from "../whatsapp";
 import { AUTOMATION_RULES, type AutomationContext } from "./rules";
 import type { ScoreResult, StoredSignals } from "./engine";
+import { loadCapsule, parseStructuredProfile } from "../memory/capsule";
 
 interface AutomationInput {
   customerId: number;
@@ -15,16 +16,18 @@ interface AutomationInput {
 export async function checkAndFireAutomations(input: AutomationInput): Promise<void> {
   const { customerId, lojaId, previousScore, result, incomingSignals } = input;
 
-  // Load alert destination from loja config + customer profile (for personalized messages)
-  const [lojaRows, profileRows] = await Promise.all([
+  // Load alert destination, customer profile and capsule for rich handoff messages
+  const [lojaRows, profileRows, capsuleState] = await Promise.all([
     db.select({ configJson: lojasTable.configJson }).from(lojasTable).where(eq(lojasTable.id, lojaId)).limit(1),
     db.select({ name: customerProfilesTable.name, phone: customerProfilesTable.phone })
       .from(customerProfilesTable).where(eq(customerProfilesTable.id, customerId)).limit(1),
+    loadCapsule(customerId).catch(() => null),
   ]);
 
   const configJson = (lojaRows[0]?.configJson ?? {}) as Record<string, unknown>;
   const alertPhone = configJson.alertaWhatsapp as string | undefined;
   const profile = profileRows[0] ?? null;
+  const bioProfile = capsuleState ? parseStructuredProfile(capsuleState.capsule) : null;
 
   const ctx: AutomationContext = {
     customerId,
@@ -34,6 +37,7 @@ export async function checkAndFireAutomations(input: AutomationInput): Promise<v
     previousScore,
     result,
     incomingSignals,
+    bioProfile,
   };
 
   for (const rule of AUTOMATION_RULES) {
