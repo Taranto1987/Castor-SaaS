@@ -8,6 +8,9 @@ import { requestContextMiddleware } from "./middleware/request-context";
 
 const app: Express = express();
 
+// Trust Railway/Vercel reverse proxy — required for correct req.ip, rate limiting, and CORS headers
+app.set("trust proxy", 1);
+
 // Observability: request ID + correlation ID on every request
 app.use(requestContextMiddleware);
 
