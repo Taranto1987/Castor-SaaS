@@ -1,4 +1,4 @@
-import { pgTable, serial, integer, text, timestamp, boolean } from "drizzle-orm/pg-core";
+import { pgTable, serial, integer, text, timestamp, boolean, uniqueIndex } from "drizzle-orm/pg-core";
 
 export const conversasWhatsappTable = pgTable("conversas_whatsapp", {
   id: serial("id").primaryKey(),
@@ -45,8 +45,13 @@ export const mensagensWhatsappTable = pgTable("mensagens_whatsapp", {
 
   lida: boolean("lida").notNull().default(false),
 
+  wahaMessageId: text("waha_message_id"),
+  // ID único do evento WAHA — usado para deduplicação de webhooks duplicados
+
   criadoEm: timestamp("criado_em").defaultNow(),
-});
+}, (t) => [
+  uniqueIndex("uq_waha_msg").on(t.lojaId, t.wahaMessageId),
+]);
 
 export type MensagemWhatsapp = typeof mensagensWhatsappTable.$inferSelect;
 export type MensagemWhatsappInsert = typeof mensagensWhatsappTable.$inferInsert;

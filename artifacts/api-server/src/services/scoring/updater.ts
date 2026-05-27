@@ -2,6 +2,7 @@ import { db, leadScoresTable, leadScoreHistoryTable } from "@workspace/db";
 import { eq } from "drizzle-orm";
 import { applySignals, computeScore, type StoredSignals } from "./engine";
 import { checkAndFireAutomations } from "./automations";
+import { logEvent } from "../../lib/log-event";
 
 export async function persistLeadScore(
   customerId: number,
@@ -22,7 +23,8 @@ export async function persistLeadScore(
   const previousScore = existingRecord?.score ?? 0;
 
   const mergedSignals = applySignals(existingSignals, incomingSignals);
-  const result = computeScore(mergedSignals, previousScore, sessionCount);
+  const lastSeenAt = existingRecord?.lastSeenAt ?? new Date();
+  const result = computeScore(mergedSignals, previousScore, sessionCount, lastSeenAt);
 
   const now = new Date();
 
@@ -66,6 +68,15 @@ export async function persistLeadScore(
     category: result.category,
     delta: result.delta,
     triggerEvent,
+  });
+
+  logEvent({
+    lojaId,
+    entidade: "lead_score",
+    entidadeId: String(customerId),
+    acao: "lead.score_updated",
+    atorTipo: "sistema",
+    payload: { score: result.score, delta: result.delta, decayPenalty: result.decayPenalty, triggerEvent },
   });
 
   // Check automation rules after score is persisted

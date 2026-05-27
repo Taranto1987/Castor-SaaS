@@ -1,7 +1,8 @@
 import { db } from "@workspace/db";
-import { orcamentosTable, followUpsTable } from "@workspace/db/schema";
-import { eq, and, lte, isNull } from "drizzle-orm";
+import { orcamentosTable, followUpsTable, leadScoresTable } from "@workspace/db/schema";
+import { eq, and, lte, isNull, lt } from "drizzle-orm";
 import { enviarWhatsApp } from "../services/whatsapp";
+import { computeScore, type StoredSignals } from "../services/scoring/engine";
 
 function sanitizarTelefone(tel: string | null | undefined): string | null {
   if (!tel) return null;
@@ -121,11 +122,37 @@ async function ciclo(): Promise<void> {
   }
 }
 
+async function cicloScoreDecay(): Promise<void> {
+  const cutoff = new Date(Date.now() - 7 * 86_400_000);
+  const rows = await db.select().from(leadScoresTable).where(lt(leadScoresTable.lastSeenAt, cutoff));
+
+  for (const row of rows) {
+    const result = computeScore(
+      (row.signals ?? {}) as StoredSignals,
+      row.score ?? 0,
+      row.sessionCount ?? 1,
+      row.lastSeenAt ?? new Date(),
+    );
+    if (result.score !== row.score) {
+      await db
+        .update(leadScoresTable)
+        .set({ score: result.score, category: result.category, atualizadoEm: new Date() })
+        .where(eq(leadScoresTable.id, row.id));
+    }
+  }
+}
+
 export function iniciarSchedulerFollowUps(): void {
   ciclo().catch((err) => console.error("[FollowUp] Erro no ciclo inicial:", err));
+  cicloScoreDecay().catch((err) => console.error("[ScoreDecay] Erro inicial:", err));
 
   const MS_6H = 6 * 60 * 60 * 1000;
   setInterval(() => {
     ciclo().catch((err) => console.error("[FollowUp] Erro no ciclo:", err));
   }, MS_6H);
+
+  const MS_24H = 24 * 60 * 60 * 1000;
+  setInterval(() => {
+    cicloScoreDecay().catch((err) => console.error("[ScoreDecay] Erro:", err));
+  }, MS_24H);
 }

@@ -2,6 +2,7 @@ import { Router } from "express";
 import { db, leadsTable, leadInteracoesTable, leadTarefasTable, customerProfilesTable, leadScoresTable, relationalCapsulesTable } from "@workspace/db";
 import { eq, and, desc, sql, ilike, or } from "drizzle-orm";
 import { requireAuth, type AuthRequest } from "../middlewares/auth";
+import { logEvent } from "../lib/log-event";
 
 const router = Router();
 
@@ -151,6 +152,10 @@ router.post("/leads", requireAuth, async (req: AuthRequest, res) => {
       autorNome: req.session!.nome,
     });
 
+    logEvent({ lojaId, entidade: "lead", entidadeId: String(lead.id),
+               acao: "lead.created", atorTipo: "usuario",
+               payload: { nome: lead.nome, origem: lead.origem } });
+
     res.status(201).json({ lead });
   } catch (err) {
     console.error("[Leads] POST /leads error:", err);
@@ -194,6 +199,9 @@ router.patch("/leads/:id", requireAuth, async (req: AuthRequest, res) => {
         autorNome: req.session!.nome,
       });
       updates.ultimoContato = new Date();
+      logEvent({ lojaId, entidade: "lead", entidadeId: String(id),
+                 acao: "lead.stage_changed", atorTipo: "usuario",
+                 payload: { de: existing.estagio, para: req.body.estagio } });
     }
 
     const [lead] = await db

@@ -2,6 +2,7 @@ import { Router } from "express";
 import { db, conversasWhatsappTable, mensagensWhatsappTable } from "@workspace/db";
 import { eq, and, desc, sql } from "drizzle-orm";
 import { requireAuth, type AuthRequest } from "../middlewares/auth";
+import { logEvent } from "../lib/log-event";
 
 const router = Router();
 
@@ -234,6 +235,9 @@ router.patch("/inbox/conversas/:phone/assumir", requireAuth, async (req: AuthReq
     }
 
     broadcastToLoja(lojaId, { type: "handoff", phone, atendente: req.session!.nome });
+    logEvent({ lojaId, entidade: "conversa", entidadeId: phone,
+               acao: "inbox.handoff_to_human", atorTipo: "usuario",
+               payload: { atendente: req.session!.nome } });
 
     res.json({ conversa });
   } catch (err) {
@@ -255,6 +259,8 @@ router.patch("/inbox/conversas/:phone/devolver", requireAuth, async (req: AuthRe
       .returning();
 
     broadcastToLoja(lojaId, { type: "devolvido_bot", phone });
+    logEvent({ lojaId, entidade: "conversa", entidadeId: phone,
+               acao: "inbox.handoff_to_bot", atorTipo: "usuario", payload: {} });
 
     res.json({ conversa });
   } catch (err) {
