@@ -1,6 +1,6 @@
 import { db } from "@workspace/db";
 import { orcamentosTable, followUpsTable, leadScoresTable } from "@workspace/db/schema";
-import { eq, and, lte, isNull, lt } from "drizzle-orm";
+import { eq, and, lte, isNull, lt, gt } from "drizzle-orm";
 import { enviarWhatsApp } from "../services/whatsapp";
 import { computeScore, type StoredSignals } from "../services/scoring/engine";
 
@@ -124,7 +124,8 @@ async function ciclo(): Promise<void> {
 
 async function cicloScoreDecay(): Promise<void> {
   const cutoff = new Date(Date.now() - 7 * 86_400_000);
-  const rows = await db.select().from(leadScoresTable).where(lt(leadScoresTable.lastSeenAt, cutoff));
+  const rows = await db.select().from(leadScoresTable)
+    .where(and(lt(leadScoresTable.lastSeenAt, cutoff), gt(leadScoresTable.score, 0)));
 
   for (const row of rows) {
     const result = computeScore(

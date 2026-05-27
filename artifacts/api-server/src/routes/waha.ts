@@ -62,22 +62,29 @@ async function persistirMensagem(
       .returning();
   }
 
-  const [mensagem] = await db
-    .insert(mensagensWhatsappTable)
-    .values({
-      lojaId,
-      conversaId: conversa.id,
-      from: direcao === "inbound" ? phone : "loja",
-      to: direcao === "inbound" ? "loja" : phone,
-      body: texto,
-      tipo: "text",
-      direcao,
-      status: "enviado",
-      atendente: atendente ?? null,
-      lida: direcao === "outbound",
-      wahaMessageId: wahaMessageId ?? null,
-    })
-    .returning();
+  let mensagem;
+  try {
+    [mensagem] = await db
+      .insert(mensagensWhatsappTable)
+      .values({
+        lojaId,
+        conversaId: conversa.id,
+        from: direcao === "inbound" ? phone : "loja",
+        to: direcao === "inbound" ? "loja" : phone,
+        body: texto,
+        tipo: "text",
+        direcao,
+        status: "enviado",
+        atendente: atendente ?? null,
+        lida: direcao === "outbound",
+        wahaMessageId: wahaMessageId ?? null,
+      })
+      .returning();
+  } catch (err: unknown) {
+    // Unique constraint violation = duplicate wahaMessageId — idempotent success
+    if ((err as { code?: string }).code === "23505") return { conversa, mensagem: null };
+    throw err;
+  }
 
   await db
     .update(conversasWhatsappTable)

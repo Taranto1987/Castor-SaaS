@@ -1,6 +1,6 @@
 import { Router } from "express";
-import { db, leadsTable, leadInteracoesTable, leadTarefasTable, customerProfilesTable, leadScoresTable, relationalCapsulesTable } from "@workspace/db";
-import { eq, and, desc, sql, ilike, or } from "drizzle-orm";
+import { db, leadsTable, leadInteracoesTable, leadTarefasTable, leadScoresTable, relationalCapsulesTable } from "@workspace/db";
+import { eq, and, desc, sql } from "drizzle-orm";
 import { requireAuth, type AuthRequest } from "../middlewares/auth";
 import { logEvent } from "../lib/log-event";
 
@@ -99,13 +99,13 @@ router.get("/leads/:id", requireAuth, async (req: AuthRequest, res) => {
       const [scoreRow] = await db
         .select()
         .from(leadScoresTable)
-        .where(eq(leadScoresTable.customerId, lead.customerProfileId));
+        .where(and(eq(leadScoresTable.customerId, lead.customerProfileId), eq(leadScoresTable.lojaId, lojaId)));
       score = scoreRow ?? null;
 
       const [capsuleRow] = await db
         .select()
         .from(relationalCapsulesTable)
-        .where(eq(relationalCapsulesTable.customerId, lead.customerProfileId));
+        .where(and(eq(relationalCapsulesTable.customerId, lead.customerProfileId), eq(relationalCapsulesTable.lojaId, lojaId)));
       capsule = capsuleRow ?? null;
     }
 

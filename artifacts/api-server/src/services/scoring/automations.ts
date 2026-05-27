@@ -1,5 +1,5 @@
 import { db, automationLogTable, lojasTable, customerProfilesTable } from "@workspace/db";
-import { and, eq, gte, desc } from "drizzle-orm";
+import { and, eq, gte } from "drizzle-orm";
 import { enviarWhatsApp } from "../whatsapp";
 import { AUTOMATION_RULES, type AutomationContext } from "./rules";
 import type { ScoreResult, StoredSignals } from "./engine";

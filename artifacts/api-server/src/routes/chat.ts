@@ -53,7 +53,7 @@ router.post("/", async (req, res) => {
     res.setHeader("Cache-Control", "no-cache");
     res.setHeader("Connection", "keep-alive");
 
-    const lastUserMessage =
+    const _lastUserMessage =
       [...chatMessages].reverse().find((m) => m.role === "user")?.content ?? "";
     const client = getAnthropicClient();
 
@@ -62,7 +62,7 @@ router.post("/", async (req, res) => {
     // resolve relational memory (only on first message of a session to avoid extra DB round-trips)
     let customerId: number | null = null;
     let capsuleState: Awaited<ReturnType<typeof loadCapsule>> = null;
-    let customerName: string | null = null;
+    const customerName: string | null = null;
 
     if (anonymousId) {
       try {
