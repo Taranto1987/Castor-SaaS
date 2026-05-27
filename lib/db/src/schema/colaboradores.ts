@@ -1,4 +1,5 @@
-import { pgTable, serial, text, boolean, timestamp, integer } from "drizzle-orm/pg-core";
+import { pgTable, serial, text, boolean, timestamp, integer, index } from "drizzle-orm/pg-core";
+import { sql } from "drizzle-orm";
 
 export const colaboradoresTable = pgTable("colaboradores", {
   id: serial("id").primaryKey(),
@@ -17,4 +18,7 @@ export const colaboradoresTable = pgTable("colaboradores", {
   ativo: boolean("ativo").notNull().default(true),
   ultimoAcesso: timestamp("ultimo_acesso"),
   criadoEm: timestamp("criado_em").defaultNow(),
-});
+}, (t) => [
+  index("colaboradores_loja_idx").on(t.lojaId),
+  index("colaboradores_wa_raw_idx").on(t.waRaw).where(sql`${t.waRaw} IS NOT NULL`),
+]);

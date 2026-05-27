@@ -1,4 +1,4 @@
-import { pgTable, serial, integer, real, text, jsonb, timestamp } from "drizzle-orm/pg-core";
+import { pgTable, serial, integer, real, text, jsonb, timestamp, index } from "drizzle-orm/pg-core";
 
 export const automationLogTable = pgTable("automation_log", {
   id: serial("id").primaryKey(),
@@ -11,6 +11,9 @@ export const automationLogTable = pgTable("automation_log", {
   destination: text("destination"),
   payload: jsonb("payload").notNull().default({}),
   dispararadoEm: timestamp("disparado_em").defaultNow(),
-});
+}, (t) => [
+  index("automation_log_loja_disparado_idx").on(t.lojaId, t.dispararadoEm),
+  index("automation_log_customer_idx").on(t.customerId),
+]);
 
 export type AutomationLog = typeof automationLogTable.$inferSelect;
