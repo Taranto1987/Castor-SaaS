@@ -36,7 +36,18 @@ router.post("/webhook/waha", async (req: Request, res: Response) => {
           sessionError,
         );
         sessionByPhone.delete(numero);
-        result = await runCastorAgent(texto);
+
+        try {
+          result = await runCastorAgent(texto);
+        } catch (newSessionError) {
+          // Garante que nenhuma sessão inválida permaneça presa ao número.
+          sessionByPhone.delete(numero);
+          console.error(
+            `[waha] falha ao recriar sessão do agente para ${numero}`,
+            newSessionError,
+          );
+          return;
+        }
       }
     } else {
       result = await runCastorAgent(texto);
