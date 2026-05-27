@@ -41,9 +41,10 @@ function StockBadge({ estoque }: { estoque: number | null }) {
   );
 }
 
-function ProdutoEstoqueCard({ produto, isDono }: {
+function ProdutoEstoqueCard({ produto, isDono, sessionToken }: {
   produto: Produto;
   isDono: boolean;
+  sessionToken?: string;
 }) {
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -55,7 +56,7 @@ function ProdutoEstoqueCard({ produto, isDono }: {
     mutationFn: async (novoEstoque: number) => {
       const res = await fetch(`/api/produtos/${produto.id}/estoque`, {
         method: "PATCH",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", "x-session-token": sessionToken || "" },
         body: JSON.stringify({ estoque: novoEstoque }),
       });
       if (!res.ok) throw new Error("Erro ao atualizar");
@@ -286,7 +287,7 @@ export default function Estoque() {
         <div className="space-y-2">
           <p className="text-sm text-slate-500 font-medium">{filtered.length} produto{filtered.length !== 1 ? "s" : ""}</p>
           {filtered.map(p => (
-            <ProdutoEstoqueCard key={p.id} produto={p} isDono={isDono} />
+            <ProdutoEstoqueCard key={p.id} produto={p} isDono={isDono} sessionToken={user?.sessionToken} />
           ))}
         </div>
       )}

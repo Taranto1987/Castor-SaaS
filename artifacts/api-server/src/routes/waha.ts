@@ -22,11 +22,25 @@ router.post("/webhook/waha", async (req: Request, res: Response) => {
 
     if (!texto.trim() || !numero) return;
 
-    // Reutiliza sessão existente do cliente ou cria nova
+    // Reutiliza sessão existente do cliente ou cria nova.
+    // Se a sessão armazenada estiver inválida/expirada, limpa e cria outra.
     const existingSession = sessionByPhone.get(numero);
-    const result = existingSession
-      ? await runOnExistingSession(existingSession, texto)
-      : await runCastorAgent(texto);
+    let result;
+
+    if (existingSession) {
+      try {
+        result = await runOnExistingSession(existingSession, texto);
+      } catch (sessionError) {
+        console.warn(
+          `[waha] sessão inválida para ${numero}; recriando sessão do agente`,
+          sessionError,
+        );
+        sessionByPhone.delete(numero);
+        result = await runCastorAgent(texto);
+      }
+    } else {
+      result = await runCastorAgent(texto);
+    }
 
     sessionByPhone.set(numero, result.sessionId);
 
