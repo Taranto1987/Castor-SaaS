@@ -1,4 +1,5 @@
 import pino from "pino";
+import type { Response } from "express";
 
 export const logger = pino({
   level: process.env["LOG_LEVEL"] ?? "info",
@@ -9,3 +10,12 @@ export const logger = pino({
     },
   }),
 });
+
+/** Returns a child logger pre-bound with lojaId + correlationId from res.locals. */
+export function routeLogger(res: Response, lojaId: number) {
+  const locals = res.locals as Record<string, unknown>;
+  return logger.child({
+    lojaId,
+    requestId: locals["requestId"] ?? locals["correlationId"],
+  });
+}

@@ -1,4 +1,4 @@
-import { pgTable, serial, integer, real, text, jsonb, timestamp } from "drizzle-orm/pg-core";
+import { pgTable, serial, integer, real, text, jsonb, timestamp, index } from "drizzle-orm/pg-core";
 
 export const leadScoresTable = pgTable("lead_scores", {
   id: serial("id").primaryKey(),
@@ -14,7 +14,10 @@ export const leadScoresTable = pgTable("lead_scores", {
   lastSeenAt: timestamp("last_seen_at").defaultNow(),
   firstSeenAt: timestamp("first_seen_at").defaultNow(),
   atualizadoEm: timestamp("atualizado_em").defaultNow(),
-});
+}, (t) => [
+  index("lead_scores_loja_score_idx").on(t.lojaId, t.score),
+  index("lead_scores_customer_idx").on(t.customerId),
+]);
 
 export type LeadScore = typeof leadScoresTable.$inferSelect;
 

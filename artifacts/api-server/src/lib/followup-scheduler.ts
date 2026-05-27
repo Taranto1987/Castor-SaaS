@@ -143,17 +143,24 @@ async function cicloScoreDecay(): Promise<void> {
   }
 }
 
+let timers: ReturnType<typeof setInterval>[] = [];
+
 export function iniciarSchedulerFollowUps(): void {
   ciclo().catch((err) => console.error("[FollowUp] Erro no ciclo inicial:", err));
   cicloScoreDecay().catch((err) => console.error("[ScoreDecay] Erro inicial:", err));
 
   const MS_6H = 6 * 60 * 60 * 1000;
-  setInterval(() => {
+  timers.push(setInterval(() => {
     ciclo().catch((err) => console.error("[FollowUp] Erro no ciclo:", err));
-  }, MS_6H);
+  }, MS_6H));
 
   const MS_24H = 24 * 60 * 60 * 1000;
-  setInterval(() => {
+  timers.push(setInterval(() => {
     cicloScoreDecay().catch((err) => console.error("[ScoreDecay] Erro:", err));
-  }, MS_24H);
+  }, MS_24H));
+}
+
+export function stopSchedulerFollowUps(): void {
+  for (const t of timers) clearInterval(t);
+  timers = [];
 }
