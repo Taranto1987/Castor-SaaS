@@ -11,8 +11,11 @@ export const logger = pino({
   }),
 });
 
-/** Returns a request-scoped child logger with lojaId attached. */
-export function routeLogger(res: Response, lojaId?: number): typeof logger {
-  const base = (res.locals["logger"] as typeof logger | undefined) ?? logger;
-  return lojaId !== undefined ? base.child({ lojaId }) : base;
+/** Returns a child logger pre-bound with lojaId + correlationId from res.locals. */
+export function routeLogger(res: Response, lojaId: number) {
+  const locals = res.locals as Record<string, unknown>;
+  return logger.child({
+    lojaId,
+    requestId: locals["requestId"] ?? locals["correlationId"],
+  });
 }

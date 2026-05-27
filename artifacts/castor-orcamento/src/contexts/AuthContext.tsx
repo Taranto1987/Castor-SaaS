@@ -37,7 +37,20 @@ function operacaoToLocation(operacao: string) {
 
 // ─── TYPE ─────────────────────────────────────────────────────────────────────
 
-export type AuthUser = ColaboradorConfig & { codigo: string; email?: string; sessionToken?: string };
+export interface FeatureFlags {
+  crm: boolean;
+  inbox: boolean;
+  aiMemory: boolean;
+  hotLeadAlerts: boolean;
+  multiAttendant: boolean;
+}
+
+export type AuthUser = ColaboradorConfig & {
+  codigo: string;
+  email?: string;
+  sessionToken?: string;
+  features?: FeatureFlags;
+};
 
 type LoginParams = { email: string; senha: string } | { code: string };
 

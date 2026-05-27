@@ -4,8 +4,8 @@ import { iniciarSchedulerRecorrentes, stopSchedulerRecorrentes } from "./lib/rec
 import { iniciarSchedulerFollowUps, stopSchedulerFollowUps } from "./lib/followup-scheduler";
 import { seedColaboradores, hydrateSessionsFromDB, cleanupExpiredSessions } from "./lib/sessions";
 import { seedLojas } from "./lib/seed-lojas";
-import { logger } from "./lib/logger";
 import { refreshLojaRegistry } from "./middlewares/auth";
+import { logger } from "./lib/logger";
 import { pool } from "@workspace/db";
 
 // Must run before anything else — exits with code 1 if required vars are missing

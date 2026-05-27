@@ -18,3 +18,5 @@ export * from "./eventos-operacionais";
 export * from "./whatsapp-instances";
 export * from "./tool-executions";
 export * from "./lead-contexts";
+export * from "./leads";
+export * from "./mensagens-whatsapp";

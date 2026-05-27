@@ -1,5 +1,6 @@
-import type { LeadCategory, StoredSignals } from "./weights";
+import type { StoredSignals } from "./weights";
 import type { ScoreResult } from "./engine";
+import type { StructuredProfile } from "../memory/capsule";
 
 export interface AutomationContext {
   customerId: number;
@@ -9,6 +10,7 @@ export interface AutomationContext {
   previousScore: number;
   result: ScoreResult;
   incomingSignals: StoredSignals;
+  bioProfile: StructuredProfile | null;
 }
 
 export interface AutomationRule {
@@ -27,27 +29,34 @@ export const AUTOMATION_RULES: AutomationRule[] = [
     id: "lead_quente_70",
     scoreThreshold: 70,
     cooldownHours: 24,
-    buildMessage: ({ name, result }) =>
-      `🔥 *Lead Quente Detectado!*\n\n` +
-      `Cliente: ${name ?? "anônimo"}\n` +
-      `Score: ${result.score} pontos\n` +
-      `Categoria: ${result.categoryMeta.label}\n` +
-      `Probabilidade de fechamento: ${(result.closingProbability * 100).toFixed(0)}%\n` +
-      `Tendência: ${result.trend === "rising" ? "📈 subindo" : result.trend === "cooling" ? "📉 esfriando" : "➡️ estável"}\n\n` +
-      `${buildSignalSummary(result)}\n` +
-      `_Entre em contato agora — o momento é favorável._`,
+    buildMessage: ({ name, result, bioProfile }) => {
+      const profile = buildProfileSummary(bioProfile);
+      return (
+        `🔥 *Lead Quente Detectado!*\n\n` +
+        `Cliente: ${name ?? "anônimo"}\n` +
+        `Score: ${result.score} — ${(result.closingProbability * 100).toFixed(0)}% de fechamento\n` +
+        `Tendência: ${result.trend === "rising" ? "📈 subindo" : result.trend === "cooling" ? "📉 esfriando" : "➡️ estável"}\n\n` +
+        (profile ? `${profile}\n\n` : "") +
+        `${buildSignalSummary(result)}\n` +
+        `_Entre em contato agora — o momento é favorável._`
+      );
+    },
   },
   {
     id: "alta_probabilidade_85",
     scoreThreshold: 85,
     cooldownHours: 48,
-    buildMessage: ({ name, result }) =>
-      `🎯 *ALTA PROBABILIDADE DE FECHAMENTO!*\n\n` +
-      `Cliente: ${name ?? "anônimo"}\n` +
-      `Score: ${result.score} — ${result.categoryMeta.label}\n` +
-      `Probabilidade: *${(result.closingProbability * 100).toFixed(0)}%*\n\n` +
-      `${buildSignalSummary(result)}\n` +
-      `_Contato imediato recomendado. Este lead está pronto para comprar._`,
+    buildMessage: ({ name, phone, result, bioProfile }) => {
+      const profile = buildProfileSummary(bioProfile);
+      return (
+        `🎯 *ALTA PROBABILIDADE DE FECHAMENTO!*\n\n` +
+        `Cliente: ${name ?? "anônimo"}${phone ? ` · ${phone}` : ""}\n` +
+        `Score: ${result.score} — *${(result.closingProbability * 100).toFixed(0)}% de fechamento*\n\n` +
+        (profile ? `${profile}\n\n` : "") +
+        `${buildSignalSummary(result)}\n` +
+        `_Contato imediato. Este lead está pronto para comprar._`
+      );
+    },
   },
   {
     id: "retorno_apos_abandono",
@@ -71,6 +80,22 @@ export const AUTOMATION_RULES: AutomationRule[] = [
       `_Contato disponível — adicione ao CRM e inicie follow-up._`,
   },
 ];
+
+function buildProfileSummary(bio: StructuredProfile | null): string {
+  if (!bio) return "";
+  const lines: string[] = [];
+  if (bio.peso !== "desconhecido")                                     lines.push(`⚖️ Peso: ${bio.peso}`);
+  if (bio.altura !== "desconhecido")                                   lines.push(`📏 Altura: ${bio.altura}`);
+  if (bio.posicao_sono !== "desconhecido")                             lines.push(`🛌 Posição: ${bio.posicao_sono}`);
+  if (bio.condicoes !== "nenhuma" && bio.condicoes !== "desconhecido") lines.push(`🏥 Condições: ${bio.condicoes}`);
+  if (bio.firmeza_preferida !== "desconhecido")                        lines.push(`🎯 Firmeza: ${bio.firmeza_preferida}`);
+  if (bio.uso !== "desconhecido")                                      lines.push(`👥 Uso: ${bio.uso}`);
+  if (bio.tamanho_cama !== "desconhecido")                             lines.push(`📐 Tamanho: ${bio.tamanho_cama}`);
+  if (bio.orcamento !== "desconhecido")                                lines.push(`💰 Orçamento: ${bio.orcamento}`);
+  if (bio.estagio_compra !== "desconhecido")                           lines.push(`📊 Estágio: ${bio.estagio_compra}`);
+  if (lines.length === 0) return "";
+  return `*Perfil do cliente:*\n${lines.join("\n")}`;
+}
 
 function buildSignalSummary(result: ScoreResult): string {
   const top = result.breakdown.positive.slice(0, 3);

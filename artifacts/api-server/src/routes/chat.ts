@@ -45,9 +45,6 @@ router.post("/", async (req, res) => {
     const lojaId = resolvePublicLojaId(req);
     const log = routeLogger(res, lojaId);
 
-    const ac = new AbortController();
-    req.on("close", () => ac.abort());
-
     const chatMessages = messages
       .filter((m) => m.role === "user" || m.role === "assistant")
       .slice(-10)
@@ -57,8 +54,10 @@ router.post("/", async (req, res) => {
     res.setHeader("Cache-Control", "no-cache");
     res.setHeader("Connection", "keep-alive");
 
-    const lastUserMessage =
-      [...chatMessages].reverse().find((m) => m.role === "user")?.content ?? "";
+    // Cancel the Anthropic stream if the client disconnects early
+    const ac = new AbortController();
+    req.on("close", () => ac.abort());
+
     const client = getAnthropicClient();
 
     emitEvent({ type: "session_started", sessionId, lojaId, messageCount: chatMessages.length });
@@ -70,9 +69,11 @@ router.post("/", async (req, res) => {
 
     if (anonymousId) {
       try {
-        customerId = await resolveOrCreateCustomer(anonymousId, lojaId);
+        const profile = await resolveOrCreateCustomer(anonymousId, lojaId);
+        customerId = profile.id;
+        customerName = profile.name;
         capsuleState = await loadCapsule(customerId);
-        console.log(`[Memory] Customer ${customerId} | capsule: ${capsuleState ? "yes" : "no"} | sessions: ${capsuleState?.sessionCount ?? 0}`);
+        console.log(`[Memory] Customer ${customerId} | name: ${customerName ?? "unknown"} | capsule: ${capsuleState ? "yes" : "no"} | sessions: ${capsuleState?.sessionCount ?? 0}`);
       } catch (err) {
         console.error("[Memory] Identity resolution failed:", err);
       }
@@ -163,7 +164,15 @@ router.post("/", async (req, res) => {
         res.write(`data: ${JSON.stringify({ content: text })}\n\n`);
       });
 
-      await stream2.finalMessage();
+      const finalMsg2 = await stream2.finalMessage();
+      log.info({
+        sessionId,
+        pass: 2,
+        inputTokens: finalMsg2.usage.input_tokens,
+        outputTokens: finalMsg2.usage.output_tokens,
+        cacheReadTokens: (finalMsg2.usage as unknown as Record<string, number>)["cache_read_input_tokens"] ?? 0,
+        cacheCreationTokens: (finalMsg2.usage as unknown as Record<string, number>)["cache_creation_input_tokens"] ?? 0,
+      }, "chat token usage");
     }
 
     if (!res.writableEnded && !ac.signal.aborted) {

@@ -1,5 +1,6 @@
 import type Anthropic from "@anthropic-ai/sdk";
 import { searchProducts, getCatalog, getProductFamily, getStoreInfo } from "./tools/read";
+import { createOrcamento } from "./tools/write/orcamento";
 import { logger } from "./logger";
 import { logToolExecution } from "./log-tool-execution";
 
@@ -72,6 +73,21 @@ export async function runTools(
 
           case "get_store_info":
             data = await getStoreInfo({ lojaId });
+            break;
+
+          case "create_orcamento":
+            data = await createOrcamento(
+              {
+                cliente: String(input["cliente"] ?? ""),
+                whatsapp: input["whatsapp"] ? String(input["whatsapp"]) : undefined,
+                produto_ids: Array.isArray(input["produto_ids"])
+                  ? (input["produto_ids"] as unknown[]).map(Number).filter((n) => n > 0)
+                  : [],
+                observacoes: input["observacoes"] ? String(input["observacoes"]) : undefined,
+                desconto_pix: input["desconto_pix"] !== null && input["desconto_pix"] !== undefined ? Number(input["desconto_pix"]) : undefined,
+              },
+              { lojaId, actorType: "agente" as const, requestId: ctx?.requestId },
+            );
             break;
 
           default:

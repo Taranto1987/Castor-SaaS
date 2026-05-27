@@ -1,7 +1,7 @@
 import { Router, type IRouter, type Request, type Response, type NextFunction } from "express";
 import { db, extractFamilyInfo } from "@workspace/db";
 import { produtosTable, crawlerStatusTable } from "@workspace/db/schema";
-import { eq, lt, isNotNull, sql } from "drizzle-orm";
+import { eq, lt, sql } from "drizzle-orm";
 import axios from "axios";
 import { getSession, isDono } from "../lib/sessions";
 

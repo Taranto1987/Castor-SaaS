@@ -8,6 +8,9 @@ import { requestContextMiddleware } from "./middleware/request-context";
 
 const app: Express = express();
 
+// Trust Railway/Vercel reverse proxy — required for correct req.ip, rate limiting, and CORS headers
+app.set("trust proxy", 1);
+
 // Observability: request ID + correlation ID on every request
 app.use(requestContextMiddleware);
 
@@ -43,6 +46,8 @@ app.use("/api/chat",                makeLimiter(30));                  // 30/15m
 app.use("/api/whatsapp/connect",    makeLimiter(5,  15 * 60 * 1000)); // 5/15min per IP
 app.use("/api/whatsapp/disconnect", makeLimiter(10, 15 * 60 * 1000)); // 10/15min per IP
 app.use("/api/whatsapp/status",     makeLimiter(120, 60 * 1000));     // 120/min (3s polling × 40 cycles)
+// MCP Server — external agent access, higher per-window but capped
+app.use("/api/mcp",                 makeLimiter(60, 60 * 60 * 1000)); // 60/hour per IP
 // Sitemap at root (not under /api) for search engine discovery
 app.use(sitemapRouter);
 app.use("/api", router);

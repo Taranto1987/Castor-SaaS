@@ -1,14 +1,16 @@
-import { type ComponentType, ReactNode, useState } from "react";
+import { type ComponentType, ReactNode, useState, useEffect } from "react";
 import { Link, useLocation } from "wouter";
 import { cn } from "@/lib/utils";
 import {
   FileText, Search, Clock, BarChart2, Truck,
   LogOut, User, Users, ShoppingCart, Package, DollarSign,
   TrendingUp, ClipboardPlus, UserCog, Menu, X, ChevronRight,
-  RefreshCw,
+  RefreshCw, MessageSquare, Sun, Moon, ChevronLeft, Command,
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useAuth } from "@/contexts/AuthContext";
+import { useTheme } from "@/contexts/ThemeContext";
+import { useCommandPalette } from "@/components/CommandPalette";
 
 interface NavItem {
   path: string;
@@ -32,6 +34,12 @@ function useSections(isDono: boolean): NavSection[] {
         { path: "/historico",       label: "Histórico",  icon: Clock        },
         { path: "/equipe/clientes", label: "Clientes",   icon: Users        },
         { path: "/outlet",          label: "Outlet",     icon: ShoppingCart },
+      ],
+    },
+    {
+      label: "Atendimento",
+      items: [
+        { path: "/inbox", label: "Inbox WhatsApp", icon: MessageSquare },
       ],
     },
     {
@@ -66,23 +74,37 @@ function useSections(isDono: boolean): NavSection[] {
   ];
 }
 
-const PINNED_PATHS = ["/equipe", "/orcamento", "/dashboard", "/logistica"];
+const PINNED_PATHS = ["/equipe", "/orcamento", "/inbox", "/dashboard"];
 
 // ── Sidebar nav item ──────────────────────────────────────────────────────────
 
-function SidebarItem({ item, isActive }: { item: NavItem; isActive: boolean }) {
+function SidebarItem({
+  item,
+  isActive,
+  collapsed,
+}: {
+  item: NavItem;
+  isActive: boolean;
+  collapsed: boolean;
+}) {
   return (
     <Link
       href={item.path}
+      title={collapsed ? item.label : undefined}
       className={cn(
-        "flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-150",
+        "flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-150 group relative",
         isActive
           ? "bg-red-600 text-white shadow-sm"
-          : "text-slate-600 hover:bg-slate-100 hover:text-slate-900"
+          : "text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 hover:text-slate-900 dark:hover:text-slate-100"
       )}
     >
       <item.icon className="w-4 h-4 shrink-0" />
-      <span className="flex-1 leading-none">{item.label}</span>
+      {!collapsed && <span className="flex-1 leading-none">{item.label}</span>}
+      {collapsed && (
+        <div className="absolute left-full ml-2 px-2 py-1 bg-slate-900 dark:bg-slate-700 text-white text-xs rounded-lg opacity-0 group-hover:opacity-100 pointer-events-none whitespace-nowrap z-50 transition-opacity">
+          {item.label}
+        </div>
+      )}
     </Link>
   );
 }
@@ -92,27 +114,50 @@ function SidebarItem({ item, isActive }: { item: NavItem; isActive: boolean }) {
 function Sidebar({
   sections,
   location,
+  collapsed,
+  onToggleCollapse,
 }: {
   sections: NavSection[];
   location: string;
+  collapsed: boolean;
+  onToggleCollapse: () => void;
 }) {
   const { user, logout } = useAuth();
+  const { theme, toggleTheme } = useTheme();
+  const { setOpen: openPalette } = useCommandPalette();
+
   return (
-    <aside className="hidden md:flex flex-col w-56 lg:w-64 shrink-0 bg-white border-r border-slate-200 h-screen sticky top-0 overflow-y-auto z-40">
-      <div className="px-4 py-4 border-b border-slate-100">
-        <Link href="/" className="flex items-center cursor-pointer">
-          <img src="/logo-castor.webp" alt="Castor" className="h-11 w-auto" />
-        </Link>
+    <aside
+      className={cn(
+        "hidden md:flex flex-col shrink-0 bg-white dark:bg-slate-900 border-r border-slate-200 dark:border-slate-800 h-screen sticky top-0 overflow-y-auto z-40 transition-all duration-200",
+        collapsed ? "w-[60px]" : "w-56 lg:w-64"
+      )}
+    >
+      {/* Logo + collapse toggle */}
+      <div className={cn("flex items-center border-b border-slate-100 dark:border-slate-800", collapsed ? "justify-center px-2 py-4" : "justify-between px-4 py-4")}>
+        {!collapsed && (
+          <Link href="/" className="flex items-center cursor-pointer">
+            <img src="/logo-castor.webp" alt="Castor" className="h-11 w-auto" />
+          </Link>
+        )}
+        <button
+          onClick={onToggleCollapse}
+          className="p-1.5 rounded-lg text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
+          title={collapsed ? "Expandir menu" : "Recolher menu"}
+        >
+          <ChevronLeft className={cn("w-4 h-4 transition-transform", collapsed && "rotate-180")} />
+        </button>
       </div>
 
-      {user && (
-        <div className="px-4 py-3 border-b border-slate-100">
+      {/* User badge */}
+      {user && !collapsed && (
+        <div className="px-4 py-3 border-b border-slate-100 dark:border-slate-800">
           <div
             className={cn(
               "flex items-center gap-2 rounded-lg px-3 py-2 border text-xs font-bold",
               user.operacao === "araruama"
-                ? "bg-blue-50 border-blue-100 text-blue-700"
-                : "bg-red-50 border-red-100 text-red-700"
+                ? "bg-blue-50 dark:bg-blue-950 border-blue-100 dark:border-blue-800 text-blue-700 dark:text-blue-300"
+                : "bg-red-50 dark:bg-red-950 border-red-100 dark:border-red-800 text-red-700 dark:text-red-300"
             )}
           >
             <User className="w-3.5 h-3.5 shrink-0" />
@@ -124,18 +169,35 @@ function Sidebar({
         </div>
       )}
 
-      <nav className="flex-1 px-3 py-4 space-y-5 overflow-y-auto">
+      {/* Command palette trigger */}
+      {!collapsed && (
+        <div className="px-4 pt-3 pb-1">
+          <button
+            onClick={() => openPalette(true)}
+            className="w-full flex items-center gap-2 px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-700 text-sm text-slate-400 dark:text-slate-500 hover:text-slate-600 dark:hover:text-slate-300 hover:border-slate-300 dark:hover:border-slate-600 transition-colors bg-slate-50 dark:bg-slate-800"
+          >
+            <Search className="w-3.5 h-3.5" />
+            <span className="flex-1 text-left text-xs">Buscar...</span>
+            <kbd className="text-[10px] border border-slate-200 dark:border-slate-700 rounded px-1">⌘K</kbd>
+          </button>
+        </div>
+      )}
+
+      <nav className="flex-1 px-2 py-3 space-y-4 overflow-y-auto">
         {sections.map((section) => (
           <div key={section.label}>
-            <p className="px-3 mb-1.5 text-[10px] font-extrabold tracking-widest text-slate-400 uppercase">
-              {section.label}
-            </p>
+            {!collapsed && (
+              <p className="px-3 mb-1.5 text-[10px] font-extrabold tracking-widest text-slate-400 dark:text-slate-600 uppercase">
+                {section.label}
+              </p>
+            )}
             <div className="space-y-0.5">
               {section.items.map((item) => (
                 <SidebarItem
                   key={item.path}
                   item={item}
-                  isActive={location === item.path}
+                  isActive={location === item.path || (item.path !== "/equipe" && location.startsWith(item.path))}
+                  collapsed={collapsed}
                 />
               ))}
             </div>
@@ -143,13 +205,31 @@ function Sidebar({
         ))}
       </nav>
 
-      <div className="px-3 py-4 border-t border-slate-100">
+      <div className={cn("px-2 py-3 border-t border-slate-100 dark:border-slate-800 space-y-1", collapsed && "flex flex-col items-center")}>
+        {/* Dark mode toggle */}
+        <button
+          onClick={toggleTheme}
+          title={theme === "dark" ? "Modo claro" : "Modo escuro"}
+          className={cn(
+            "flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition-all",
+            collapsed && "justify-center"
+          )}
+        >
+          {theme === "dark" ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
+          {!collapsed && <span>{theme === "dark" ? "Modo claro" : "Modo escuro"}</span>}
+        </button>
+
+        {/* Logout */}
         <button
           onClick={logout}
-          className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium text-slate-500 hover:text-red-600 hover:bg-red-50 transition-all"
+          className={cn(
+            "w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium text-slate-500 dark:text-slate-400 hover:text-red-600 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-950 transition-all",
+            collapsed && "justify-center"
+          )}
+          title="Sair da conta"
         >
           <LogOut className="w-4 h-4" />
-          Sair da conta
+          {!collapsed && "Sair da conta"}
         </button>
       </div>
     </aside>
@@ -175,12 +255,12 @@ function DrawerItem({
         "flex items-center gap-4 px-4 py-3 rounded-2xl transition-all",
         isActive
           ? "bg-red-600 text-white font-bold shadow-sm"
-          : "text-slate-700 hover:bg-slate-50 font-medium"
+          : "text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 font-medium"
       )}
     >
       <item.icon className="w-5 h-5 shrink-0" />
       <span className="flex-1 text-sm">{item.label}</span>
-      {!isActive && <ChevronRight className="w-4 h-4 text-slate-300" />}
+      {!isActive && <ChevronRight className="w-4 h-4 text-slate-300 dark:text-slate-600" />}
     </Link>
   );
 }
@@ -197,6 +277,7 @@ function MobileDrawer({
   location: string;
 }) {
   const { user, logout } = useAuth();
+  const { theme, toggleTheme } = useTheme();
   return (
     <AnimatePresence>
       {open && (
@@ -216,16 +297,16 @@ function MobileDrawer({
             animate={{ y: 0 }}
             exit={{ y: "100%" }}
             transition={{ type: "spring", damping: 30, stiffness: 300 }}
-            className="md:hidden fixed bottom-0 left-0 right-0 z-[70] bg-white rounded-t-3xl shadow-2xl max-h-[88vh] flex flex-col"
+            className="md:hidden fixed bottom-0 left-0 right-0 z-[70] bg-white dark:bg-slate-900 rounded-t-3xl shadow-2xl max-h-[88vh] flex flex-col"
           >
-            <div className="flex items-center justify-between px-5 pt-4 pb-3 border-b border-slate-100">
+            <div className="flex items-center justify-between px-5 pt-4 pb-3 border-b border-slate-100 dark:border-slate-800">
               {user && (
                 <div
                   className={cn(
                     "flex items-center gap-2 rounded-xl px-3 py-1.5 border text-sm font-bold",
                     user.operacao === "araruama"
-                      ? "bg-blue-50 border-blue-100 text-blue-700"
-                      : "bg-red-50 border-red-100 text-red-700"
+                      ? "bg-blue-50 dark:bg-blue-950 border-blue-100 dark:border-blue-800 text-blue-700 dark:text-blue-300"
+                      : "bg-red-50 dark:bg-red-950 border-red-100 dark:border-red-800 text-red-700 dark:text-red-300"
                   )}
                 >
                   <User className="w-4 h-4" />
@@ -235,18 +316,26 @@ function MobileDrawer({
                   </span>
                 </div>
               )}
-              <button
-                onClick={onClose}
-                className="p-2 rounded-xl text-slate-400 hover:bg-slate-100 transition-colors"
-              >
-                <X className="w-5 h-5" />
-              </button>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={toggleTheme}
+                  className="p-2 rounded-xl text-slate-400 dark:text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
+                >
+                  {theme === "dark" ? <Sun className="w-5 h-5" /> : <Moon className="w-5 h-5" />}
+                </button>
+                <button
+                  onClick={onClose}
+                  className="p-2 rounded-xl text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
             </div>
 
             <div className="overflow-y-auto flex-1 px-4 py-3 space-y-4">
               {sections.map((section) => (
                 <div key={section.label}>
-                  <p className="px-4 mb-1 text-[10px] font-extrabold tracking-widest text-slate-400 uppercase">
+                  <p className="px-4 mb-1 text-[10px] font-extrabold tracking-widest text-slate-400 dark:text-slate-600 uppercase">
                     {section.label}
                   </p>
                   <div className="space-y-0.5">
@@ -263,10 +352,10 @@ function MobileDrawer({
               ))}
             </div>
 
-            <div className="px-4 pb-8 pt-2 border-t border-slate-100">
+            <div className="px-4 pb-8 pt-2 border-t border-slate-100 dark:border-slate-800">
               <button
                 onClick={() => { logout(); onClose(); }}
-                className="w-full flex items-center gap-4 px-4 py-3 rounded-2xl text-red-600 hover:bg-red-50 font-semibold transition-all"
+                className="w-full flex items-center gap-4 px-4 py-3 rounded-2xl text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-950 font-semibold transition-all"
               >
                 <LogOut className="w-5 h-5" />
                 <span className="text-sm">Sair da conta</span>
@@ -287,26 +376,46 @@ export default function Layout({ children }: LayoutProps) {
   const [location] = useLocation();
   const { user } = useAuth();
   const [drawerOpen, setDrawerOpen] = useState(false);
-  const isDono = user?.papel === "dono";
+  const [collapsed, setCollapsed] = useState(() => {
+    if (typeof window !== "undefined") {
+      return localStorage.getItem("castor-sidebar-collapsed") === "true";
+    }
+    return false;
+  });
+
+  const isDono = user?.papel === "dono" || user?.papel === "ADMIN" || user?.papel === "GERENTE";
   const sections = useSections(isDono);
 
   const allItems = sections.flatMap((s) => s.items);
   const pinnedItems = PINNED_PATHS.map((p) => allItems.find((i) => i.path === p)!).filter(Boolean);
 
+  const handleToggleCollapse = () => {
+    setCollapsed((v) => {
+      const next = !v;
+      localStorage.setItem("castor-sidebar-collapsed", String(next));
+      return next;
+    });
+  };
+
   return (
-    <div className="min-h-screen flex relative">
-      <Sidebar sections={sections} location={location} />
+    <div className="min-h-screen flex relative bg-background">
+      <Sidebar
+        sections={sections}
+        location={location}
+        collapsed={collapsed}
+        onToggleCollapse={handleToggleCollapse}
+      />
 
       <div className="flex-1 flex flex-col min-w-0">
         {/* Mobile header */}
-        <header className="md:hidden sticky top-0 z-50 bg-white border-b border-slate-200/80">
+        <header className="md:hidden sticky top-0 z-50 bg-white dark:bg-slate-900 border-b border-slate-200/80 dark:border-slate-800">
           <div className="flex items-center justify-between px-4 h-14">
             <Link href="/" className="flex items-center">
               <img src="/logo-castor.webp" alt="Castor" className="h-9 w-auto" />
             </Link>
             <button
               onClick={() => setDrawerOpen(true)}
-              className="p-2 rounded-xl text-slate-500 hover:bg-slate-100 transition-colors"
+              className="p-2 rounded-xl text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
             >
               <Menu className="w-6 h-6" />
             </button>
@@ -318,7 +427,7 @@ export default function Layout({ children }: LayoutProps) {
         </main>
 
         {/* Mobile bottom bar */}
-        <div className="md:hidden fixed bottom-0 left-0 right-0 bg-white border-t border-slate-200 z-50 pb-safe">
+        <div className="md:hidden fixed bottom-0 left-0 right-0 bg-white dark:bg-slate-900 border-t border-slate-200 dark:border-slate-800 z-50 pb-safe">
           <nav className="flex items-stretch h-16">
             {pinnedItems.map((item) => {
               const isActive = location === item.path;
@@ -328,7 +437,7 @@ export default function Layout({ children }: LayoutProps) {
                   href={item.path}
                   className={cn(
                     "flex-1 flex flex-col items-center justify-center gap-1 relative",
-                    isActive ? "text-red-600" : "text-slate-400"
+                    isActive ? "text-red-600" : "text-slate-400 dark:text-slate-500"
                   )}
                 >
                   {isActive && (
@@ -345,7 +454,7 @@ export default function Layout({ children }: LayoutProps) {
             })}
             <button
               onClick={() => setDrawerOpen(true)}
-              className="flex-1 flex flex-col items-center justify-center gap-1 text-slate-400 hover:text-slate-700"
+              className="flex-1 flex flex-col items-center justify-center gap-1 text-slate-400 dark:text-slate-500 hover:text-slate-700 dark:hover:text-slate-200"
             >
               <Menu className="w-5 h-5" />
               <span className="text-[10px] font-semibold">Menu</span>

@@ -20,6 +20,8 @@ import scoringRouter from "./scoring";
 import catalogRouter from "./catalog";
 import mcpRouter from "./mcp";
 import whatsappRouter from "./whatsapp";
+import leadsRouter from "./leads";
+import inboxRouter from "./inbox";
 
 const router: IRouter = Router();
 
@@ -45,5 +47,7 @@ router.use(scoringRouter);
 router.use(catalogRouter);
 router.use(mcpRouter);
 router.use("/whatsapp", whatsappRouter);
+router.use("/leads", leadsRouter);
+router.use(inboxRouter);
 
 export default router;
