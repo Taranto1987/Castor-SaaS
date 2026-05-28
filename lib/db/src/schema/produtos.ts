@@ -41,8 +41,9 @@ export const produtosTable = pgTable("produtos", {
   // (disponivel = false) instead of being physically deleted.
   sincronizadoEm: timestamp("sincronizado_em"),
 }, (t) => [
-  uniqueIndex("produtos_sku_unique").on(t.sku).where(sql`${t.sku} IS NOT NULL`),
-  uniqueIndex("produtos_slug_unique").on(t.slug).where(sql`${t.slug} IS NOT NULL`),
+  // Composite per-loja: same SKU/slug allowed across different lojas (multi-tenant safe)
+  uniqueIndex("produtos_sku_loja_unique").on(t.sku, t.lojaId).where(sql`${t.sku} IS NOT NULL`),
+  uniqueIndex("produtos_slug_loja_unique").on(t.slug, t.lojaId).where(sql`${t.slug} IS NOT NULL`),
 ]);
 
 export const insertProdutoSchema = createInsertSchema(produtosTable).omit({ id: true, criadoEm: true });
