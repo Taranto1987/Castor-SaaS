@@ -273,7 +273,8 @@ router.post("/outlet/:id/interesse", async (req, res) => {
       res.status(404).json({ error: "Produto outlet não encontrado" });
       return;
     }
-    await db.insert(outletInteressesTable).values({ produtoId: id });
+    const lojaId = resolveLojaId(req);
+    await db.insert(outletInteressesTable).values({ produtoId: id, lojaId });
     res.json({ ok: true });
   } catch (error) {
     console.error("Erro ao registrar interesse:", error);

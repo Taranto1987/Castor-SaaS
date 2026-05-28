@@ -1,4 +1,4 @@
-import express, { type Express } from "express";
+import express, { type Express, type Request, type Response, type NextFunction } from "express";
 import cors from "cors";
 import helmet from "helmet";
 import rateLimit from "express-rate-limit";
@@ -51,5 +51,14 @@ app.use("/api/mcp",                 makeLimiter(60, 60 * 60 * 1000)); // 60/hour
 // Sitemap at root (not under /api) for search engine discovery
 app.use(sitemapRouter);
 app.use("/api", router);
+
+// Global error handler — catches errors thrown or passed to next() in any route
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+app.use((err: Error, _req: Request, res: Response, _next: NextFunction) => {
+  console.error("[unhandled-route-error]", err);
+  if (!res.headersSent) {
+    res.status(500).json({ error: "Erro interno do servidor" });
+  }
+});
 
 export default app;

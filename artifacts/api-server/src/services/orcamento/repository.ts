@@ -73,8 +73,11 @@ export async function findHistorico(papel: string, vendedor: string, page: numbe
     .orderBy(desc(orcamentosTable.criadoEm)).limit(limit).offset(offset);
 }
 
-export async function findOrcamentoById(id: number) {
-  const [row] = await db.select().from(orcamentosTable).where(eq(orcamentosTable.id, id));
+export async function findOrcamentoById(id: number, lojaId?: number) {
+  const cond = lojaId
+    ? and(eq(orcamentosTable.id, id), eq(orcamentosTable.lojaId, lojaId))
+    : eq(orcamentosTable.id, id);
+  const [row] = await db.select().from(orcamentosTable).where(cond);
   return row ?? null;
 }
 
