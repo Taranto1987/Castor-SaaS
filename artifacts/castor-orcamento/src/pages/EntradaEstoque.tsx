@@ -12,11 +12,20 @@ import { cn } from "@/lib/utils";
 
 type Step = "upload" | "review" | "done";
 
+interface MarkupSuggestion {
+  categoria: string | null;
+  markupPercent: number;
+  outletMarkupPercent: number;
+  precoSugerido: number;
+  outletPrice: number;
+}
+
 interface ItemExtraido {
   nome: string;
   quantidade: number;
   sku: string | null;
   precoCusto: string | null;
+  custoUnitario?: number | null;
 }
 
 interface ProdutoMatch {
@@ -26,11 +35,13 @@ interface ProdutoMatch {
   medidas: string | null;
   estoqueAtual: number | null;
   custoBRL: string | null;
+  categoria?: string | null;
 }
 
 interface ItemComMatch extends ItemExtraido {
   produtoMatch: ProdutoMatch | null;
   score: number;
+  markup?: MarkupSuggestion | null;
 }
 
 interface ProdutoBusca {
@@ -67,6 +78,8 @@ export default function EntradaEstoque() {
   const [loading, setLoading] = useState(false);
   const [loadingMsg, setLoadingMsg] = useState("");
   const [fornecedor, setFornecedor] = useState("");
+  const [numeroNF, setNumeroNF] = useState<string | null>(null);
+  const [cnpjFornecedor, setCnpjFornecedor] = useState<string | null>(null);
   const [itensRevisao, setItensRevisao] = useState<ItemComMatch[]>([]);
   const [showHistorico, setShowHistorico] = useState(false);
   const [buscaAberta, setBuscaAberta] = useState<number | null>(null);
@@ -86,26 +99,42 @@ export default function EntradaEstoque() {
 
   const handleFileSelect = useCallback(async (file: File) => {
     setLoading(true);
-    setLoadingMsg("Enviando imagem para análise...");
 
     try {
-      const formData = new FormData();
-      formData.append("imagem", file);
+      const isXml = file.type === "application/xml" || file.type === "text/xml" || file.name.endsWith(".xml");
 
-      const extractRes = await fetch("/api/entrada-estoque/extrair", {
-        method: "POST",
-        headers: { "x-session-token": token },
-        body: formData,
-      });
+      let extractData: { fornecedor?: string; cnpjFornecedor?: string; numeroNF?: string; itens: ItemExtraido[] };
 
-      if (!extractRes.ok) {
-        const err = await extractRes.json();
-        throw new Error(err.error || "Erro ao processar imagem");
+      if (isXml) {
+        setLoadingMsg("Processando XML NF-e...");
+        const formData = new FormData();
+        formData.append("arquivo", file);
+        const res = await fetch("/api/entrada-estoque/extrair-xml", {
+          method: "POST",
+          headers: { "x-session-token": token },
+          body: formData,
+        });
+        if (!res.ok) { const err = await res.json(); throw new Error(err.error || "Erro ao processar XML"); }
+        extractData = await res.json();
+        setNumeroNF(extractData.numeroNF ?? null);
+        setCnpjFornecedor(extractData.cnpjFornecedor ?? null);
+      } else {
+        setLoadingMsg("Enviando imagem para análise...");
+        const formData = new FormData();
+        formData.append("imagem", file);
+        const res = await fetch("/api/entrada-estoque/extrair", {
+          method: "POST",
+          headers: { "x-session-token": token },
+          body: formData,
+        });
+        if (!res.ok) { const err = await res.json(); throw new Error(err.error || "Erro ao processar imagem"); }
+        extractData = await res.json();
+        setNumeroNF(null);
+        setCnpjFornecedor(null);
       }
 
-      const extractData = await extractRes.json();
       setFornecedor(extractData.fornecedor || "");
-      setLoadingMsg("Buscando correspondências no catálogo...");
+      setLoadingMsg("Calculando correspondências e markup...");
 
       const matchRes = await fetch("/api/entrada-estoque/match", {
         method: "POST",
@@ -147,6 +176,14 @@ export default function EntradaEstoque() {
     if (fileInputRef.current) {
       fileInputRef.current.removeAttribute("capture");
       fileInputRef.current.setAttribute("accept", "image/*,application/pdf");
+      fileInputRef.current.click();
+    }
+  };
+
+  const handleUploadXml = () => {
+    if (fileInputRef.current) {
+      fileInputRef.current.removeAttribute("capture");
+      fileInputRef.current.setAttribute("accept", ".xml,application/xml,text/xml");
       fileInputRef.current.click();
     }
   };
@@ -213,13 +250,20 @@ export default function EntradaEstoque() {
 
     try {
       const payload = {
-        fornecedor: fornecedor || null,
+        fornecedor:     fornecedor || null,
+        numeroNF:       numeroNF,
+        cnpjFornecedor: cnpjFornecedor,
         itens: itensRevisao.map((item) => ({
-          nomeExtraido: item.nome,
-          skuExtraido: item.sku,
-          quantidade: item.quantidade,
-          precoCusto: item.precoCusto,
-          produtoId: item.produtoMatch?.id || null,
+          nomeExtraido:        item.nome,
+          skuExtraido:         item.sku,
+          quantidade:          item.quantidade,
+          precoCusto:          item.precoCusto,
+          custoUnitario:       item.custoUnitario ?? null,
+          markupPercent:       item.markup?.markupPercent ?? null,
+          outletMarkupPercent: item.markup?.outletMarkupPercent ?? null,
+          outletPrice:         item.markup?.outletPrice ?? null,
+          precoSugerido:       item.markup?.precoSugerido ?? null,
+          produtoId:           item.produtoMatch?.id || null,
         })),
       };
 
@@ -255,6 +299,8 @@ export default function EntradaEstoque() {
     setStep("upload");
     setItensRevisao([]);
     setFornecedor("");
+    setNumeroNF(null);
+    setCnpjFornecedor(null);
     setShowHistorico(false);
   };
 
@@ -349,7 +395,7 @@ export default function EntradaEstoque() {
             exit={{ opacity: 0, y: -20 }}
             className="space-y-4"
           >
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
               <button
                 onClick={handleCapture}
                 className="flex flex-col items-center justify-center gap-3 p-8 bg-primary/5 hover:bg-primary/10 border-2 border-dashed border-primary/30 hover:border-primary/60 rounded-xl transition-all group"
@@ -373,6 +419,19 @@ export default function EntradaEstoque() {
                 <div className="text-center">
                   <p className="font-semibold text-slate-800">Upload</p>
                   <p className="text-xs text-slate-500 mt-1">Imagem ou PDF da nota</p>
+                </div>
+              </button>
+
+              <button
+                onClick={handleUploadXml}
+                className="flex flex-col items-center justify-center gap-3 p-8 bg-emerald-50 hover:bg-emerald-100 border-2 border-dashed border-emerald-200 hover:border-emerald-400 rounded-xl transition-all group"
+              >
+                <div className="w-16 h-16 bg-emerald-100 rounded-full flex items-center justify-center group-hover:scale-110 transition-transform">
+                  <FileText className="w-8 h-8 text-emerald-600" />
+                </div>
+                <div className="text-center">
+                  <p className="font-semibold text-slate-800">XML NF-e</p>
+                  <p className="text-xs text-slate-500 mt-1">Dados precisos + markup</p>
                 </div>
               </button>
             </div>
@@ -478,6 +537,17 @@ export default function EntradaEstoque() {
                       />
                     </div>
                   </div>
+
+                  {item.markup && item.markup.precoSugerido > 0 && (
+                    <div className="flex flex-wrap gap-2 text-[11px]">
+                      <span className="bg-blue-50 text-blue-700 px-2 py-0.5 rounded-full font-medium">
+                        Markup {item.markup.markupPercent}% → R$ {item.markup.precoSugerido.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
+                      </span>
+                      <span className="bg-orange-50 text-orange-700 px-2 py-0.5 rounded-full font-medium">
+                        Outlet {item.markup.outletMarkupPercent}% → R$ {item.markup.outletPrice.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
+                      </span>
+                    </div>
+                  )}
 
                   {item.produtoMatch ? (
                     <div className="flex items-center justify-between bg-green-50 rounded-lg p-2">
