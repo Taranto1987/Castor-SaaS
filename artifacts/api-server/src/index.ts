@@ -2,6 +2,7 @@ import app from "./app";
 import { validateEnv } from "./utils/env.js";
 import { iniciarSchedulerRecorrentes, stopSchedulerRecorrentes } from "./lib/recorrentes-scheduler";
 import { iniciarSchedulerFollowUps, stopSchedulerFollowUps } from "./lib/followup-scheduler";
+import { stopWahaSessionCleanup } from "./routes/waha";
 import { seedColaboradores, hydrateSessionsFromDB, cleanupExpiredSessions } from "./lib/sessions";
 import { seedLojas } from "./lib/seed-lojas";
 import { refreshLojaRegistry } from "./middlewares/auth";
@@ -48,6 +49,7 @@ async function shutdown(signal: string): Promise<void> {
   if (_refreshHandle) { clearInterval(_refreshHandle); _refreshHandle = null; }
   stopSchedulerRecorrentes();
   stopSchedulerFollowUps();
+  stopWahaSessionCleanup();
 
   server.close(async () => {
     try { await pool.end(); } catch { /* ignore */ }

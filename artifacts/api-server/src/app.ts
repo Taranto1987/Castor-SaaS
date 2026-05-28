@@ -48,6 +48,13 @@ app.use("/api/whatsapp/disconnect", makeLimiter(10, 15 * 60 * 1000)); // 10/15mi
 app.use("/api/whatsapp/status",     makeLimiter(120, 60 * 1000));     // 120/min (3s polling × 40 cycles)
 // MCP Server — external agent access, higher per-window but capped
 app.use("/api/mcp",                 makeLimiter(60, 60 * 60 * 1000)); // 60/hour per IP
+// Crawler — Playwright, heavy resource usage
+app.use("/api/crawler",             makeLimiter(10, 60 * 60 * 1000)); // 10/hour per IP
+// Product catalog — public reads
+app.use("/api/produtos",            makeLimiter(200));                 // 200/15min per IP
+// Financeiro + Dashboard — authenticated but DB-heavy
+app.use("/api/financeiro",          makeLimiter(100));                 // 100/15min per IP
+app.use("/api/dashboard",           makeLimiter(100));                 // 100/15min per IP
 // Sitemap at root (not under /api) for search engine discovery
 app.use(sitemapRouter);
 app.use("/api", router);

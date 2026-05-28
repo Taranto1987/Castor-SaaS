@@ -221,7 +221,10 @@ router.post("/", async (req, res) => {
           emitEvent({ type: "product_recommended", sessionId, lojaId, productIds });
         }
 
-        const lead = await processarLeadDaConversa(chatMessages, fullAssistantText);
+        // Skip Haiku lead extraction for low-intent sessions — ~70% of messages produce no saveable lead
+        const lead = classification.intent !== "low"
+          ? await processarLeadDaConversa(chatMessages, fullAssistantText)
+          : null;
         if (lead?.deveSalvar) {
           emitEvent({
             type: "lead_captured",
@@ -251,9 +254,10 @@ router.post("/", async (req, res) => {
           }
         }
 
-        // Generate relational state capsule — include the current assistant response so
-        // even a single-exchange conversation produces a valid capsule for the next session.
-        if (customerId) {
+        // Generate relational state capsule — skip for low-intent first sessions (no relational value)
+        const isFirstSession = (capsuleState?.sessionCount ?? 0) === 0;
+        const shouldGenerateCapsule = classification.intent !== "low" || !isFirstSession || chatMessages.length >= 5;
+        if (customerId && shouldGenerateCapsule) {
           const messagesForCapsule: ChatMessage[] = [
             ...chatMessages,
             ...(fullAssistantText ? [{ role: "assistant" as const, content: fullAssistantText }] : []),
