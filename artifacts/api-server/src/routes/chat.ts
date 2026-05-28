@@ -16,6 +16,7 @@ import { CASTOR_READ_TOOLS } from "../lib/tools/definitions";
 import { runTools } from "../lib/tool-runner";
 import { logger, routeLogger } from "../lib/logger";
 import { generateAndSaveLeadContext } from "../services/lead-context";
+import { trackAIUsage } from "../lib/ai-usage";
 
 const router = Router();
 
@@ -222,6 +223,17 @@ router.post("/", async (req, res) => {
       hasToolUse,
       passes: hasToolUse ? 2 : 1,
     }, "session_complete");
+
+    void trackAIUsage({
+      lojaId,
+      modelo: "claude-sonnet-4-6",
+      inputTokens: totalInput,
+      outputTokens: totalOutput,
+      cacheTokens: totalCacheRead + totalCacheWrite,
+      custoEstimado: estimatedCostUsd,
+      contexto: "chat",
+      requestId: res.locals["requestId"] as string | undefined,
+    });
 
     if (hasToolUse) {
       log.info({ tools: firstResponse.content.filter(b => b.type === "tool_use").map(b => b.type === "tool_use" ? b.name : "") }, "chat tools used");

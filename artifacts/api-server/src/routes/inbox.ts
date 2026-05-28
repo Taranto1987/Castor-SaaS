@@ -42,7 +42,11 @@ router.get("/inbox/stream", requireAuth, (req: AuthRequest, res: any) => {
 
   req.on("close", () => {
     clearInterval(hb);
-    sseClients.get(lojaId)?.delete(client);
+    const set = sseClients.get(lojaId);
+    if (set) {
+      set.delete(client);
+      if (set.size === 0) sseClients.delete(lojaId);
+    }
   });
 });
 
