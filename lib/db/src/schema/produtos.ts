@@ -1,7 +1,12 @@
-import { pgTable, serial, text, timestamp, boolean, integer, numeric, uniqueIndex } from "drizzle-orm/pg-core";
+import { pgTable, serial, text, timestamp, boolean, integer, numeric, uniqueIndex, pgEnum } from "drizzle-orm/pg-core";
 import { sql } from "drizzle-orm";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod/v4";
+
+// showroom = disponível em loja, outlet = peça de mostruário/desconto,
+// hidden = oculto do catálogo público, seasonal = visível só em período específico
+export const salesModeEnum   = pgEnum("sales_mode",         ["showroom", "outlet", "hidden", "seasonal"]);
+export const deliveryStrategyEnum = pgEnum("delivery_strategy", ["pronta_entrega", "sob_encomenda"]);
 
 export const produtosTable = pgTable("produtos", {
   id: serial("id").primaryKey(),
@@ -35,6 +40,9 @@ export const produtosTable = pgTable("produtos", {
   familySlug: text("family_slug"),
   familyName: text("family_name"),
   size: text("size"),
+  // Commercial lifecycle: replaces the boolean disponivel/encomenda flags for UI/filtering.
+  salesMode:        salesModeEnum("sales_mode").default("showroom"),
+  deliveryStrategy: deliveryStrategyEnum("delivery_strategy").default("pronta_entrega"),
   criadoEm: timestamp("criado_em").defaultNow(),
   // Set to NOW() each time the crawler confirms this product still exists on
   // the supplier catalog. Products not seen after a sync are soft-deleted
