@@ -206,11 +206,14 @@ router.post("/webhook/waha", async (req: Request, res: Response) => {
     }
 
     const respostaTexto = text.trim() || "Recebi sua mensagem 👍";
-    await fetch(`${wahaUrl}/api/sendText`, {
+    const wahaRes = await fetch(`${wahaUrl}/api/sendText`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ session: wahaSession, chatId: numero, text: respostaTexto }),
     });
+    if (!wahaRes.ok) {
+      console.error(`[waha] API error: status=${wahaRes.status} lojaId=${lojaId} phone=${numero}`);
+    }
 
     // Persiste resposta do bot
     await persistirMensagem(lojaId, numero, respostaTexto, "outbound", "ThallesZzz IA");

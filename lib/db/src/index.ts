@@ -24,6 +24,12 @@ pool.on("error", (err) => {
   console.error("[pg-pool] idle client error", err);
 });
 
+setInterval(() => {
+  if (pool.waitingCount > 0) {
+    console.warn(`[pg-pool] pressure: waiting=${pool.waitingCount} idle=${pool.idleCount} total=${pool.totalCount}`);
+  }
+}, 30_000);
+
 export const db = drizzle(pool, { schema });
 
 export * from "./schema";

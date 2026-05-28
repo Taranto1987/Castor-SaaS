@@ -3,6 +3,7 @@ import { orcamentosTable, followUpsTable, leadScoresTable } from "@workspace/db/
 import { eq, and, lte, isNull, lt, gt } from "drizzle-orm";
 import { enviarWhatsApp } from "../services/whatsapp";
 import { computeScore, type StoredSignals } from "../services/scoring/engine";
+import { logger } from "./logger";
 
 function sanitizarTelefone(tel: string | null | undefined): string | null {
   if (!tel) return null;
@@ -44,8 +45,10 @@ const JANELAS = [
   { tipo: "dia14", minDias: 14, maxDias: 45 },
 ];
 
-async function ciclo(): Promise<void> {
+async function ciclo(): Promise<{ geradas: number; enviados: number }> {
   const agora = new Date();
+  let geradas = 0;
+  let enviados = 0;
 
   // ── 1. Gerar follow-ups que ainda não existem ────────────────────────────
   for (const janela of JANELAS) {
@@ -85,7 +88,7 @@ async function ciclo(): Promise<void> {
         waLink,
       });
 
-      console.log(`[FollowUp] Gerado ${janela.tipo} para orçamento #${orc.id} (${orc.cliente})`);
+      geradas++;
     }
   }
 
@@ -114,12 +117,14 @@ async function ciclo(): Promise<void> {
     try {
       await enviarWhatsApp(tel, fu.mensagem);
       await db.update(followUpsTable).set({ executadoEm: new Date() }).where(eq(followUpsTable.id, fu.id));
-      console.log(`[FollowUp] Enviado ${fu.tipo} → ${tel} (orçamento #${fu.orcamentoId})`);
+      enviados++;
     } catch (err) {
       // WAHA offline ou não configurado — será tentado no próximo ciclo
-      console.error(`[FollowUp] Falha ao enviar ${fu.tipo} para #${fu.orcamentoId}:`, err);
+      logger.error({ err, tipo: fu.tipo, orcamentoId: fu.orcamentoId }, "followup_send_failed");
     }
   }
+
+  return { geradas, enviados };
 }
 
 async function cicloScoreDecay(): Promise<void> {
@@ -147,23 +152,28 @@ let _followUpHandle: ReturnType<typeof setInterval> | null = null;
 let _decayHandle: ReturnType<typeof setInterval> | null = null;
 let _cicloRunning = false;
 
-export function iniciarSchedulerFollowUps(): void {
+function runCiclo() {
+  const t0 = Date.now();
   _cicloRunning = true;
   ciclo()
-    .catch((err) => console.error("[FollowUp] Erro no ciclo inicial:", err))
+    .then((stats) => {
+      logger.info({ scheduler: "followup", durationMs: Date.now() - t0, ...stats }, "scheduler_cycle_complete");
+    })
+    .catch((err) => logger.error({ err, scheduler: "followup" }, "scheduler_cycle_error"))
     .finally(() => { _cicloRunning = false; });
-  cicloScoreDecay().catch((err) => console.error("[ScoreDecay] Erro inicial:", err));
+}
+
+export function iniciarSchedulerFollowUps(): void {
+  runCiclo();
+  cicloScoreDecay().catch((err) => logger.error({ err }, "score_decay_error"));
 
   const MS_6H = 6 * 60 * 60 * 1000;
   _followUpHandle = setInterval(() => {
     if (_cicloRunning) {
-      console.warn("[FollowUp] Ciclo anterior ainda rodando — pulando tick");
+      logger.warn({ scheduler: "followup" }, "cycle_skipped_previous_running");
       return;
     }
-    _cicloRunning = true;
-    ciclo()
-      .catch((err) => console.error("[FollowUp] Erro no ciclo:", err))
-      .finally(() => { _cicloRunning = false; });
+    runCiclo();
   }, MS_6H);
 
   const MS_24H = 24 * 60 * 60 * 1000;
