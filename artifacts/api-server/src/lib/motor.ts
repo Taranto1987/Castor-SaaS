@@ -12,6 +12,7 @@ export interface DiagnosticoInput {
   calor?: string;
   tamanho?: string;
   historico?: string;
+  tempo_uso_historico?: string;
   prioridade?: string;
   nome?: string;
   whatsapp?: string;
@@ -21,6 +22,8 @@ export interface DiagnosticoAnalise {
   suporte: "alto" | "medio" | "baixo";
   firmeza_final: string;
   tecnologia: string;
+  flag_calibracao: "adaptacao_leve" | "adaptacao_moderada" | "adaptacao_intensa" | null;
+  texto_calibracao: string | null;
 }
 
 export interface DiagnosticoSaida {
@@ -32,8 +35,23 @@ export interface DiagnosticoSaida {
   justificativa: string;
   gatilho: string;
   confianca: number;
+  flag_calibracao: string | null;
+  texto_calibracao: string | null;
   produtoObj: ProdutoCatalogo;
 }
+
+const RANK_MOTOR: Record<string, number> = {
+  firme: 4, intermediario_firme: 3, intermediario: 2, intermediario_macio: 1, macio: 0,
+};
+const HIST_FIRMEZA_MOTOR: Record<string, string> = {
+  espuma:  "intermediario",
+  mola:    "intermediario_firme",
+  pocket:  "intermediario",
+  madeira: "firme",
+};
+const HIST_TEMPO_MULT_MOTOR: Record<string, number> = {
+  menos_2: 0, "2_5": 0.3, mais_5: 0.6, mais_10: 1.0,
+};
 
 export function processarDiagnostico(d: DiagnosticoInput): DiagnosticoAnalise {
   const peso = d.peso_kg ?? 70;
@@ -73,10 +91,33 @@ export function processarDiagnostico(d: DiagnosticoInput): DiagnosticoAnalise {
   const tecnologia = Object.entries(score).sort((a, b) => b[1] - a[1])[0][0];
 
   let firmeza_final = firmeza;
-  if (d.dor === "lombar") firmeza_final = "intermediario_firme";
+  if (d.dor === "lombar" || d.dor === "quadril") firmeza_final = "intermediario_firme";
   if (d.posicao === "lado" && suporte !== "alto") firmeza_final = "intermediario_macio";
 
-  return { suporte, firmeza_final, tecnologia };
+  // Módulo 5 — Conforto Percebido vs Ideal (adaptation drift)
+  let flag_calibracao: DiagnosticoAnalise["flag_calibracao"] = null;
+  let texto_calibracao: string | null = null;
+
+  if (d.historico && d.tempo_uso_historico) {
+    const histF = HIST_FIRMEZA_MOTOR[d.historico] ?? "intermediario";
+    const mult  = HIST_TEMPO_MULT_MOTOR[d.tempo_uso_historico] ?? 0;
+    const histR = RANK_MOTOR[histF] ?? 2;
+    const bioR  = RANK_MOTOR[firmeza_final] ?? 2;
+    const delta = Math.abs(histR - bioR);
+
+    if (delta > 0 && mult > 0) {
+      const drift = Math.round(delta * mult);
+      if (drift >= 2) {
+        flag_calibracao  = "adaptacao_intensa";
+        texto_calibracao = `Seu corpo se adaptou a ${d.historico} por muitos anos. O colchão ideal pode parecer diferente nos primeiros dias — isso é normal.`;
+      } else if (drift === 1) {
+        flag_calibracao  = "adaptacao_moderada";
+        texto_calibracao = `Há uma pequena diferença entre o que seu corpo prefere e o que você está acostumado. O período de adaptação é de 7 a 15 dias.`;
+      }
+    }
+  }
+
+  return { suporte, firmeza_final, tecnologia, flag_calibracao, texto_calibracao };
 }
 
 export function selecionarProduto(
@@ -133,6 +174,12 @@ export function gerarSaida(
     gel: "regulação térmica + conforto + sono reparador",
   };
 
+  // Real confidence: penalise if fallback was used (no exact match) and if flag_calibracao is set
+  let confianca = 0.9;
+  if (analise.flag_calibracao === "adaptacao_intensa")  confianca -= 0.12;
+  if (analise.flag_calibracao === "adaptacao_moderada") confianca -= 0.06;
+  confianca = Math.round(Math.max(0.55, Math.min(0.95, confianca)) * 100) / 100;
+
   return {
     perfil,
     suporte: analise.suporte,
@@ -145,7 +192,9 @@ export function gerarSaida(
     gatilho:
       gatilhos[analise.tecnologia] ??
       "alívio de dor + conforto + adaptação corporal",
-    confianca: 0.9,
+    confianca,
+    flag_calibracao:  analise.flag_calibracao,
+    texto_calibracao: analise.texto_calibracao,
     produtoObj: produto,
   };
 }
