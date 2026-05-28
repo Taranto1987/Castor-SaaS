@@ -11,8 +11,20 @@ import { logEvent } from "../lib/log-event";
 
 const router = Router();
 
-// Mantém sessão do agente por `${lojaId}:${phone}` — escopo por tenant
-const sessionByPhone = new Map<string, string>();
+// Mantém sessão do agente por `${lojaId}:${phone}` — escopo por tenant, TTL 24h
+const SESSION_TTL_MS = 24 * 60 * 60 * 1000;
+const sessionByPhone = new Map<string, { id: string; lastSeen: number }>();
+
+let _sessionCleanupHandle: ReturnType<typeof setInterval> | null = setInterval(() => {
+  const cutoff = Date.now() - SESSION_TTL_MS;
+  for (const [key, val] of sessionByPhone) {
+    if (val.lastSeen < cutoff) sessionByPhone.delete(key);
+  }
+}, 60 * 60 * 1000); // cleanup a cada hora
+
+export function stopWahaSessionCleanup() {
+  if (_sessionCleanupHandle) { clearInterval(_sessionCleanupHandle); _sessionCleanupHandle = null; }
+}
 
 // Fast-path deduplication: IDs de mensagens já processadas (evita round-trip ao DB)
 // Max 2000 entradas; entradas antigas são removidas por ordem de inserção (FIFO)
@@ -169,8 +181,8 @@ router.post("/webhook/waha", async (req: Request, res: Response) => {
     // ── Processa com bot — sessionKey com escopo por tenant ──────────────────
     const sessionKey = `${lojaId}:${numero}`;
     const existingSession = sessionByPhone.get(sessionKey);
-    const sessionId = existingSession ?? (await createCastorSession(`waha-${numero}`)).id;
-    sessionByPhone.set(sessionKey, sessionId);
+    const sessionId = existingSession?.id ?? (await createCastorSession(`waha-${numero}`)).id;
+    sessionByPhone.set(sessionKey, { id: sessionId, lastSeen: Date.now() });
 
     await sendCastorMessage(sessionId, texto);
 
@@ -194,11 +206,14 @@ router.post("/webhook/waha", async (req: Request, res: Response) => {
     }
 
     const respostaTexto = text.trim() || "Recebi sua mensagem 👍";
-    await fetch(`${wahaUrl}/api/sendText`, {
+    const wahaRes = await fetch(`${wahaUrl}/api/sendText`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ session: wahaSession, chatId: numero, text: respostaTexto }),
     });
+    if (!wahaRes.ok) {
+      console.error(`[waha] API error: status=${wahaRes.status} lojaId=${lojaId} phone=${numero}`);
+    }
 
     // Persiste resposta do bot
     await persistirMensagem(lojaId, numero, respostaTexto, "outbound", "ThallesZzz IA");

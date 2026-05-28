@@ -1,5 +1,5 @@
 import { db, leadScoresTable, leadScoreHistoryTable } from "@workspace/db";
-import { eq } from "drizzle-orm";
+import { eq, and } from "drizzle-orm";
 import { applySignals, computeScore, type StoredSignals } from "./engine";
 import { checkAndFireAutomations } from "./automations";
 import { logEvent } from "../../lib/log-event";
@@ -15,7 +15,7 @@ export async function persistLeadScore(
   const existing = await db
     .select()
     .from(leadScoresTable)
-    .where(eq(leadScoresTable.customerId, customerId))
+    .where(and(eq(leadScoresTable.customerId, customerId), eq(leadScoresTable.lojaId, lojaId)))
     .limit(1);
 
   const existingRecord = existing[0] ?? null;
@@ -42,7 +42,7 @@ export async function persistLeadScore(
         lastSeenAt: now,
         atualizadoEm: now,
       })
-      .where(eq(leadScoresTable.customerId, customerId));
+      .where(and(eq(leadScoresTable.customerId, customerId), eq(leadScoresTable.lojaId, lojaId)));
   } else {
     await db.insert(leadScoresTable).values({
       customerId,

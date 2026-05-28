@@ -87,6 +87,8 @@ router.post("/", async (req, res) => {
     }
 
     let fullAssistantText = "";
+    let pass2InputTokens = 0, pass2OutputTokens = 0, pass2CacheRead = 0, pass2CacheWrite = 0;
+    const sessionStart = Date.now();
 
     // Block 1: static prefix — immutable, cross-tenant cache hit every request
     const systemBlocks: Anthropic.Messages.TextBlockParam[] = [
@@ -165,13 +167,17 @@ router.post("/", async (req, res) => {
       });
 
       const finalMsg2 = await stream2.finalMessage();
+      pass2InputTokens = finalMsg2.usage.input_tokens;
+      pass2OutputTokens = finalMsg2.usage.output_tokens;
+      pass2CacheRead = (finalMsg2.usage as unknown as Record<string, number>)["cache_read_input_tokens"] ?? 0;
+      pass2CacheWrite = (finalMsg2.usage as unknown as Record<string, number>)["cache_creation_input_tokens"] ?? 0;
       log.info({
         sessionId,
         pass: 2,
-        inputTokens: finalMsg2.usage.input_tokens,
-        outputTokens: finalMsg2.usage.output_tokens,
-        cacheReadTokens: (finalMsg2.usage as unknown as Record<string, number>)["cache_read_input_tokens"] ?? 0,
-        cacheCreationTokens: (finalMsg2.usage as unknown as Record<string, number>)["cache_creation_input_tokens"] ?? 0,
+        inputTokens: pass2InputTokens,
+        outputTokens: pass2OutputTokens,
+        cacheReadTokens: pass2CacheRead,
+        cacheCreationTokens: pass2CacheWrite,
       }, "chat token usage");
     }
 
@@ -180,15 +186,42 @@ router.post("/", async (req, res) => {
     }
     if (!res.writableEnded) res.end();
 
+    const p1CacheRead  = firstResponse.usage.cache_read_input_tokens ?? 0;
+    const p1CacheWrite = firstResponse.usage.cache_creation_input_tokens ?? 0;
     log.info({
       sessionId,
       model: "claude-sonnet-4-6",
       inputTokens: firstResponse.usage.input_tokens,
       outputTokens: firstResponse.usage.output_tokens,
-      cacheReadTokens: firstResponse.usage.cache_read_input_tokens ?? 0,
-      cacheWriteTokens: firstResponse.usage.cache_creation_input_tokens ?? 0,
+      cacheReadTokens: p1CacheRead,
+      cacheWriteTokens: p1CacheWrite,
       hasToolUse,
     }, "ai_usage");
+
+    // Approximate pricing — verify at console.anthropic.com before billing decisions
+    const INPUT_MTK = 3.0, OUTPUT_MTK = 15.0, CACHE_READ_MTK = 0.30, CACHE_WRITE_MTK = 3.75;
+    const totalInput      = firstResponse.usage.input_tokens + pass2InputTokens;
+    const totalOutput     = firstResponse.usage.output_tokens + pass2OutputTokens;
+    const totalCacheRead  = p1CacheRead + pass2CacheRead;
+    const totalCacheWrite = p1CacheWrite + pass2CacheWrite;
+    const estimatedCostUsd = parseFloat((
+      (totalInput      / 1e6) * INPUT_MTK  +
+      (totalOutput     / 1e6) * OUTPUT_MTK +
+      (totalCacheRead  / 1e6) * CACHE_READ_MTK +
+      (totalCacheWrite / 1e6) * CACHE_WRITE_MTK
+    ).toFixed(6));
+    log.info({
+      event: "session_complete",
+      sessionId,
+      durationMs: Date.now() - sessionStart,
+      totalInputTokens: totalInput,
+      totalOutputTokens: totalOutput,
+      totalCacheReadTokens: totalCacheRead,
+      totalCacheWriteTokens: totalCacheWrite,
+      estimatedCostUsd,
+      hasToolUse,
+      passes: hasToolUse ? 2 : 1,
+    }, "session_complete");
 
     if (hasToolUse) {
       log.info({ tools: firstResponse.content.filter(b => b.type === "tool_use").map(b => b.type === "tool_use" ? b.name : "") }, "chat tools used");
@@ -221,7 +254,10 @@ router.post("/", async (req, res) => {
           emitEvent({ type: "product_recommended", sessionId, lojaId, productIds });
         }
 
-        const lead = await processarLeadDaConversa(chatMessages, fullAssistantText);
+        // Skip Haiku lead extraction for low-intent sessions — ~70% of messages produce no saveable lead
+        const lead = classification.intent !== "low"
+          ? await processarLeadDaConversa(chatMessages, fullAssistantText)
+          : null;
         if (lead?.deveSalvar) {
           emitEvent({
             type: "lead_captured",
@@ -251,9 +287,10 @@ router.post("/", async (req, res) => {
           }
         }
 
-        // Generate relational state capsule — include the current assistant response so
-        // even a single-exchange conversation produces a valid capsule for the next session.
-        if (customerId) {
+        // Generate relational state capsule — skip for low-intent first sessions (no relational value)
+        const isFirstSession = (capsuleState?.sessionCount ?? 0) === 0;
+        const shouldGenerateCapsule = classification.intent !== "low" || !isFirstSession || chatMessages.length >= 5;
+        if (customerId && shouldGenerateCapsule) {
           const messagesForCapsule: ChatMessage[] = [
             ...chatMessages,
             ...(fullAssistantText ? [{ role: "assistant" as const, content: fullAssistantText }] : []),

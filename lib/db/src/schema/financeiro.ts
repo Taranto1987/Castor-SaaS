@@ -1,4 +1,4 @@
-import { pgTable, serial, text, timestamp, integer, numeric, boolean, index } from "drizzle-orm/pg-core";
+import { pgTable, serial, text, timestamp, integer, numeric, boolean, index, unique } from "drizzle-orm/pg-core";
 import { eq } from "drizzle-orm";
 
 export const despesasTable = pgTable("despesas", {
@@ -37,10 +37,12 @@ export type DespesaRecorrente = typeof despesasRecorrentesTable.$inferSelect;
 export const comissoesConfigTable = pgTable("comissoes_config", {
   id: serial("id").primaryKey(),
   lojaId: integer("loja_id").default(1),
-  vendedor: text("vendedor").notNull().unique(),
+  vendedor: text("vendedor").notNull(),
   percentual: numeric("percentual", { precision: 5, scale: 2 }).notNull().default("2.00"),
   criadoEm: timestamp("criado_em").defaultNow(),
-});
+}, (t) => [
+  unique("comissoes_vendedor_loja_uq").on(t.vendedor, t.lojaId),
+]);
 
 export type ComissaoConfig = typeof comissoesConfigTable.$inferSelect;
 

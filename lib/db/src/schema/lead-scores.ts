@@ -1,8 +1,8 @@
-import { pgTable, serial, integer, real, text, jsonb, timestamp, index } from "drizzle-orm/pg-core";
+import { pgTable, serial, integer, real, text, jsonb, timestamp, index, unique } from "drizzle-orm/pg-core";
 
 export const leadScoresTable = pgTable("lead_scores", {
   id: serial("id").primaryKey(),
-  customerId: integer("customer_id").notNull().unique(),
+  customerId: integer("customer_id").notNull(),
   lojaId: integer("loja_id").notNull(),
   score: real("score").notNull().default(0),
   category: text("category").notNull().default("frio"),
@@ -15,6 +15,7 @@ export const leadScoresTable = pgTable("lead_scores", {
   firstSeenAt: timestamp("first_seen_at").defaultNow(),
   atualizadoEm: timestamp("atualizado_em").defaultNow(),
 }, (t) => [
+  unique("lead_scores_customer_loja_uq").on(t.customerId, t.lojaId),
   index("lead_scores_loja_score_idx").on(t.lojaId, t.score),
   index("lead_scores_customer_idx").on(t.customerId),
 ]);

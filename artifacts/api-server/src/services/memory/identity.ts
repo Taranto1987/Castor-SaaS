@@ -18,12 +18,23 @@ export async function resolveOrCreateCustomer(
 
   if (existing[0]) return { id: existing[0].id, name: existing[0].name ?? null };
 
-  const [created] = await db
+  await db
     .insert(customerProfilesTable)
     .values({ anonymousId, lojaId })
-    .returning({ id: customerProfilesTable.id });
+    .onConflictDoNothing();
 
-  return { id: created.id, name: null };
+  const [row] = await db
+    .select({ id: customerProfilesTable.id, name: customerProfilesTable.name })
+    .from(customerProfilesTable)
+    .where(
+      and(
+        eq(customerProfilesTable.anonymousId, anonymousId),
+        eq(customerProfilesTable.lojaId, lojaId)
+      )
+    )
+    .limit(1);
+
+  return { id: row.id, name: row.name ?? null };
 }
 
 /**

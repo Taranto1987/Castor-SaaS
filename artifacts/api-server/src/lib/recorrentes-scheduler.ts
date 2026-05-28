@@ -1,6 +1,7 @@
 import { db } from "@workspace/db";
 import { despesasTable, despesasRecorrentesTable } from "@workspace/db/schema";
 import { eq, and } from "drizzle-orm";
+import { logger } from "./logger";
 
 async function gerarRecorrentesMes(mes: number, ano: number): Promise<number> {
   const recorrentes = await db
@@ -54,14 +55,13 @@ export function iniciarSchedulerRecorrentes(): void {
   const mes = now.getMonth() + 1;
   const ano = now.getFullYear();
 
+  const t0 = Date.now();
   gerarRecorrentesMes(mes, ano)
     .then((geradas) => {
-      if (geradas > 0) {
-        console.log(`[Recorrentes] ${geradas} despesa(s) recorrente(s) gerada(s) automaticamente para ${mes}/${ano}`);
-      }
+      logger.info({ scheduler: "recorrentes", mes, ano, durationMs: Date.now() - t0, geradas }, "scheduler_cycle_complete");
     })
     .catch((err) => {
-      console.error("[Recorrentes] Erro ao gerar recorrentes:", err);
+      logger.error({ err, scheduler: "recorrentes" }, "scheduler_cycle_error");
     });
 
   const MS_PER_HOUR = 60 * 60 * 1000;
@@ -70,11 +70,12 @@ export function iniciarSchedulerRecorrentes(): void {
     if (agora.getHours() === 0 && agora.getMinutes() < 2) {
       const m = agora.getMonth() + 1;
       const a = agora.getFullYear();
+      const tLoop = Date.now();
       gerarRecorrentesMes(m, a)
-        .then((g) => {
-          if (g > 0) console.log(`[Recorrentes] ${g} despesa(s) gerada(s) para ${m}/${a}`);
+        .then((geradas) => {
+          logger.info({ scheduler: "recorrentes", mes: m, ano: a, durationMs: Date.now() - tLoop, geradas }, "scheduler_cycle_complete");
         })
-        .catch((err) => console.error("[Recorrentes] Erro:", err));
+        .catch((err) => logger.error({ err, scheduler: "recorrentes" }, "scheduler_cycle_error"));
     }
   }, MS_PER_HOUR);
 }
