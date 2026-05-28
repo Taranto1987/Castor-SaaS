@@ -34,22 +34,31 @@ const server = app.listen(port, () => {
   seedLojas().catch((err: unknown) => logger.error({ err }, "seedLojas failed"));
   seedColaboradores().catch((err: unknown) => logger.error({ err }, "seedColaboradores failed"));
   refreshLojaRegistry().catch(() => null);
-  setInterval(() => refreshLojaRegistry().catch(() => null), 5 * 60_000);
+  _refreshHandle = setInterval(() => refreshLojaRegistry().catch(() => null), 5 * 60_000);
 });
 
 let shuttingDown = false;
+let _refreshHandle: ReturnType<typeof setInterval> | null = null;
+
 async function shutdown(signal: string): Promise<void> {
   if (shuttingDown) return;
   shuttingDown = true;
   logger.info({ signal }, "Graceful shutdown started");
+
+  if (_refreshHandle) { clearInterval(_refreshHandle); _refreshHandle = null; }
   stopSchedulerRecorrentes();
   stopSchedulerFollowUps();
+
   server.close(async () => {
     try { await pool.end(); } catch { /* ignore */ }
     logger.info("Server closed cleanly");
     process.exit(0);
   });
-  setTimeout(() => { logger.error("Shutdown timeout — forcing exit"); process.exit(1); }, 30_000);
+
+  setTimeout(() => {
+    logger.error("Shutdown timeout — forcing exit");
+    process.exit(1);
+  }, 30_000);
 }
 
 process.on("SIGTERM", () => { void shutdown("SIGTERM"); });

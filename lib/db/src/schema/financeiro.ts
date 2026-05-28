@@ -1,5 +1,5 @@
 import { pgTable, serial, text, timestamp, integer, numeric, boolean, index } from "drizzle-orm/pg-core";
-import { sql } from "drizzle-orm";
+import { eq } from "drizzle-orm";
 
 export const despesasTable = pgTable("despesas", {
   id: serial("id").primaryKey(),
@@ -29,7 +29,7 @@ export const despesasRecorrentesTable = pgTable("despesas_recorrentes", {
   diaVencimento: integer("dia_vencimento").notNull().default(1),
   criadoEm: timestamp("criado_em").defaultNow(),
 }, (t) => [
-  index("despesas_recorrentes_loja_ativo_idx").on(t.lojaId, t.ativo).where(sql`${t.ativo} = true`),
+  index("despesas_recorrentes_loja_ativo_idx").on(t.lojaId, t.ativo).where(eq(t.ativo, true)),
 ]);
 
 export type DespesaRecorrente = typeof despesasRecorrentesTable.$inferSelect;

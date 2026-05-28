@@ -11,7 +11,7 @@ import { logEvent } from "../lib/log-event";
 
 const router = Router();
 
-// Mantém sessão do agente por número de telefone (em memória)
+// Mantém sessão do agente por `${lojaId}:${phone}` — escopo por tenant
 const sessionByPhone = new Map<string, string>();
 
 // Fast-path deduplication: IDs de mensagens já processadas (evita round-trip ao DB)
@@ -166,10 +166,11 @@ router.post("/webhook/waha", async (req: Request, res: Response) => {
 
     if (conversa?.status === "humano") return;
 
-    // ── Processa com bot ─────────────────────────────────────────────────────
-    const existingSession = sessionByPhone.get(numero);
+    // ── Processa com bot — sessionKey com escopo por tenant ──────────────────
+    const sessionKey = `${lojaId}:${numero}`;
+    const existingSession = sessionByPhone.get(sessionKey);
     const sessionId = existingSession ?? (await createCastorSession(`waha-${numero}`)).id;
-    sessionByPhone.set(numero, sessionId);
+    sessionByPhone.set(sessionKey, sessionId);
 
     await sendCastorMessage(sessionId, texto);
 

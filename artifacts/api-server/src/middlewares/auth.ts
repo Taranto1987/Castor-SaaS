@@ -1,48 +1,49 @@
-import type { Request, Response, NextFunction } from "express";
-import { getSession, isDono, type Session } from "../lib/sessions";
 import { db } from "@workspace/db";
 import { lojasTable } from "@workspace/db/schema";
 import { eq } from "drizzle-orm";
+import type { Request, Response, NextFunction } from "express";
+import { getSession, isDono, type Session } from "../lib/sessions";
 
-// Live set of active loja IDs, refreshed every 5 min from DB.
-// Bootstrapped with known IDs to allow startup before first DB round-trip.
 let VALID_LOJA_IDS = new Set<number>([1, 2]);
 
 export async function refreshLojaRegistry(): Promise<void> {
-  const rows = await db.select({ id: lojasTable.id }).from(lojasTable).where(eq(lojasTable.ativa, true));
-  VALID_LOJA_IDS = new Set(rows.map((r) => r.id));
-}
-
-/**
- * Structurally validates a lojaId against the live registry.
- */
-export function isValidLojaId(id: number): boolean {
-  return Number.isInteger(id) && id > 0 && VALID_LOJA_IDS.has(id);
-}
-
-/** Resolve lojaId for public routes: x-loja-id header → default 1 (Cabo Frio). */
-export function resolvePublicLojaId(req: Request): number {
-  const header = req.headers["x-loja-id"];
-  if (header) {
-    const id = parseInt(String(header), 10);
-    if (!isNaN(id) && id > 0 && VALID_LOJA_IDS.has(id)) return id;
+  try {
+    const rows = await db.select({ id: lojasTable.id }).from(lojasTable)
+      .where(eq(lojasTable.ativa, true));
+    VALID_LOJA_IDS = new Set(rows.map(r => r.id));
+  } catch {
+    // keep existing set on DB failure
   }
-  return 1;
 }
 
-/** Resolve lojaId from session → x-loja-id header → default 1 (Cabo Frio). */
+function parseLojaHeader(header: string | string[] | undefined): number | null {
+  if (!header) return null;
+  const id = parseInt(String(header), 10);
+  if (!isNaN(id) && id > 0 && VALID_LOJA_IDS.has(id)) return id;
+  return null;
+}
+
+/** For public routes: validates x-loja-id header against the active-loja whitelist. */
+export function resolvePublicLojaId(req: Request): number {
+  return parseLojaHeader(req.headers["x-loja-id"]) ?? 1;
+}
+
+/** For authenticated routes: extracts lojaId from the session token (rejects if no valid session). */
+export function sessionLojaId(req: Request): number {
+  const token = (req.headers["x-session-token"] || "") as string;
+  const session = token ? getSession(token) : null;
+  if (!session) throw new Error("session.lojaId missing — requireAuth must run first");
+  return session.lojaId;
+}
+
+/** Resolve lojaId from session → validated x-loja-id header → default 1 (Cabo Frio). */
 export function resolveLojaId(req: Request): number {
   const token = (req.headers["x-session-token"] || "") as string;
   if (token) {
     const session = getSession(token);
     if (session) return session.lojaId;
   }
-  const header = req.headers["x-loja-id"];
-  if (header) {
-    const id = parseInt(String(header), 10);
-    if (!isNaN(id) && id > 0) return id;
-  }
-  return 1;
+  return parseLojaHeader(req.headers["x-loja-id"]) ?? 1;
 }
 
 export interface AuthRequest extends Request {

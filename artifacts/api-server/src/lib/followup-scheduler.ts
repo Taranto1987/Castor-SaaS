@@ -143,24 +143,36 @@ async function cicloScoreDecay(): Promise<void> {
   }
 }
 
-let timers: ReturnType<typeof setInterval>[] = [];
+let _followUpHandle: ReturnType<typeof setInterval> | null = null;
+let _decayHandle: ReturnType<typeof setInterval> | null = null;
+let _cicloRunning = false;
 
 export function iniciarSchedulerFollowUps(): void {
-  ciclo().catch((err) => console.error("[FollowUp] Erro no ciclo inicial:", err));
+  _cicloRunning = true;
+  ciclo()
+    .catch((err) => console.error("[FollowUp] Erro no ciclo inicial:", err))
+    .finally(() => { _cicloRunning = false; });
   cicloScoreDecay().catch((err) => console.error("[ScoreDecay] Erro inicial:", err));
 
   const MS_6H = 6 * 60 * 60 * 1000;
-  timers.push(setInterval(() => {
-    ciclo().catch((err) => console.error("[FollowUp] Erro no ciclo:", err));
-  }, MS_6H));
+  _followUpHandle = setInterval(() => {
+    if (_cicloRunning) {
+      console.warn("[FollowUp] Ciclo anterior ainda rodando — pulando tick");
+      return;
+    }
+    _cicloRunning = true;
+    ciclo()
+      .catch((err) => console.error("[FollowUp] Erro no ciclo:", err))
+      .finally(() => { _cicloRunning = false; });
+  }, MS_6H);
 
   const MS_24H = 24 * 60 * 60 * 1000;
-  timers.push(setInterval(() => {
+  _decayHandle = setInterval(() => {
     cicloScoreDecay().catch((err) => console.error("[ScoreDecay] Erro:", err));
-  }, MS_24H));
+  }, MS_24H);
 }
 
 export function stopSchedulerFollowUps(): void {
-  for (const t of timers) clearInterval(t);
-  timers = [];
+  if (_followUpHandle) { clearInterval(_followUpHandle); _followUpHandle = null; }
+  if (_decayHandle) { clearInterval(_decayHandle); _decayHandle = null; }
 }

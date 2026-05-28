@@ -1,21 +1,50 @@
 import type Anthropic from "@anthropic-ai/sdk";
 import { searchProducts, getCatalog, getProductFamily, getStoreInfo } from "./tools/read";
 import { createOrcamento } from "./tools/write/orcamento";
-import type { ToolContext } from "./tools/context";
 import { logger } from "./logger";
+import { logToolExecution } from "./log-tool-execution";
 
 type ToolUseBlock = Anthropic.Messages.ToolUseBlock;
 type ToolResultBlockParam = Anthropic.Messages.ToolResultBlockParam;
 
+interface RunToolsCtx {
+  correlationId?: string;
+  requestId?: string;
+}
+
+const MAX_TOOLS_PER_TURN = 2;
+
 export async function runTools(
   toolUseBlocks: ToolUseBlock[],
-  ctx: ToolContext,
+  lojaId: number,
+  ctx?: RunToolsCtx,
 ): Promise<ToolResultBlockParam[]> {
-  const { lojaId } = ctx;
+  // Hard budget: max 2 tools per turn
+  const sliced = toolUseBlocks.slice(0, MAX_TOOLS_PER_TURN);
+  if (sliced.length < toolUseBlocks.length) {
+    logger.warn({ lojaId, requested: toolUseBlocks.length, executed: sliced.length }, "tool_budget_exceeded");
+  }
+
+  // Semantic dedup: return synthetic result for duplicate calls to satisfy Anthropic's
+  // requirement that every tool_use_id in the assistant message has a matching tool_result.
+  const seen = new Set<string>();
+
   const results = await Promise.all(
-    toolUseBlocks.map(async (block): Promise<ToolResultBlockParam> => {
+    sliced.map(async (block): Promise<ToolResultBlockParam> => {
       const input = block.input as Record<string, unknown>;
-      const toolStart = Date.now();
+      const firstParam = Object.values(input)[0] ?? "";
+      const key = `${block.name}:${String(firstParam).toLowerCase().trim()}`;
+      if (seen.has(key)) {
+        logger.warn({ lojaId, tool: block.name }, "tool_dedup_skipped");
+        return {
+          type: "tool_result",
+          tool_use_id: block.id,
+          content: "Duplicate tool call — see previous result for same query.",
+        };
+      }
+      seen.add(key);
+
+      const start = Date.now();
       try {
         let data: unknown;
 
@@ -57,7 +86,7 @@ export async function runTools(
                 observacoes: input["observacoes"] ? String(input["observacoes"]) : undefined,
                 desconto_pix: input["desconto_pix"] !== null && input["desconto_pix"] !== undefined ? Number(input["desconto_pix"]) : undefined,
               },
-              ctx,
+              { lojaId, actorType: "agente" as const, requestId: ctx?.requestId },
             );
             break;
 
@@ -65,7 +94,17 @@ export async function runTools(
             data = { error: `Tool desconhecida: ${block.name}` };
         }
 
-        logger.info({ tool: block.name, lojaId, latencyMs: Date.now() - toolStart }, "tool executed");
+        const durationMs = Date.now() - start;
+        logger.info({ tool: block.name, lojaId, durationMs }, "tool executed");
+        logToolExecution({
+          lojaId,
+          toolName: block.name,
+          source: "chat",
+          status: "success",
+          durationMs,
+          inputSummary: input,
+          ...ctx,
+        });
 
         return {
           type: "tool_result",
@@ -73,7 +112,19 @@ export async function runTools(
           content: JSON.stringify(data),
         };
       } catch (err) {
-        logger.error({ err, tool: block.name, lojaId, latencyMs: Date.now() - toolStart }, "tool execution failed");
+        const durationMs = Date.now() - start;
+        const isTimeout = err instanceof Error && err.name === "AbortError";
+        logger.error({ err, tool: block.name, durationMs }, "tool execution failed");
+        logToolExecution({
+          lojaId,
+          toolName: block.name,
+          source: "chat",
+          status: isTimeout ? "timeout" : "error",
+          durationMs,
+          inputSummary: input,
+          errorMessage: String(err).slice(0, 500),
+          ...ctx,
+        });
         return {
           type: "tool_result",
           tool_use_id: block.id,

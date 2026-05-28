@@ -5,7 +5,14 @@ import { executarAgente } from "../services/agente.js";
 import { buscarProdutos } from "../services/produtos.js";
 import { criarOrcamento } from "../services/orcamento.js";
 import { enviarWhatsApp } from "../services/whatsapp.js";
+import { getLeadContext, buildLeadMemoryBlock, generateAndSaveLeadContext } from "../services/lead-context.js";
 import type { TenantKey } from "../config/tenants.js";
+
+const TENANT_LOJA: Record<TenantKey, number> = {
+  "cabo-frio": 1,
+  araruama: 2,
+  default: 1,
+};
 
 interface OrquestrarParams {
   mensagem: string;
@@ -20,6 +27,7 @@ export async function orquestrarMensagem({
 }: OrquestrarParams): Promise<void> {
   const mensagemLimpa = sanitizarEntrada(mensagem);
   const tipo = classificarMensagem(mensagemLimpa);
+  const lojaId = TENANT_LOJA[tenant] ?? 1;
 
   if (tipo === "saudacao") {
     await enviarWhatsApp(
@@ -29,7 +37,10 @@ export async function orquestrarMensagem({
     return;
   }
 
-  const produtos = await buscarProdutos(tenant);
+  const [produtos, leadCtx] = await Promise.all([
+    buscarProdutos(tenant),
+    getLeadContext(telefone, lojaId),
+  ]);
 
   if (produtos.length === 0) {
     await enviarWhatsApp(
@@ -40,12 +51,13 @@ export async function orquestrarMensagem({
   }
 
   const modelo = escolherModelo(tipo);
+  const memoriaLead = leadCtx ? buildLeadMemoryBlock(leadCtx) : null;
 
   let resposta: string;
   try {
     resposta = await executarAgente({
       mensagem: mensagemLimpa,
-      contexto: { produtos, tipo, tenant },
+      contexto: { produtos, tipo, tenant, ...(memoriaLead ? { memoriaLead } : {}) },
       modelo,
     });
     resposta = validarResposta(resposta);
@@ -61,8 +73,26 @@ export async function orquestrarMensagem({
       telefone,
       `Preparei um orçamento para você:\n${JSON.stringify(orcamento, null, 2)}`
     );
+    // fire-and-forget context update
+    setImmediate(() => {
+      const msgs = [{ role: "user", content: mensagemLimpa }];
+      generateAndSaveLeadContext(telefone, lojaId, leadCtx?.nome ?? null, msgs).catch(
+        (err) => console.error("[LeadContext] Save failed:", err)
+      );
+    });
     return;
   }
 
   await enviarWhatsApp(telefone, resposta);
+
+  // fire-and-forget context update after every exchange
+  setImmediate(() => {
+    const msgs = [
+      { role: "user", content: mensagemLimpa },
+      { role: "assistant", content: resposta },
+    ];
+    generateAndSaveLeadContext(telefone, lojaId, leadCtx?.nome ?? null, msgs).catch(
+      (err) => console.error("[LeadContext] Save failed:", err)
+    );
+  });
 }

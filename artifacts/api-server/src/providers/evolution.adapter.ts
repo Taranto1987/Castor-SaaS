@@ -1,8 +1,12 @@
 import type { WhatsAppProvider, SessionInfo } from "./whatsapp-provider.js";
-import { createProviderClient, providerPost, providerGet } from "./transport.js";
+import { createProviderClient, providerPost, providerGet, type ProviderClient } from "./transport.js";
 
 export class EvolutionAdapter implements WhatsAppProvider {
-  private readonly client = createProviderClient();
+  private readonly client: ProviderClient;
+
+  constructor(client?: ProviderClient) {
+    this.client = client ?? createProviderClient();
+  }
 
   private get ready(): boolean {
     return !!(this.client.baseUrl && this.client.token && this.client.instanceId);

@@ -57,7 +57,9 @@ CASAL:
 
 // ── OPERATIONAL CONSTRAINTS — behavioral rules ────────────────────────────────
 export const CONSTRAINT_BLOCK = `Regras operacionais:
-- Use apenas preços do catálogo fornecido. Nunca invente, estime ou arredonde valores.
+- Use sempre search_products ou get_catalog para confirmar disponibilidade antes de recomendar.
+- Limite suas recomendações a no máximo 4 produtos por resposta. Inclua sempre: nome, medida, preço PIX e parcelamento.
+- Use apenas preços retornados pelas ferramentas. Nunca invente, estime ou arredonde valores.
 - Se não tiver a informação exata, diga isso diretamente e sugira contato via WhatsApp.
 - Responda em português brasileiro.
 - Seja direto e preciso. Sem frases de encorajamento, entusiasmo forçado ou simpatia artificial.
@@ -83,6 +85,7 @@ Nunca recomende espuma por densidade (D33, D45, D65) sem antes saber o peso do c
 Nunca recomende baseado apenas em uma condição médica (fibromialgia, hérnia, etc.) sem antes conhecer o biotipo completo — condições como fibromialgia exigem análise de pressão superficial, não apenas suporte estrutural.`;
 
 // ── ASSEMBLED SYSTEM PROMPT ───────────────────────────────────────────────────
+// v2.0.0 — 2026-05-26 — imutável: sem interpolação dinâmica. Alterar apenas via bump de versão.
 export const SYSTEM_PROMPT = [
   SECURITY_BLOCK,
   IDENTITY_BLOCK,
@@ -95,4 +98,28 @@ export const SYSTEM_PROMPT = [
 // Does NOT simulate a response. Gives user a path forward.
 export function buildFallbackMessage(): string {
   return "Estou com dificuldade técnica no momento. Para atendimento imediato: Cabo Frio (22) 99241-0112 ou Araruama (22) 98844-7240 via WhatsApp.";
+}
+
+// ── SESSION INTENT BLOCK — pre-classified signals from current messages ───────
+import { classifyMessage } from "../events/classifier";
+import type { ChatMessage } from "./lead-extractor";
+
+/** Builds a compact intent block from the current session's user messages. Returns null if no meaningful signals. */
+export function buildSessionIntentBlock(messages: ChatMessage[]): string | null {
+  const allUserText = messages
+    .filter(m => m.role === "user")
+    .map(m => m.content)
+    .join(" ");
+
+  const cls = classifyMessage(allUserText);
+  const signals: string[] = [];
+  if (cls.pains.length > 0)
+    signals.push(`dores: ${cls.pains.join(", ")}`);
+  if (cls.intent === "high" || cls.intent === "closing")
+    signals.push(`intenção: ${cls.intent}`);
+  if (cls.objections.length > 0)
+    signals.push(`objeções: ${cls.objections.join(", ")}`);
+
+  if (signals.length === 0) return null;
+  return `[SESSÃO ATUAL]\n${signals.join(" | ")}`;
 }

@@ -1,21 +1,21 @@
 import { Router } from "express";
 import type { Response } from "express";
 import Anthropic from "@anthropic-ai/sdk";
-import { getProductContext } from "../services/chat/repository";
+import { getProductContextCompact } from "../services/chat/repository";
 import { processarLeadDaConversa } from "../services/chat/lead-extractor";
-import { SYSTEM_PROMPT, buildFallbackMessage } from "../services/chat/prompt";
+import { SYSTEM_PROMPT, buildFallbackMessage, buildSessionIntentBlock } from "../services/chat/prompt";
 import type { ChatMessage } from "../services/chat/lead-extractor";
-import { resolveLojaId } from "../middlewares/auth";
+import { resolvePublicLojaId } from "../middlewares/auth";
 import { emitEvent } from "../services/events/emit";
 import { classifyMessage, extractProductIds } from "../services/events/classifier";
 import { resolveOrCreateCustomer, stitchIdentityByPhone } from "../services/memory/identity";
-import { loadCapsule, buildStateBlock, generateAndSaveCapsule, getMemoryConfidence } from "../services/memory/capsule";
+import { loadCapsule, buildStateBlock, generateAndSaveCapsule } from "../services/memory/capsule";
 import { extractSessionSignals } from "../services/scoring/signals";
 import { scheduleLeadScoreUpdate } from "../services/scoring/updater";
-import { CASTOR_ALL_TOOLS } from "../lib/tools/definitions";
+import { CASTOR_READ_TOOLS } from "../lib/tools/definitions";
 import { runTools } from "../lib/tool-runner";
-import type { ToolContext } from "../lib/tools/context";
-import { routeLogger } from "../lib/logger";
+import { logger, routeLogger } from "../lib/logger";
+import { generateAndSaveLeadContext } from "../services/lead-context";
 
 const router = Router();
 
@@ -42,7 +42,7 @@ router.post("/", async (req, res) => {
     }
 
     const sessionId = clientSessionId ?? crypto.randomUUID();
-    const lojaId = resolveLojaId(req);
+    const lojaId = resolvePublicLojaId(req);
     const log = routeLogger(res, lojaId);
 
     const chatMessages = messages
@@ -86,25 +86,26 @@ router.post("/", async (req, res) => {
       return;
     }
 
-    const productContext = await getProductContext(lojaId);
     let fullAssistantText = "";
 
+    // Block 1: static prefix — immutable, cross-tenant cache hit every request
     const systemBlocks: Anthropic.Messages.TextBlockParam[] = [
       { type: "text", text: SYSTEM_PROMPT, cache_control: { type: "ephemeral" } },
-      { type: "text", text: productContext },
     ];
 
-    // inject relational state only when memory confidence is above threshold
-    const daysSinceContact = capsuleState?.lastContactAt
-      ? Math.floor((Date.now() - capsuleState.lastContactAt.getTime()) / 86_400_000)
-      : null;
-    const memoryConfidence = getMemoryConfidence(daysSinceContact);
-    if (capsuleState && capsuleState.sessionCount >= 1 && memoryConfidence > 0) {
-      const stateBlock = buildStateBlock(customerName, capsuleState, memoryConfidence);
-      systemBlocks.push({ type: "text", text: stateBlock });
-      console.log(`[Memory] Injecting stateBlock | confidence=${memoryConfidence} | daysSince=${daysSinceContact ?? "unknown"}`);
-    } else if (capsuleState && memoryConfidence === 0) {
-      console.log(`[Memory] Cold memory (${daysSinceContact} days) — skipping stateBlock injection`);
+    // Block 2: compact product memory — ~60 tokens, no cache needed
+    const compactHints = await getProductContextCompact(lojaId);
+    systemBlocks.push({ type: "text", text: compactHints });
+
+    // Block 3: longTerm relational state — only for returning customers (sessionCount >= 1)
+    if (capsuleState && capsuleState.sessionCount >= 1) {
+      systemBlocks.push({ type: "text", text: buildStateBlock(customerName, capsuleState) });
+    }
+
+    // Block 4: shortTerm intent signals — only when current session has meaningful signals
+    const intentBlock = buildSessionIntentBlock(chatMessages);
+    if (intentBlock) {
+      systemBlocks.push({ type: "text", text: intentBlock });
     }
 
     // ── Tool-aware streaming ──────────────────────────────────────────────────
@@ -118,7 +119,7 @@ router.post("/", async (req, res) => {
       max_tokens: 1024,
       system: systemBlocks,
       messages: chatMessages,
-      tools: CASTOR_ALL_TOOLS,
+      tools: CASTOR_READ_TOOLS,
     }, { signal: ac.signal });
 
     stream.on("streamEvent", (event) => {
@@ -139,12 +140,10 @@ router.post("/", async (req, res) => {
       const toolBlocks = firstResponse.content.filter(
         (b): b is Anthropic.Messages.ToolUseBlock => b.type === "tool_use"
       );
-      const toolCtx: ToolContext = {
-        lojaId,
+      const toolResults = await runTools(toolBlocks, lojaId, {
+        correlationId: (res.locals as Record<string, unknown>)["correlationId"] as string | undefined,
         requestId: (res.locals as Record<string, unknown>)["requestId"] as string | undefined,
-        actorType: "agente",
-      };
-      const toolResults = await runTools(toolBlocks, toolCtx);
+      });
 
       // Pass 2: stream final answer with tool results injected
       const stream2 = client.messages.stream({
@@ -157,7 +156,7 @@ router.post("/", async (req, res) => {
           { role: "user" as const, content: toolResults },
         ],
         // No tools on second call — prevents recursion
-      });
+      }, { signal: ac.signal });
 
       stream2.on("text", (text) => {
         if (res.writableEnded || ac.signal.aborted) return;
@@ -176,23 +175,23 @@ router.post("/", async (req, res) => {
       }, "chat token usage");
     }
 
-    if (!res.writableEnded) {
+    if (!res.writableEnded && !ac.signal.aborted) {
       res.write(`data: ${JSON.stringify({ done: true })}\n\n`);
-      res.end();
     }
+    if (!res.writableEnded) res.end();
 
     log.info({
       sessionId,
-      pass: 1,
+      model: "claude-sonnet-4-6",
       inputTokens: firstResponse.usage.input_tokens,
       outputTokens: firstResponse.usage.output_tokens,
-      cacheReadTokens: (firstResponse.usage as unknown as Record<string, number>)["cache_read_input_tokens"] ?? 0,
-      cacheCreationTokens: (firstResponse.usage as unknown as Record<string, number>)["cache_creation_input_tokens"] ?? 0,
+      cacheReadTokens: firstResponse.usage.cache_read_input_tokens ?? 0,
+      cacheWriteTokens: firstResponse.usage.cache_creation_input_tokens ?? 0,
       hasToolUse,
-    }, "chat token usage");
+    }, "ai_usage");
 
     if (hasToolUse) {
-      log.info({ sessionId, tools: firstResponse.content.filter(b => b.type === "tool_use").map(b => b.type === "tool_use" ? b.name : "") }, "chat tools used");
+      log.info({ tools: firstResponse.content.filter(b => b.type === "tool_use").map(b => b.type === "tool_use" ? b.name : "") }, "chat tools used");
     }
 
     // fire-and-forget post-processing
@@ -237,6 +236,18 @@ router.post("/", async (req, res) => {
           // enabling cross-device identity continuity when the user provides their number.
           if (customerId && lead.telefone) {
             await stitchIdentityByPhone(customerId, lead.telefone, lead.nomeCliente, lojaId);
+          }
+
+          // Sync lead context so WhatsApp path inherits this web conversation's knowledge.
+          if (lead.telefone) {
+            const allMessages = [
+              ...chatMessages,
+              ...(fullAssistantText ? [{ role: "assistant" as const, content: fullAssistantText }] : []),
+            ];
+            setImmediate(() => {
+              generateAndSaveLeadContext(lead.telefone!, lojaId, lead.nomeCliente ?? null, allMessages)
+                .catch((err) => logger.error({ err }, "lead context sync failed"));
+            });
           }
         }
 

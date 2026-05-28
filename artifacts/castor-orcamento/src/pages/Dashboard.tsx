@@ -1,8 +1,9 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   BarChart2, TrendingUp, Package, Truck, Users, RefreshCw,
-  ShoppingBag, CheckCircle2, Percent, Target, Edit3, X, TrendingDown
+  ShoppingBag, CheckCircle2, Percent, Target, Edit3, X, TrendingDown,
+  Wifi, WifiOff, Smartphone, QrCode, Loader2,
 } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { cn } from "@/lib/utils";
@@ -122,12 +123,24 @@ function MetaModal({ onClose, onSave, currentMeta }: {
   );
 }
 
+interface WhatsAppStatus {
+  id?: number;
+  status: string;
+  phone?: string | null;
+  instanceId?: string;
+  lastSeenAt?: string | null;
+}
+
 export default function Dashboard() {
   const { user } = useAuth();
   const operacao = user?.operacao ?? "cabo_frio";
   const isDono = user?.papel === "dono";
 
   const [showMetaModal, setShowMetaModal] = useState(false);
+  const [showQRModal, setShowQRModal] = useState(false);
+  const [qrCode, setQrCode] = useState<string | null>(null);
+  const [connectLoading, setConnectLoading] = useState(false);
+  const [disconnectLoading, setDisconnectLoading] = useState(false);
 
   const now = new Date();
   const mesAtual = now.getMonth() + 1;
@@ -169,6 +182,58 @@ export default function Dashboard() {
     },
     staleTime: 2 * 60 * 1000,
   });
+
+  const { data: waStatus, refetch: refetchWa } = useQuery<WhatsAppStatus>({
+    queryKey: ["whatsapp-status"],
+    queryFn: async () => {
+      const res = await fetch("/api/whatsapp/status", {
+        headers: { "x-session-token": user?.sessionToken ?? "" },
+      });
+      if (!res.ok) throw new Error("Erro");
+      return res.json();
+    },
+    enabled: isDono,
+    refetchInterval: (q) => (q.state.data?.status === "awaiting_qr" ? 3000 : false),
+    staleTime: 10_000,
+  });
+
+  useEffect(() => {
+    if (waStatus?.status === "connected" && showQRModal) {
+      setShowQRModal(false);
+      setQrCode(null);
+    }
+  }, [waStatus?.status, showQRModal]);
+
+  const handleConnect = async () => {
+    setConnectLoading(true);
+    try {
+      const res = await fetch("/api/whatsapp/connect", {
+        method: "POST",
+        headers: { "x-session-token": user?.sessionToken ?? "" },
+      });
+      if (!res.ok) throw new Error("Erro");
+      const data = await res.json() as { qrcode: string };
+      const src = data.qrcode.startsWith("data:") ? data.qrcode : `data:image/png;base64,${data.qrcode}`;
+      setQrCode(src);
+      setShowQRModal(true);
+      refetchWa();
+    } catch { /* noop */ } finally {
+      setConnectLoading(false);
+    }
+  };
+
+  const handleDisconnect = async () => {
+    setDisconnectLoading(true);
+    try {
+      await fetch("/api/whatsapp/disconnect", {
+        method: "DELETE",
+        headers: { "x-session-token": user?.sessionToken ?? "" },
+      });
+      refetchWa();
+    } catch { /* noop */ } finally {
+      setDisconnectLoading(false);
+    }
+  };
 
   const maxBar = Math.max(...(data?.orcamentosPorDia.map(d => d.count) ?? [1]), 1);
   const valorVendido = parseBRL(data?.somaPixVendido);
@@ -432,6 +497,76 @@ export default function Dashboard() {
             </div>
           )}
 
+          {/* WhatsApp — apenas dono */}
+          {isDono && (
+            <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm">
+              <div className="flex items-center justify-between mb-4">
+                <h2 className="font-bold text-slate-800 flex items-center gap-2">
+                  <Smartphone className="w-4 h-4 text-green-500" /> WhatsApp
+                </h2>
+                {waStatus && (
+                  <span className={cn(
+                    "text-xs font-bold px-2.5 py-1 rounded-full",
+                    waStatus.status === "connected" ? "bg-emerald-100 text-emerald-700" :
+                    waStatus.status === "awaiting_qr" ? "bg-amber-100 text-amber-700" :
+                    waStatus.status === "reconnect_required" ? "bg-orange-100 text-orange-700" :
+                    "bg-slate-100 text-slate-500"
+                  )}>
+                    {waStatus.status === "connected" ? "Conectado" :
+                     waStatus.status === "awaiting_qr" ? "Aguardando QR" :
+                     waStatus.status === "reconnect_required" ? "Reconectar" :
+                     "Desconectado"}
+                  </span>
+                )}
+              </div>
+
+              {waStatus?.status === "connected" ? (
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2 text-emerald-700">
+                    <Wifi className="w-4 h-4" />
+                    <span className="text-sm font-semibold">
+                      {waStatus.phone ? `+${waStatus.phone}` : "Conectado"}
+                    </span>
+                  </div>
+                  <button
+                    onClick={handleDisconnect}
+                    disabled={disconnectLoading}
+                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold bg-red-50 hover:bg-red-100 text-red-600 transition-all disabled:opacity-50"
+                  >
+                    {disconnectLoading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <WifiOff className="w-3.5 h-3.5" />}
+                    Desconectar
+                  </button>
+                </div>
+              ) : waStatus?.status === "awaiting_qr" ? (
+                <div className="flex items-center justify-between">
+                  <p className="text-sm text-amber-600 font-medium">Aguardando leitura do QR Code...</p>
+                  <button
+                    onClick={() => { setShowQRModal(true); }}
+                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold bg-amber-50 hover:bg-amber-100 text-amber-700 transition-all"
+                  >
+                    <QrCode className="w-3.5 h-3.5" /> Ver QR
+                  </button>
+                </div>
+              ) : (
+                <div className="flex items-center justify-between">
+                  <p className="text-sm text-slate-400">
+                    {waStatus?.status === "reconnect_required"
+                      ? "Sessão expirada. Reconecte para retomar envios."
+                      : "Conecte o WhatsApp para enviar mensagens automáticas."}
+                  </p>
+                  <button
+                    onClick={handleConnect}
+                    disabled={connectLoading}
+                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold bg-emerald-600 hover:bg-emerald-700 text-white transition-all disabled:opacity-50"
+                  >
+                    {connectLoading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <QrCode className="w-3.5 h-3.5" />}
+                    {waStatus?.status === "reconnect_required" ? "Reconectar" : "Conectar WhatsApp"}
+                  </button>
+                </div>
+              )}
+            </div>
+          )}
+
           <div className="grid md:grid-cols-2 gap-5">
             {/* Top produtos */}
             <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm">
@@ -500,6 +635,47 @@ export default function Dashboard() {
             onSave={handleSaveMeta}
             currentMeta={meta}
           />
+        )}
+        {showQRModal && (
+          <div className="fixed inset-0 z-50 flex items-end md:items-center justify-center bg-black/40 backdrop-blur-sm p-4">
+            <motion.div
+              initial={{ opacity: 0, y: 40 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: 40 }}
+              className="bg-white rounded-2xl w-full max-w-sm shadow-2xl p-6 space-y-4"
+            >
+              <div className="flex items-center justify-between">
+                <div>
+                  <h2 className="text-lg font-extrabold text-slate-900">Conectar WhatsApp</h2>
+                  <p className="text-xs text-slate-500 mt-0.5">Escaneie com o celular</p>
+                </div>
+                <button
+                  onClick={() => setShowQRModal(false)}
+                  className="w-8 h-8 rounded-lg bg-slate-100 hover:bg-slate-200 flex items-center justify-center"
+                >
+                  <X className="w-4 h-4 text-slate-500" />
+                </button>
+              </div>
+
+              {qrCode ? (
+                <div className="flex flex-col items-center gap-3">
+                  <img src={qrCode} alt="QR Code WhatsApp" className="w-56 h-56 rounded-xl border border-slate-200" />
+                  <p className="text-xs text-slate-400 text-center">
+                    Abra o WhatsApp → Dispositivos conectados → Conectar dispositivo
+                  </p>
+                  <div className="flex items-center gap-1.5 text-amber-600">
+                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                    <span className="text-xs font-semibold">Aguardando leitura...</span>
+                  </div>
+                </div>
+              ) : (
+                <div className="flex flex-col items-center gap-3 py-6">
+                  <Loader2 className="w-8 h-8 animate-spin text-slate-400" />
+                  <p className="text-sm text-slate-400">Gerando QR Code...</p>
+                </div>
+              )}
+            </motion.div>
+          </div>
         )}
       </AnimatePresence>
     </div>
