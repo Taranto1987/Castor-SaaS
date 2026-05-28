@@ -98,6 +98,45 @@ Castor-SaaS is a SaaS platform for a mattress store chain. Key business features
 - **Crawler** — headless Playwright scraper to auto-update the product catalog from the supplier website
 - **Chat (ThallesZzz)** — AI sales assistant on public pages, SSE streaming
 
+## Architectural Principles
+
+### Decision criteria (in priority order)
+1. Preserve data integrity — multi-tenant isolation is non-negotiable
+2. Preserve operational visibility — if it's not observable, don't ship it
+3. Preserve healthy unit cost — AI cost per session must be measurable
+4. Avoid premature complexity — no abstraction without concrete evidence of need
+5. Expand only on clear signal — logs showing real bottlenecks, not hypothetical ones
+
+### When in doubt between two approaches, prefer the one that:
+- Keeps the system observable (structured Pino logs, `/healthz/deep`)
+- Reduces risk of silent data corruption (lojaId filters, composite uniques)
+- Conserves operational simplicity (monolith is correct at current scale)
+- Improves margin without unnecessary coupling
+
+### Before any schema change (constraints, unique keys, multi-tenant behavior)
+**MANDATORY:** Run validation queries against Railway Postgres before applying `db push`:
+```sql
+-- Example for composite unique migrations:
+SELECT <key_col>, loja_id, COUNT(*) FROM <table>
+GROUP BY <key_col>, loja_id HAVING COUNT(*) > 1;
+```
+If duplicates exist → clean data first, then push. Never push a constraint onto dirty data.
+
+### What does NOT belong in this codebase at current scale
+- RAG / pgvector / semantic search (no evidence of retrieval failure rate > 20%)
+- BullMQ / Redis (schedulers are correct with setInterval up to ~50 tenants)
+- Microservices / multi-region (monolith is correct architecture today)
+- LangChain / orchestration frameworks (direct Anthropic SDK is simpler and cheaper)
+- Sentry / Datadog (defer until Railway logs prove insufficient)
+
+### Current AI stack (do not change without reason)
+- Chat: `claude-sonnet-4-6`, 2-pass streaming, tool budget MAX 2/turn
+- Structured extraction: `claude-haiku-4-5-20251001`, skipped for `intent=low`
+- Cache: `ephemeral` on SYSTEM_PROMPT only (upgrade to `persistent` when SDK supports it)
+- Cost tracking: `event=session_complete` log line per session
+
+---
+
 ## Deploy — Railway (Production) — 30/04/2026
 
 ### REGRA ABSOLUTA — PROJETO UNICO (CFO RULE)
