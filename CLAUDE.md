@@ -88,6 +88,47 @@ The API contract lives in `lib/api-spec/`. Running Orval codegen regenerates the
 | `VITE_GTM_ID` | Optional | Google Tag Manager (injected at build) |
 | `VITE_GA_MEASUREMENT_ID` | Optional | Google Analytics 4 |
 
+## Estado do Projeto — Fase Atual (Mai/2026)
+
+**Contexto operacional:**
+- Não existem clientes reais cadastrados ainda.
+- O site principal ainda não foi lançado publicamente.
+- Não existem diagnósticos reais em produção.
+- Não existem vendas originadas pelo sistema.
+- Não existem outcomes reais coletados.
+- Não existem métricas suficientes para calibração de algoritmos.
+
+**Conclusão:** O sistema está em fase de construção da fundação de inteligência, não em fase de otimização.
+
+**Prioridades desta fase:**
+- Coleta de dados estruturada
+- Persistência e rastreabilidade
+- Integração entre módulos existentes
+- Isolamento multi-tenant
+- Qualidade dos dados coletados
+
+**O que evitar:**
+- Overengineering e novas infraestruturas complexas
+- Entidades ou tabelas duplicadas
+- Arquiteturas paralelas ao que já existe
+- Algoritmos dependentes de volume de dados inexistente
+
+**Digital Twin — fundações existentes (não duplicar):**
+- `customer_profiles` + `relational_capsules` + `lead_scores` + `lead_score_history`
+- `resolveOrCreateCustomer()` + `stitchIdentityByPhone()` em `services/memory/identity.ts`
+- `diagnosticos` + `sleep_outcomes` conectados via `customerId` FK
+
+**Visão alvo (ciclo completo):**
+```
+Lead → Diagnóstico → Compatibilidade → Recomendação → Venda → Resultado → Aprendizado → Recalibração
+```
+
+**Princípio central: dados antes de algoritmos.**
+
+Antes de criar nova tabela ou agregado: verificar se o problema é ausência de integração ou ausência real de modelagem.
+
+---
+
 ## Domain Context
 Castor-SaaS is a SaaS platform for a mattress store chain. Key business features:
 - **Orçamento** — quote generation with WhatsApp-native delivery (pre-filled WA message links)
