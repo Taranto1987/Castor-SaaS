@@ -1,7 +1,7 @@
-import { useState, useEffect, useMemo } from "react";
-import { Search, Loader2, PackageX, MessageCircle, Moon } from "lucide-react";
+import { useState, useEffect, useMemo, Fragment } from "react";
+import { Search, Loader2, PackageX, MessageCircle, Moon, Tag, X } from "lucide-react";
 import { useLocation } from "wouter";
-import { motion } from "framer-motion";
+import { motion, AnimatePresence } from "framer-motion";
 import { useQuery } from "@tanstack/react-query";
 import { useDebounce } from "@/hooks/use-debounce";
 import { useWAInfo } from "@/hooks/use-wa-info";
@@ -10,7 +10,8 @@ import { ProductCardGrouped } from "@/components/ProductCardGrouped";
 import { cn } from "@/lib/utils";
 import { SIZE_ORDER } from "@/utils/normalizeSize";
 import type { ProductSize } from "@/utils/normalizeSize";
-import type { ProductGroup, Variant } from "@/utils/groupProducts";
+import { groupProducts } from "@/utils/groupProducts";
+import type { ProductGroup, Variant, CatalogoProduto } from "@/utils/groupProducts";
 import { trackPageView, trackCatalogoWhatsApp, trackCatalogoView } from "@/lib/tracking";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -49,6 +50,7 @@ const CATEGORY_LABELS: Record<string, string> = {
   "travesseiros":     "Travesseiros",
   "protetor":         "Protetores",
   "roupa-de-cama":    "Roupa de Cama",
+  "outlet":           "Outlet 🔥",
 };
 
 const CATEGORY_ORDER = [
@@ -103,6 +105,8 @@ export default function Catalogo() {
   const { lojaId } = useLoja();
   const avatarSrc = lojaId === 2 ? "/marcela-avatar.webp" : "/thalles-avatar.webp";
 
+  const [nudge, setNudge] = useState<"outlet" | "mapa" | null>(null);
+
   useEffect(() => { trackPageView("catalogo"); trackCatalogoView(); }, []);
 
   useEffect(() => {
@@ -110,6 +114,38 @@ export default function Catalogo() {
     const cat = params.get("categoria");
     if (cat) setActiveCategory(cat);
   }, [location]);
+
+  // ── Scroll nudges ─────────────────────────────────────────────────────────
+  useEffect(() => {
+    let outletShown = !!sessionStorage.getItem("nudge_outlet_shown");
+    let mapaShown = !!sessionStorage.getItem("nudge_mapa_shown");
+
+    const handleScroll = () => {
+      const h = document.documentElement.scrollHeight - window.innerHeight;
+      if (h <= 0) return;
+      const pct = window.scrollY / h;
+
+      if (pct >= 0.5 && !outletShown) {
+        outletShown = true;
+        sessionStorage.setItem("nudge_outlet_shown", "1");
+        setNudge(prev => prev ?? "outlet");
+      }
+      if (pct >= 0.72 && !mapaShown) {
+        mapaShown = true;
+        sessionStorage.setItem("nudge_mapa_shown", "1");
+        setNudge("mapa");
+      }
+    };
+
+    window.addEventListener("scroll", handleScroll, { passive: true });
+    return () => window.removeEventListener("scroll", handleScroll);
+  }, []);
+
+  useEffect(() => {
+    if (!nudge) return;
+    const t = setTimeout(() => setNudge(null), 6000);
+    return () => clearTimeout(t);
+  }, [nudge]);
 
   const debouncedSearch = useDebounce(searchTerm, 400);
 
@@ -124,16 +160,32 @@ export default function Catalogo() {
     staleTime: 5 * 60 * 1000,
   });
 
-  // ── Category list from loaded families ────────────────────────────────────
+  // ── Outlet products — fetched only when Outlet tab is active ─────────────
+  const { data: outletProducts = [], isLoading: isLoadingOutlet } = useQuery<CatalogoProduto[]>({
+    queryKey: ["outlet-products", lojaId],
+    queryFn: async () => {
+      const res = await fetch(`/api/produtos/outlet?lojaId=${lojaId}`);
+      if (!res.ok) throw new Error("Erro ao carregar outlet");
+      return res.json();
+    },
+    enabled: activeCategory === "outlet",
+    staleTime: 5 * 60 * 1000,
+  });
+
+  // ── Category list from loaded families + hardcoded Outlet ─────────────────
   const categorias = useMemo(() => {
     const available = new Set(allFamilies.map(f => f.category));
     const ordered = CATEGORY_ORDER.filter(c => available.has(c));
     const others = [...available].filter(c => !CATEGORY_ORDER.includes(c)).sort();
-    return [...ordered, ...others, "Todas"];
+    return [...ordered, ...others, "outlet", "Todas"];
   }, [allFamilies]);
 
   // ── Client-side filter: category + search ────────────────────────────────
   const groups = useMemo<ProductGroup[]>(() => {
+    if (activeCategory === "outlet") {
+      return groupProducts(outletProducts);
+    }
+
     let filtered = allFamilies;
 
     if (activeCategory !== "Todas") {
@@ -146,7 +198,9 @@ export default function Catalogo() {
     }
 
     return filtered.map(toProductGroup);
-  }, [allFamilies, activeCategory, debouncedSearch]);
+  }, [allFamilies, activeCategory, debouncedSearch, outletProducts]);
+
+  const effectiveIsLoading = activeCategory === "outlet" ? isLoadingOutlet : isLoading;
 
   return (
     <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-10 pb-20 space-y-8">
@@ -218,7 +272,7 @@ export default function Catalogo() {
       )}
 
       {/* Products grid */}
-      {isLoading ? (
+      {effectiveIsLoading ? (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
           {[1, 2, 3, 4, 5, 6, 7, 8].map(i => (
             <div key={i} className="bg-white rounded-2xl border border-slate-100 overflow-hidden flex flex-col animate-pulse">
@@ -241,6 +295,8 @@ export default function Catalogo() {
           <p className="text-slate-500 mt-2 max-w-sm text-sm">
             {debouncedSearch
               ? `Nada para "${debouncedSearch}". Tente outros termos.`
+              : activeCategory === "outlet"
+              ? "Nenhum produto outlet disponível no momento."
               : "Ainda não há modelos nesta categoria."}
           </p>
         </div>
@@ -252,18 +308,93 @@ export default function Catalogo() {
           </p>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
             {groups.map((group, index) => (
-              <motion.div
-                key={group.key}
-                initial={{ opacity: 0, scale: 0.95, y: 20 }}
-                animate={{ opacity: 1, scale: 1, y: 0 }}
-                transition={{ duration: 0.3, delay: Math.min(index * 0.04, 0.4) }}
-              >
-                <ProductCardGrouped group={group} waInfo={waInfo} />
-              </motion.div>
+              <Fragment key={group.key}>
+                {index === 8 && activeCategory === "Todas" && groups.length > 8 && (
+                  <motion.div
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    className="col-span-full bg-gradient-to-r from-slate-900 to-red-950 rounded-2xl p-5 flex items-center gap-4 text-white"
+                  >
+                    <img src={avatarSrc} alt="Especialista" className="w-12 h-12 rounded-xl object-cover object-top border-2 border-white/20 shrink-0" />
+                    <div className="flex-1 min-w-0">
+                      <p className="font-extrabold text-sm leading-tight">Qual colchão é ideal para o seu corpo?</p>
+                      <p className="text-slate-300 text-xs mt-0.5">
+                        O Mapa do Sono analisa seu perfil biomecânico e indica o modelo certo — 13 cliques, resultado personalizado.
+                      </p>
+                    </div>
+                    <a
+                      href="/mapa-sono"
+                      className="shrink-0 flex items-center gap-2 bg-red-600 hover:bg-red-500 text-white font-extrabold px-4 py-2.5 rounded-xl text-xs transition-all active:scale-95 whitespace-nowrap"
+                    >
+                      <Moon className="w-4 h-4" /> Fazer o Mapa
+                    </a>
+                  </motion.div>
+                )}
+                <motion.div
+                  initial={{ opacity: 0, scale: 0.95, y: 20 }}
+                  animate={{ opacity: 1, scale: 1, y: 0 }}
+                  transition={{ duration: 0.3, delay: Math.min(index * 0.04, 0.4) }}
+                >
+                  <ProductCardGrouped group={group} waInfo={waInfo} isOutlet={activeCategory === "outlet"} />
+                </motion.div>
+              </Fragment>
             ))}
           </div>
         </>
       )}
+
+      {/* Scroll nudges — appear at 50% and 72% scroll, auto-dismiss after 6s */}
+      <AnimatePresence>
+        {nudge && (
+          <motion.div
+            key={nudge}
+            initial={{ opacity: 0, y: 24, scale: 0.95 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: 16, scale: 0.95 }}
+            transition={{ type: "spring", stiffness: 380, damping: 30 }}
+            className="fixed bottom-24 left-1/2 -translate-x-1/2 z-40 flex items-center gap-3 bg-slate-900 text-white px-4 py-3 rounded-2xl shadow-2xl shadow-black/40 max-w-xs w-[calc(100vw-3rem)]"
+          >
+            {nudge === "outlet" ? (
+              <>
+                <Tag className="w-5 h-5 text-orange-400 shrink-0" />
+                <div className="flex-1 min-w-0">
+                  <p className="text-xs font-bold leading-tight">Preços especiais disponíveis</p>
+                  <p className="text-slate-400 text-[11px]">Veja os produtos outlet com desconto de fábrica</p>
+                </div>
+                <a
+                  href="/catalogo?categoria=outlet"
+                  onClick={() => setNudge(null)}
+                  className="shrink-0 bg-orange-500 hover:bg-orange-400 text-white text-[11px] font-bold px-3 py-1.5 rounded-xl transition-colors whitespace-nowrap"
+                >
+                  Ver Outlet
+                </a>
+              </>
+            ) : (
+              <>
+                <Moon className="w-5 h-5 text-red-400 shrink-0" />
+                <div className="flex-1 min-w-0">
+                  <p className="text-xs font-bold leading-tight">Não encontrou o ideal?</p>
+                  <p className="text-slate-400 text-[11px]">Faça o Mapa do Sono — resultado em 13 cliques</p>
+                </div>
+                <a
+                  href="/mapa-sono"
+                  onClick={() => setNudge(null)}
+                  className="shrink-0 bg-red-600 hover:bg-red-500 text-white text-[11px] font-bold px-3 py-1.5 rounded-xl transition-colors whitespace-nowrap"
+                >
+                  Fazer Mapa
+                </a>
+              </>
+            )}
+            <button
+              onClick={() => setNudge(null)}
+              className="shrink-0 text-slate-500 hover:text-slate-300 transition-colors"
+              aria-label="Fechar"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* Floating WhatsApp */}
       <a

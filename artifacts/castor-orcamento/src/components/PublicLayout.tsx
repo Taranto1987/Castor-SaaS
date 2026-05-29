@@ -1,7 +1,7 @@
 import { ReactNode, useState } from "react";
 import { Link, useLocation } from "wouter";
 import { cn } from "@/lib/utils";
-import { MessageCircle, Menu, X, Moon, Search, ChevronRight } from "lucide-react";
+import { MessageCircle, Menu, X, Moon, Search, ChevronRight, Tag } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { trackWhatsAppClick } from "@/lib/tracking";
 import ChatBot from "./ChatBot";
@@ -19,6 +19,7 @@ export default function PublicLayout({ children }: PublicLayoutProps) {
 
   const navLinks = [
     { path: "/catalogo", label: "Catálogo", icon: Search },
+    { path: "/catalogo?categoria=outlet", label: "Outlet 🔥", icon: Tag },
     { path: "/mapa-sono", label: "Mapa do Sono", icon: Moon },
   ];
 
@@ -39,21 +40,28 @@ export default function PublicLayout({ children }: PublicLayoutProps) {
 
             {/* Desktop nav */}
             <nav className="hidden md:flex items-center gap-1">
-              {navLinks.map(({ path, label, icon: Icon }) => (
-                <Link
-                  key={path}
-                  href={path}
-                  className={cn(
-                    "flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold transition-all",
-                    location === path
-                      ? "text-red-600 bg-red-50"
-                      : "text-slate-600 hover:text-slate-900 hover:bg-slate-50"
-                  )}
-                >
-                  <Icon className="w-4 h-4" />
-                  {label}
-                </Link>
-              ))}
+              {navLinks.map(({ path, label, icon: Icon }) => {
+                const pathPart = path.split("?")[0];
+                const queryPart = path.includes("?") ? `?${path.split("?")[1]}` : "";
+                const isActive = queryPart
+                  ? location === pathPart && typeof window !== "undefined" && window.location.search === queryPart
+                  : location === path;
+                return (
+                  <Link
+                    key={path}
+                    href={path}
+                    className={cn(
+                      "flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold transition-all",
+                      isActive
+                        ? "text-red-600 bg-red-50"
+                        : "text-slate-600 hover:text-slate-900 hover:bg-slate-50"
+                    )}
+                  >
+                    <Icon className="w-4 h-4" />
+                    {label}
+                  </Link>
+                );
+              })}
             </nav>
 
             {/* WhatsApp CTA */}
@@ -137,6 +145,7 @@ export default function PublicLayout({ children }: PublicLayoutProps) {
               <div className="space-y-2">
                 {[
                   { href: "/catalogo", label: "Catálogo de Produtos" },
+                  { href: "/catalogo?categoria=outlet", label: "Outlet 🔥" },
                   { href: "/mapa-sono", label: "Mapa do Sono" },
                 ].map(l => (
                   <Link key={l.href} href={l.href} className="flex items-center gap-2 text-slate-400 hover:text-white text-sm transition-colors">
