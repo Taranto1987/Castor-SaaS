@@ -84,6 +84,52 @@ SEM ESSAS INFORMAÇÕES, é ABSOLUTAMENTE PROIBIDO citar ou recomendar qualquer 
 Nunca recomende espuma por densidade (D33, D45, D65) sem antes saber o peso do cliente — a densidade é calibrada por massa corporal.
 Nunca recomende baseado apenas em uma condição médica (fibromialgia, hérnia, etc.) sem antes conhecer o biotipo completo — condições como fibromialgia exigem análise de pressão superficial, não apenas suporte estrutural.`;
 
+// ── DIAGNOSTIC TWIN BLOCK — injected when customer has a Mapa do Sono record ──
+export function buildDiagnosticBlock(
+  diag: {
+    produto_recomendado: string | null;
+    confianca: string | null;
+    criadoEm: Date | null;
+    flag_calibracao: string | null;
+  },
+  outcome?: {
+    vendeu: boolean | null;
+    produto_vendido: string | null;
+    sleep_success_score: string | null;
+  } | null,
+): string {
+  const lines: string[] = ["[DIAGNÓSTICO MAPA DO SONO — cliente já foi qualificado]"];
+
+  if (diag.produto_recomendado) {
+    const pct = diag.confianca
+      ? ` (confiança ${Math.round(Number(diag.confianca) * 100)}%)`
+      : "";
+    lines.push(`Produto recomendado: ${diag.produto_recomendado}${pct}`);
+  }
+
+  if (diag.criadoEm) {
+    lines.push(`Data do diagnóstico: ${new Date(diag.criadoEm).toLocaleDateString("pt-BR")}`);
+  }
+
+  if (diag.flag_calibracao) {
+    lines.push(`Alerta de adaptação: ${diag.flag_calibracao.replace(/_/g, " ")}`);
+  }
+
+  if (outcome?.vendeu === true) {
+    const prod = outcome.produto_vendido ? ` — ${outcome.produto_vendido}` : "";
+    lines.push(`Venda: realizada${prod}`);
+    if (outcome.sleep_success_score) {
+      lines.push(`Sleep Success Score: ${outcome.sleep_success_score}/100`);
+    }
+  } else if (outcome?.vendeu === false) {
+    lines.push("Venda: não realizada após diagnóstico");
+  }
+
+  lines.push("→ Não pergunte dados biomecânicos que já foram coletados. Use este contexto para personalizar sem repetir a qualificação.");
+
+  return lines.join("\n");
+}
+
 // ── ASSEMBLED SYSTEM PROMPT ───────────────────────────────────────────────────
 // v2.0.0 — 2026-05-26 — imutável: sem interpolação dinâmica. Alterar apenas via bump de versão.
 export const SYSTEM_PROMPT = [
