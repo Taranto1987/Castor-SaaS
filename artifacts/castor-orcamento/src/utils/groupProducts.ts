@@ -20,6 +20,7 @@ export type CatalogoProduto = {
   disponivel?: boolean | null;
   encomenda?: boolean | null;
   estoque?: number | null;
+  outletPrice?: number | null;
   familySlug?: string | null;
   familyName?: string | null;
   size?: string | null;
