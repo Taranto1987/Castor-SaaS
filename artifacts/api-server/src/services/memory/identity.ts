@@ -1,6 +1,52 @@
 import { db, customerProfilesTable, relationalCapsulesTable } from "@workspace/db";
 import { eq, and } from "drizzle-orm";
 
+/**
+ * Find or create a customer record using their phone number as the primary key.
+ * Used by the Mapa do Sono quiz — there's no browser anonymousId in that flow,
+ * only the WhatsApp number captured at the end.
+ */
+export async function resolveOrCreateCustomerByPhone(
+  phone: string,
+  name: string | null,
+  lojaId: number,
+): Promise<number> {
+  const normalized = phone.replace(/\D/g, "");
+
+  const existing = await db
+    .select({ id: customerProfilesTable.id })
+    .from(customerProfilesTable)
+    .where(
+      and(
+        eq(customerProfilesTable.phone, normalized),
+        eq(customerProfilesTable.lojaId, lojaId),
+      )
+    )
+    .limit(1);
+
+  if (existing[0]) {
+    if (name) {
+      await db
+        .update(customerProfilesTable)
+        .set({ name, atualizadoEm: new Date() })
+        .where(eq(customerProfilesTable.id, existing[0].id));
+    }
+    return existing[0].id;
+  }
+
+  const [created] = await db
+    .insert(customerProfilesTable)
+    .values({
+      anonymousId: `phone:${normalized}`,
+      lojaId,
+      phone: normalized,
+      ...(name ? { name } : {}),
+    })
+    .returning({ id: customerProfilesTable.id });
+
+  return created.id;
+}
+
 export async function resolveOrCreateCustomer(
   anonymousId: string,
   lojaId: number

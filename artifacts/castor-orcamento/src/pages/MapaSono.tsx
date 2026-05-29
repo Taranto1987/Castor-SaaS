@@ -1175,9 +1175,11 @@ export default function MapaSono({ embedded = false }: MapaSonoProps) {
   const [recomendacoes, setRecomendacoes] = useState<ScoredProduto[]>([]);
   const [produtosLoading, setProdutosLoading] = useState(false);
 
-  const midTimer       = useRef<number | null>(null);
-  const analyzingTimer = useRef<number | null>(null);
-  const autoTimer      = useRef<number | null>(null);
+  const midTimer        = useRef<number | null>(null);
+  const analyzingTimer  = useRef<number | null>(null);
+  const autoTimer       = useRef<number | null>(null);
+  const quizStartedAt   = useRef<number>(Date.now());
+  const stepTimestamps  = useRef<Record<number, number>>({});
 
   useEffect(() => () => {
     [midTimer, analyzingTimer, autoTimer].forEach(r => {
@@ -1194,6 +1196,9 @@ export default function MapaSono({ embedded = false }: MapaSonoProps) {
   function advance(id: keyof Answers, cur: Answers) {
     const steps = getActiveSteps(cur);
     const idx   = steps.findIndex(s => s.id === id);
+
+    // Track timestamp per step for behavioral analysis
+    stepTimestamps.current[idx] = Date.now();
 
     if (id === "peso") {
       // Mid-loading só após peso da pessoa 1
@@ -1246,6 +1251,24 @@ export default function MapaSono({ embedded = false }: MapaSonoProps) {
     setPhase("analyzing");
     setRecomendacoes([]);
     setProdutosLoading(true);
+
+    const totalMs = Date.now() - quizStartedAt.current;
+
+    // Fire-and-forget: persist diagnosis + resolve Digital Twin
+    fetch("/api/diagnostico", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        ...answers,
+        nome,
+        whatsapp: zap,
+        perfil_comportamental: {
+          quiz_duration_ms:  totalMs,
+          step_timestamps:   stepTimestamps.current,
+          total_steps:       getActiveSteps(answers).length,
+        },
+      }),
+    }).catch(() => { /* non-critical */ });
 
     fetchRecomendacoes(answers)
       .then(r => { setRecomendacoes(r); setProdutosLoading(false); })
