@@ -1,12 +1,13 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
 import { Link } from "wouter";
-import { MessageCircle, Star, MapPin, ChevronRight, Moon, Shield, Zap, Wind, RotateCcw, Award, BedDouble, Package, Box, Layers } from "lucide-react";
+import { MessageCircle, Star, MapPin, ChevronRight, Moon, Shield, Zap, Wind, RotateCcw, Award, BedDouble, Package, Box, Layers, Tag } from "lucide-react";
+import { useQuery } from "@tanstack/react-query";
 import MapaSonoModal from "@/components/MapaSonoModal";
 import { trackWhatsAppClick, trackPageView } from "@/lib/tracking";
 import { useLoja } from "@/contexts/LojaContext";
 import { useWAInfo } from "@/hooks/use-wa-info";
-import { useEffect } from "react";
+import type { CatalogoProduto } from "@/utils/groupProducts";
 
 const MAPS_CABO_FRIO = "https://maps.app.goo.gl/UuF6w1nAvTgXockS6";
 const MAPS_ARARUAMA  = "https://maps.app.goo.gl/cGmvFgeubawLRNGy8";
@@ -29,6 +30,16 @@ export default function Landing() {
   const [showMapa, setShowMapa] = useState(false);
   const { lojaId, selecionarLoja, detectarPorLocalizacao } = useLoja();
   const waInfo = useWAInfo();
+
+  const { data: outletDestaque = [] } = useQuery<CatalogoProduto[]>({
+    queryKey: ["outlet-destaque", lojaId],
+    queryFn: async () => {
+      const res = await fetch(`/api/produtos/outlet?lojaId=${lojaId}&limite=4`);
+      if (!res.ok) return [];
+      return res.json();
+    },
+    staleTime: 10 * 60 * 1000,
+  });
 
   // Synchronous toggle + background API fetch for full lojaInfo
   const toggle = () => {
@@ -304,6 +315,69 @@ export default function Landing() {
           </motion.div>
         </div>
       </section>
+
+      {/* ── OFERTAS OUTLET ───────────────────────────────────────────────── */}
+      {outletDestaque.length > 0 && (
+        <section className="py-16 bg-white">
+          <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
+            <motion.div {...fade()} className="flex items-center justify-between mb-8">
+              <div>
+                <p className="text-orange-500 font-bold text-sm uppercase tracking-wider mb-1 flex items-center gap-2">
+                  <Tag className="w-4 h-4" /> Preços especiais
+                </p>
+                <h2 className="text-2xl md:text-3xl font-black text-slate-900">Ofertas Outlet</h2>
+                <p className="text-slate-500 text-sm mt-1">Produtos disponíveis por encomenda com preço de fábrica</p>
+              </div>
+              <Link
+                href="/catalogo?categoria=outlet"
+                className="hidden md:flex items-center gap-2 text-orange-500 hover:text-orange-600 font-bold text-sm transition-colors"
+              >
+                Ver todos <ChevronRight className="w-4 h-4" />
+              </Link>
+            </motion.div>
+
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+              {outletDestaque.map((produto, i) => (
+                <motion.div key={produto.id} {...fade(i * 0.07)}>
+                  <Link
+                    href="/catalogo?categoria=outlet"
+                    className="block bg-slate-50 border border-slate-200 rounded-2xl overflow-hidden hover:border-orange-300 hover:shadow-md transition-all group"
+                  >
+                    {produto.imagem && (
+                      <div className="aspect-[4/3] overflow-hidden bg-white">
+                        <img
+                          src={produto.imagem}
+                          alt={produto.nome}
+                          className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                          loading="lazy"
+                        />
+                      </div>
+                    )}
+                    <div className="p-3">
+                      <span className="inline-block bg-orange-100 text-orange-600 text-[10px] font-bold uppercase tracking-wide px-2 py-0.5 rounded-full mb-1.5">
+                        🔥 Outlet
+                      </span>
+                      <p className="font-bold text-slate-900 text-sm leading-tight line-clamp-2">{produto.familyName ?? produto.nome}</p>
+                      {produto.precoPix && (
+                        <p className="text-red-600 font-extrabold text-base mt-1">{produto.precoPix}</p>
+                      )}
+                    </div>
+                  </Link>
+                </motion.div>
+              ))}
+            </div>
+
+            <motion.div {...fade(0.3)} className="text-center mt-6 md:hidden">
+              <Link
+                href="/catalogo?categoria=outlet"
+                className="inline-flex items-center gap-2 text-orange-500 font-bold text-sm"
+              >
+                Ver todos os produtos outlet <ChevronRight className="w-4 h-4" />
+              </Link>
+            </motion.div>
+          </div>
+        </section>
+      )}
 
       {/* ── LOCALIZAÇÃO + CTA FINAL ──────────────────────────────────────── */}
       <section className="py-20 bg-white">

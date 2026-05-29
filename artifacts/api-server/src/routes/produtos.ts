@@ -4,7 +4,7 @@ import { produtosTable, outletInteressesTable, lojasTable } from "@workspace/db/
 import { ilike, or, eq, and, isNull, gt, desc, count, max, inArray, type SQL } from "drizzle-orm";
 import { getSession, isDono as isDonoSession } from "../lib/sessions";
 import { resolveLojaId } from "../middlewares/auth";
-import { getPricingConfig, calcOutletPrice } from "./loja";
+import { getPricingConfig, calcOutletPrice, DEFAULT_PRICING } from "./loja";
 
 function requireDono(req: Request, res: Response, next: NextFunction) {
   const token = (req.headers["x-session-token"] || "") as string;
@@ -52,8 +52,13 @@ function mapProduto(p: typeof produtosTable.$inferSelect) {
 }
 
 async function getLojaPricing(lojaId: number) {
-  const [loja] = await db.select({ configJson: lojasTable.configJson }).from(lojasTable).where(eq(lojasTable.id, lojaId)).limit(1);
-  return getPricingConfig(loja?.configJson);
+  return db
+    .select({ configJson: lojasTable.configJson })
+    .from(lojasTable)
+    .where(eq(lojasTable.id, lojaId))
+    .limit(1)
+    .then((rows) => getPricingConfig(rows[0]?.configJson))
+    .catch(() => DEFAULT_PRICING);
 }
 
 router.get("/", async (req, res) => {
@@ -79,12 +84,15 @@ router.get("/", async (req, res) => {
 
 router.get("/outlet", async (req, res) => {
   try {
-    const lojaId = resolveLojaId(req);
+    const queryLojaId = req.query.lojaId ? parseInt(req.query.lojaId as string, 10) : null;
+    const lojaId = (queryLojaId && !isNaN(queryLojaId)) ? queryLojaId : resolveLojaId(req);
+    const limite = req.query.limite ? parseInt(req.query.limite as string, 10) : undefined;
     const results = await db
       .select()
       .from(produtosTable)
       .where(and(eq(produtosTable.encomenda, true), eq(produtosTable.lojaId, lojaId)))
-      .orderBy(produtosTable.nome);
+      .orderBy(produtosTable.nome)
+      .limit(limite && !isNaN(limite) ? limite : 1000);
     res.json(results.map(mapProduto));
   } catch (error) {
     console.error("Erro ao listar outlet:", error);

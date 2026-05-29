@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, Fragment } from "react";
 import { Search, Loader2, PackageX, MessageCircle, Moon } from "lucide-react";
 import { useLocation } from "wouter";
 import { motion } from "framer-motion";
@@ -10,7 +10,8 @@ import { ProductCardGrouped } from "@/components/ProductCardGrouped";
 import { cn } from "@/lib/utils";
 import { SIZE_ORDER } from "@/utils/normalizeSize";
 import type { ProductSize } from "@/utils/normalizeSize";
-import type { ProductGroup, Variant } from "@/utils/groupProducts";
+import { groupProducts } from "@/utils/groupProducts";
+import type { ProductGroup, Variant, CatalogoProduto } from "@/utils/groupProducts";
 import { trackPageView, trackCatalogoWhatsApp, trackCatalogoView } from "@/lib/tracking";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -49,6 +50,7 @@ const CATEGORY_LABELS: Record<string, string> = {
   "travesseiros":     "Travesseiros",
   "protetor":         "Protetores",
   "roupa-de-cama":    "Roupa de Cama",
+  "outlet":           "Outlet 🔥",
 };
 
 const CATEGORY_ORDER = [
@@ -124,16 +126,32 @@ export default function Catalogo() {
     staleTime: 5 * 60 * 1000,
   });
 
-  // ── Category list from loaded families ────────────────────────────────────
+  // ── Outlet products — fetched only when Outlet tab is active ─────────────
+  const { data: outletProducts = [], isLoading: isLoadingOutlet } = useQuery<CatalogoProduto[]>({
+    queryKey: ["outlet-products", lojaId],
+    queryFn: async () => {
+      const res = await fetch(`/api/produtos/outlet?lojaId=${lojaId}`);
+      if (!res.ok) throw new Error("Erro ao carregar outlet");
+      return res.json();
+    },
+    enabled: activeCategory === "outlet",
+    staleTime: 5 * 60 * 1000,
+  });
+
+  // ── Category list from loaded families + hardcoded Outlet ─────────────────
   const categorias = useMemo(() => {
     const available = new Set(allFamilies.map(f => f.category));
     const ordered = CATEGORY_ORDER.filter(c => available.has(c));
     const others = [...available].filter(c => !CATEGORY_ORDER.includes(c)).sort();
-    return [...ordered, ...others, "Todas"];
+    return [...ordered, ...others, "outlet", "Todas"];
   }, [allFamilies]);
 
   // ── Client-side filter: category + search ────────────────────────────────
   const groups = useMemo<ProductGroup[]>(() => {
+    if (activeCategory === "outlet") {
+      return groupProducts(outletProducts);
+    }
+
     let filtered = allFamilies;
 
     if (activeCategory !== "Todas") {
@@ -146,7 +164,9 @@ export default function Catalogo() {
     }
 
     return filtered.map(toProductGroup);
-  }, [allFamilies, activeCategory, debouncedSearch]);
+  }, [allFamilies, activeCategory, debouncedSearch, outletProducts]);
+
+  const effectiveIsLoading = activeCategory === "outlet" ? isLoadingOutlet : isLoading;
 
   return (
     <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-10 pb-20 space-y-8">
@@ -218,7 +238,7 @@ export default function Catalogo() {
       )}
 
       {/* Products grid */}
-      {isLoading ? (
+      {effectiveIsLoading ? (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
           {[1, 2, 3, 4, 5, 6, 7, 8].map(i => (
             <div key={i} className="bg-white rounded-2xl border border-slate-100 overflow-hidden flex flex-col animate-pulse">
@@ -241,6 +261,8 @@ export default function Catalogo() {
           <p className="text-slate-500 mt-2 max-w-sm text-sm">
             {debouncedSearch
               ? `Nada para "${debouncedSearch}". Tente outros termos.`
+              : activeCategory === "outlet"
+              ? "Nenhum produto outlet disponível no momento."
               : "Ainda não há modelos nesta categoria."}
           </p>
         </div>
@@ -252,14 +274,36 @@ export default function Catalogo() {
           </p>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
             {groups.map((group, index) => (
-              <motion.div
-                key={group.key}
-                initial={{ opacity: 0, scale: 0.95, y: 20 }}
-                animate={{ opacity: 1, scale: 1, y: 0 }}
-                transition={{ duration: 0.3, delay: Math.min(index * 0.04, 0.4) }}
-              >
-                <ProductCardGrouped group={group} waInfo={waInfo} />
-              </motion.div>
+              <Fragment key={group.key}>
+                {index === 8 && activeCategory === "Todas" && groups.length > 8 && (
+                  <motion.div
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    className="col-span-full bg-gradient-to-r from-slate-900 to-red-950 rounded-2xl p-5 flex items-center gap-4 text-white"
+                  >
+                    <img src={avatarSrc} alt="Especialista" className="w-12 h-12 rounded-xl object-cover object-top border-2 border-white/20 shrink-0" />
+                    <div className="flex-1 min-w-0">
+                      <p className="font-extrabold text-sm leading-tight">Qual colchão é ideal para o seu corpo?</p>
+                      <p className="text-slate-300 text-xs mt-0.5">
+                        O Mapa do Sono analisa seu perfil biomecânico e indica o modelo certo — 13 cliques, resultado personalizado.
+                      </p>
+                    </div>
+                    <a
+                      href="/mapa-sono"
+                      className="shrink-0 flex items-center gap-2 bg-red-600 hover:bg-red-500 text-white font-extrabold px-4 py-2.5 rounded-xl text-xs transition-all active:scale-95 whitespace-nowrap"
+                    >
+                      <Moon className="w-4 h-4" /> Fazer o Mapa
+                    </a>
+                  </motion.div>
+                )}
+                <motion.div
+                  initial={{ opacity: 0, scale: 0.95, y: 20 }}
+                  animate={{ opacity: 1, scale: 1, y: 0 }}
+                  transition={{ duration: 0.3, delay: Math.min(index * 0.04, 0.4) }}
+                >
+                  <ProductCardGrouped group={group} waInfo={waInfo} isOutlet={activeCategory === "outlet"} />
+                </motion.div>
+              </Fragment>
             ))}
           </div>
         </>
