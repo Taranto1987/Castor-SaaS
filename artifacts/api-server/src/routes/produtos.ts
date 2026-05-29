@@ -497,15 +497,33 @@ router.patch("/gestao/bulk-encomenda", requireDono, async (req, res) => {
   }
 });
 
-// Public PDP endpoint — matches slug stored in DB or derived from legacy link.
-// Never exposes the upstream Castor URL; that stays in the DB only.
+// Public PDP endpoint — matches slug stored in DB, with exact-URL fallback for legacy
+// products crawled before the slug column was added (slug IS NULL, link IS NOT NULL).
+// lojaId is scoped per request so cross-tenant data never leaks.
 router.get("/slug/:slug", async (req, res) => {
   try {
     const { slug } = req.params;
     if (!slug) { res.status(400).json({ error: "Slug obrigatório" }); return; }
 
-    const results = await db.select().from(produtosTable)
-      .where(eq(produtosTable.slug, slug)).limit(1);
+    const lojaId = resolveLojaId(req);
+
+    // Primary: exact match on slug column
+    let results = await db.select().from(produtosTable)
+      .where(and(eq(produtosTable.lojaId, lojaId), eq(produtosTable.slug, slug)))
+      .limit(1);
+
+    // Fallback: legacy products whose slug was not yet backfilled — derive from link.
+    // Uses exact prefix match (not ILIKE) to avoid false positives and full-table scans.
+    if (results.length === 0) {
+      const legacyLink = `https://lojacastor.com.br/${slug}`;
+      results = await db.select().from(produtosTable)
+        .where(and(
+          eq(produtosTable.lojaId, lojaId),
+          isNull(produtosTable.slug),
+          eq(produtosTable.link, legacyLink),
+        ))
+        .limit(1);
+    }
 
     if (results.length === 0) {
       res.status(404).json({ error: "Produto não encontrado" });

@@ -221,7 +221,7 @@ async function executarCrawler() {
             disponivel: true,
             sincronizadoEm: syncStart,
           }).onConflictDoUpdate({
-            target: produtosTable.sku,
+            target: [produtosTable.sku, produtosTable.lojaId],
             targetWhere: sql`${produtosTable.sku} IS NOT NULL`,
             set: {
               slug,
