@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo, Fragment } from "react";
-import { Search, Loader2, PackageX, MessageCircle, Moon } from "lucide-react";
+import { Search, Loader2, PackageX, MessageCircle, Moon, Tag, X } from "lucide-react";
 import { useLocation } from "wouter";
-import { motion } from "framer-motion";
+import { motion, AnimatePresence } from "framer-motion";
 import { useQuery } from "@tanstack/react-query";
 import { useDebounce } from "@/hooks/use-debounce";
 import { useWAInfo } from "@/hooks/use-wa-info";
@@ -105,6 +105,8 @@ export default function Catalogo() {
   const { lojaId } = useLoja();
   const avatarSrc = lojaId === 2 ? "/marcela-avatar.webp" : "/thalles-avatar.webp";
 
+  const [nudge, setNudge] = useState<"outlet" | "mapa" | null>(null);
+
   useEffect(() => { trackPageView("catalogo"); trackCatalogoView(); }, []);
 
   useEffect(() => {
@@ -112,6 +114,38 @@ export default function Catalogo() {
     const cat = params.get("categoria");
     if (cat) setActiveCategory(cat);
   }, [location]);
+
+  // ── Scroll nudges ─────────────────────────────────────────────────────────
+  useEffect(() => {
+    let outletShown = !!sessionStorage.getItem("nudge_outlet_shown");
+    let mapaShown = !!sessionStorage.getItem("nudge_mapa_shown");
+
+    const handleScroll = () => {
+      const h = document.documentElement.scrollHeight - window.innerHeight;
+      if (h <= 0) return;
+      const pct = window.scrollY / h;
+
+      if (pct >= 0.5 && !outletShown) {
+        outletShown = true;
+        sessionStorage.setItem("nudge_outlet_shown", "1");
+        setNudge(prev => prev ?? "outlet");
+      }
+      if (pct >= 0.72 && !mapaShown) {
+        mapaShown = true;
+        sessionStorage.setItem("nudge_mapa_shown", "1");
+        setNudge("mapa");
+      }
+    };
+
+    window.addEventListener("scroll", handleScroll, { passive: true });
+    return () => window.removeEventListener("scroll", handleScroll);
+  }, []);
+
+  useEffect(() => {
+    if (!nudge) return;
+    const t = setTimeout(() => setNudge(null), 6000);
+    return () => clearTimeout(t);
+  }, [nudge]);
 
   const debouncedSearch = useDebounce(searchTerm, 400);
 
@@ -308,6 +342,59 @@ export default function Catalogo() {
           </div>
         </>
       )}
+
+      {/* Scroll nudges — appear at 50% and 72% scroll, auto-dismiss after 6s */}
+      <AnimatePresence>
+        {nudge && (
+          <motion.div
+            key={nudge}
+            initial={{ opacity: 0, y: 24, scale: 0.95 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: 16, scale: 0.95 }}
+            transition={{ type: "spring", stiffness: 380, damping: 30 }}
+            className="fixed bottom-24 left-1/2 -translate-x-1/2 z-40 flex items-center gap-3 bg-slate-900 text-white px-4 py-3 rounded-2xl shadow-2xl shadow-black/40 max-w-xs w-[calc(100vw-3rem)]"
+          >
+            {nudge === "outlet" ? (
+              <>
+                <Tag className="w-5 h-5 text-orange-400 shrink-0" />
+                <div className="flex-1 min-w-0">
+                  <p className="text-xs font-bold leading-tight">Preços especiais disponíveis</p>
+                  <p className="text-slate-400 text-[11px]">Veja os produtos outlet com desconto de fábrica</p>
+                </div>
+                <a
+                  href="/catalogo?categoria=outlet"
+                  onClick={() => setNudge(null)}
+                  className="shrink-0 bg-orange-500 hover:bg-orange-400 text-white text-[11px] font-bold px-3 py-1.5 rounded-xl transition-colors whitespace-nowrap"
+                >
+                  Ver Outlet
+                </a>
+              </>
+            ) : (
+              <>
+                <Moon className="w-5 h-5 text-red-400 shrink-0" />
+                <div className="flex-1 min-w-0">
+                  <p className="text-xs font-bold leading-tight">Não encontrou o ideal?</p>
+                  <p className="text-slate-400 text-[11px]">Faça o Mapa do Sono — resultado em 13 cliques</p>
+                </div>
+                <a
+                  href="/mapa-sono"
+                  onClick={() => setNudge(null)}
+                  className="shrink-0 bg-red-600 hover:bg-red-500 text-white text-[11px] font-bold px-3 py-1.5 rounded-xl transition-colors whitespace-nowrap"
+                >
+                  Fazer Mapa
+                </a>
+              </>
+            )}
+            <button
+              onClick={() => setNudge(null)}
+              className="shrink-0 text-slate-500 hover:text-slate-300 transition-colors"
+              aria-label="Fechar"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* Floating WhatsApp */}
       <a

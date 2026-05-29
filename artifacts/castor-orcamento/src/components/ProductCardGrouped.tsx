@@ -139,7 +139,7 @@ export function ProductCardGrouped({ group, waInfo, className, isOutlet }: Props
         </div>
 
         {/* CTAs */}
-        <div className="flex gap-2 pt-0.5">
+        <div className="flex flex-col gap-2 pt-0.5">
           <a
             href={`https://wa.me/${waInfo.numero}?text=${encodeURIComponent(waMsg)}`}
             target="_blank"
@@ -150,7 +150,7 @@ export function ProductCardGrouped({ group, waInfo, className, isOutlet }: Props
                 waInfo.loja
               )
             }
-            className="flex-1 flex items-center justify-center gap-1.5 bg-green-500 hover:bg-green-600 text-white font-extrabold py-2.5 rounded-xl text-xs shadow-sm shadow-green-500/20 transition-all active:scale-95"
+            className="flex items-center justify-center gap-1.5 bg-green-500 hover:bg-green-600 text-white font-extrabold py-2.5 rounded-xl text-xs shadow-sm shadow-green-500/20 transition-all active:scale-95"
           >
             <MessageCircle className="w-4 h-4" />
             Tenho interesse
@@ -158,10 +158,10 @@ export function ProductCardGrouped({ group, waInfo, className, isOutlet }: Props
           {v.slug && (
             <a
               href={`/produto/${v.slug}`}
-              className="w-11 flex items-center justify-center bg-white border-2 border-slate-200 rounded-xl text-slate-400 hover:text-slate-600 hover:border-slate-300 transition-colors"
-              title="Ver página do produto"
+              className="flex items-center justify-center gap-1.5 bg-white border-2 border-slate-200 rounded-xl py-2 text-xs font-semibold text-slate-500 hover:text-red-600 hover:border-red-300 transition-all"
             >
-              <ExternalLink className="w-4 h-4" />
+              <ExternalLink className="w-3.5 h-3.5" />
+              Ver produto
             </a>
           )}
         </div>
