@@ -5,7 +5,7 @@ import {
   FileText, Search, Clock, BarChart2, Truck,
   LogOut, User, Users, ShoppingCart, Package, DollarSign,
   TrendingUp, ClipboardPlus, UserCog, Menu, X, ChevronRight,
-  RefreshCw, MessageSquare, Sun, Moon, ChevronLeft, Command,
+  RefreshCw, MessageSquare, Sun, Moon, ChevronLeft, Command, Brain,
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useAuth } from "@/contexts/AuthContext";
@@ -59,6 +59,7 @@ function useSections(isDono: boolean): NavSection[] {
               { path: "/entrada-estoque", label: "Entrada",          icon: ClipboardPlus },
               { path: "/financeiro",      label: "Financeiro",       icon: DollarSign   },
               { path: "/ranking-outlet",  label: "Ranking Outlet",   icon: TrendingUp   },
+              { path: "/diagnosticos",    label: "Diagnósticos",     icon: Brain        },
               { path: "/usuarios",        label: "Usuários",         icon: UserCog      },
             ],
           },
