@@ -30,6 +30,11 @@ export const productFamiliesTable = pgTable("product_families", {
     .$type<ProductSize[]>()
     .notNull()
     .default(sql`'["Solteiro","Casal","Queen","King"]'::jsonb`),
+  // Biomechanical attributes — filled manually by Thalles after field validation.
+  // Used by recommendation motor in Fase 5.
+  // Schema: { pressure_relief, lumbar_support, thermal_dissipation, couple_isolation,
+  //           adaptation_friendliness, durability_score, edge_support } (0–10 each)
+  semanticTags: jsonb("semantic_tags").$type<Record<string, number>>().default(sql`'{}'::jsonb`),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 });

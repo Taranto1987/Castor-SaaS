@@ -22,3 +22,5 @@ export * from "./leads";
 export * from "./mensagens-whatsapp";
 export * from "./ai-usage";
 export * from "./scheduler-locks";
+export * from "./diagnosticos";
+export * from "./sleep-outcomes";

@@ -32,6 +32,8 @@ interface Answers {
   temperatura?: string;
   tamanho?: string;
   substituicao?: string;
+  tipo_colchao_atual?: string;
+  tempo_uso_colchao?: string;
   prioridade?: string;
   // Dados do parceiro — coletados só quando casal === "casal"
   altura2?: number;
@@ -151,6 +153,7 @@ const ALL_STEPS: QStep[] = [
       { value: "lombar",  label: "Lombar",  Icon: Zap      },
       { value: "coluna",  label: "Coluna",  Icon: Activity },
       { value: "ombro",   label: "Ombro",   Icon: User     },
+      { value: "quadril", label: "Quadril", Icon: Heart    },
       { value: "nenhuma", label: "Nenhuma", Icon: Check    },
     ],
   },
@@ -179,6 +182,30 @@ const ALL_STEPS: QStep[] = [
       { value: "sim", label: "Sim, vou substituir",    Icon: RefreshCw },
       { value: "nao", label: "Não, é uma compra nova", Icon: Package   },
     ],
+  },
+  {
+    id: "tipo_colchao_atual", StepIcon: BedDouble, type: "single",
+    question: "Qual o tipo do seu colchão atual?",
+    subtitle: "Isso nos ajuda a calibrar a transição de conforto.",
+    options: [
+      { value: "espuma",  label: "Espuma",          Icon: Layers    },
+      { value: "mola",    label: "Molas bonell",     Icon: Zap       },
+      { value: "pocket",  label: "Molas ensacadas",  Icon: Shield    },
+      { value: "madeira", label: "Madeira / tatame", Icon: Package   },
+    ],
+    showIf: (a: Answers) => a.substituicao === "sim",
+  },
+  {
+    id: "tempo_uso_colchao", StepIcon: Clock, type: "single",
+    question: "Há quanto tempo você usa esse colchão?",
+    subtitle: "Quanto mais tempo, maior a adaptação do seu corpo.",
+    options: [
+      { value: "menos_2", label: "Menos de 2 anos", Icon: Clock    },
+      { value: "2_5",     label: "2 a 5 anos",      Icon: Calendar },
+      { value: "mais_5",  label: "Mais de 5 anos",  Icon: Star     },
+      { value: "mais_10", label: "Mais de 10 anos", Icon: Shield   },
+    ],
+    showIf: (a: Answers) => a.substituicao === "sim",
   },
   {
     id: "prioridade", StepIcon: Star, type: "single",
@@ -215,6 +242,9 @@ interface ScoredProduto {
   produto: ApiProduto;
   score: number;
   tags: string[];
+  confianca: number;
+  flag_calibracao: string | null;
+  texto_calibracao: string | null;
 }
 
 // ── Recommendation engine ──────────────────────────────────────────────────────
@@ -225,8 +255,74 @@ const SIZE_MAP: Record<string, string> = {
   king: "King",
 };
 
-type Firmeza = "firme" | "intermediario" | "macio";
-const RANK: Record<Firmeza, number> = { firme: 2, intermediario: 1, macio: 0 };
+type Firmeza = "firme" | "intermediario_firme" | "intermediario" | "intermediario_macio" | "macio";
+const RANK: Record<Firmeza, number> = {
+  firme: 4, intermediario_firme: 3, intermediario: 2, intermediario_macio: 1, macio: 0,
+};
+
+interface FirmezaResult {
+  firmeza: Firmeza;
+  flag_calibracao: "adaptacao_leve" | "adaptacao_moderada" | "adaptacao_intensa" | null;
+  texto_calibracao: string | null;
+}
+
+const HIST_FIRMEZA: Record<string, Firmeza> = {
+  espuma:  "intermediario",
+  mola:    "intermediario_firme",
+  pocket:  "intermediario",
+  madeira: "firme",
+};
+
+const HIST_TEMPO_MULT: Record<string, number> = {
+  menos_2: 0,
+  "2_5":   0.3,
+  mais_5:  0.6,
+  mais_10: 1.0,
+};
+
+function calcDrift(a: Answers, firmezaBio: Firmeza): FirmezaResult {
+  if (a.substituicao !== "sim" || !a.tipo_colchao_atual || !a.tempo_uso_colchao) {
+    return { firmeza: firmezaBio, flag_calibracao: null, texto_calibracao: null };
+  }
+
+  const histF = HIST_FIRMEZA[a.tipo_colchao_atual] ?? "intermediario";
+  const mult  = HIST_TEMPO_MULT[a.tempo_uso_colchao] ?? 0;
+  const histR = RANK[histF];
+  const bioR  = RANK[firmezaBio];
+  const delta = Math.abs(histR - bioR);
+
+  if (delta === 0 || mult === 0) {
+    return { firmeza: firmezaBio, flag_calibracao: null, texto_calibracao: null };
+  }
+
+  const drift    = Math.round(delta * mult);
+  const dir      = histR > bioR ? 1 : -1;
+  const ajusteR  = Math.max(0, Math.min(4, bioR + Math.floor(drift * dir)));
+  const firmezaAjustada = (Object.entries(RANK) as [Firmeza, number][])
+    .find(([, v]) => v === ajusteR)?.[0] ?? firmezaBio;
+
+  let flag: FirmezaResult["flag_calibracao"] = null;
+  let texto: string | null = null;
+
+  if (drift >= 2) {
+    flag  = "adaptacao_intensa";
+    texto = `Seu corpo se adaptou a ${a.tipo_colchao_atual} por muitos anos. O colchão ideal pode parecer diferente nos primeiros dias — isso é normal.`;
+  } else if (drift === 1) {
+    flag  = "adaptacao_moderada";
+    texto = `Há uma pequena diferença entre o que seu corpo prefere e o que você está acostumado. O período de adaptação é de 7 a 15 dias.`;
+  }
+
+  return { firmeza: firmezaAjustada, flag_calibracao: flag, texto_calibracao: texto };
+}
+
+function calcConfianca(topScore: number, secondScore: number, totalCandidates: number): number {
+  if (totalCandidates === 0) return 0;
+  const base    = Math.min(1, topScore / 12);
+  const gap     = topScore - secondScore;
+  const clarity = Math.min(1, gap / 4);
+  const raw     = base * 0.6 + clarity * 0.4;
+  return Math.round(Math.max(0.55, Math.min(0.98, raw)) * 100) / 100;
+}
 
 function calcFirmezaIndividual(
   peso: number, alt: number, firmezaPref?: string, posicao?: string
@@ -240,22 +336,25 @@ function calcFirmezaIndividual(
   return f;
 }
 
-function calcFirmezaAlvo(a: Answers): Firmeza {
+function calcFirmezaAlvo(a: Answers): FirmezaResult {
   const f1 = calcFirmezaIndividual(
     a.peso ?? 75, a.altura ?? 170, a.firmeza, a.posicao
   );
 
-  // Dores da pessoa 1 sobem firmeza
   let r1 = f1;
-  if ((a.dores ?? []).some(d => ["lombar", "coluna"].includes(d)) && r1 === "macio") {
+  if ((a.dores ?? []).some(d => ["lombar", "coluna", "quadril"].includes(d)) && r1 === "macio") {
     r1 = "intermediario";
   }
 
-  if (a.casal !== "casal" || !a.altura2 || !a.peso2) return r1;
+  let firmezaBio: Firmeza;
+  if (a.casal !== "casal" || !a.altura2 || !a.peso2) {
+    firmezaBio = r1;
+  } else {
+    const f2 = calcFirmezaIndividual(a.peso2, a.altura2, a.firmeza2);
+    firmezaBio = RANK[r1] >= RANK[f2] ? r1 : f2;
+  }
 
-  const f2 = calcFirmezaIndividual(a.peso2, a.altura2, a.firmeza2);
-  // Casal: pega o mais firme dos dois (molas ensacadas atende ambos)
-  return RANK[r1] >= RANK[f2] ? r1 : f2;
+  return calcDrift(a, firmezaBio);
 }
 
 function scoreAndTag(
@@ -302,7 +401,7 @@ function scoreAndTag(
   }
 
   // Dores
-  const hasPain = (a.dores ?? []).some(d => ["lombar", "coluna", "ombro"].includes(d));
+  const hasPain = (a.dores ?? []).some(d => ["lombar", "coluna", "ombro", "quadril"].includes(d));
   if (hasPain && dens && dens >= 45) score += 2;
   if (hasPain && (txt.includes("ortoped") || txt.includes("anatomic"))) score += 3;
 
@@ -328,8 +427,9 @@ async function fetchRecomendacoes(a: Answers): Promise<ScoredProduto[]> {
   if (!res.ok) throw new Error("api_error");
   const all: ApiProduto[] = await res.json();
 
-  const fAlvo = calcFirmezaAlvo(a);
-  const tamanhoAlvo = a.tamanho ? SIZE_MAP[a.tamanho] : null;
+  const firmezaResult = calcFirmezaAlvo(a);
+  const fAlvo         = firmezaResult.firmeza;
+  const tamanhoAlvo   = a.tamanho ? SIZE_MAP[a.tamanho] : null;
 
   const candidates = all.filter(p => {
     if (!p.disponivel) return false;
@@ -347,14 +447,23 @@ async function fetchRecomendacoes(a: Answers): Promise<ScoredProduto[]> {
 
   // Deduplica por família — máximo 1 produto por linha de modelo
   const seen = new Set<string>();
-  const unique: ScoredProduto[] = [];
+  const unique: { produto: ApiProduto; score: number; tags: string[] }[] = [];
   for (const s of scored) {
     const key = s.produto.familySlug ?? s.produto.nome;
     if (!seen.has(key)) { seen.add(key); unique.push(s); }
     if (unique.length >= 3) break;
   }
 
-  return unique;
+  const topScore    = unique[0]?.score ?? 0;
+  const secondScore = unique[1]?.score ?? 0;
+  const confianca   = calcConfianca(topScore, secondScore, candidates.length);
+
+  return unique.map((s, i) => ({
+    ...s,
+    confianca:        i === 0 ? confianca : 0,
+    flag_calibracao:  i === 0 ? firmezaResult.flag_calibracao : null,
+    texto_calibracao: i === 0 ? firmezaResult.texto_calibracao : null,
+  }));
 }
 
 function buildWAMsg(a: Answers, capNome: string, produtoNome?: string, precoPix?: string) {
@@ -382,8 +491,13 @@ function buildWAMsg(a: Answers, capNome: string, produtoNome?: string, precoPix?
     `• Dores: ${doresStr}`,
     `• Calor ao dormir: ${a.temperatura === "sim" ? "sim" : "não"}`,
     `• Prioridade: ${a.prioridade ?? "-"}`,
-    ``,
   );
+
+  if (a.tipo_colchao_atual) {
+    lines.push(`• Colchão atual: ${a.tipo_colchao_atual}${a.tempo_uso_colchao ? ` (${a.tempo_uso_colchao.replace("_", " ")})` : ""}`);
+  }
+
+  lines.push(``);
 
   if (produtoNome) {
     const precoStr = precoPix ? ` — ${precoPix}` : "";
@@ -904,6 +1018,33 @@ function ResultScreen({
           </div>
         )}
 
+        {/* Calibração de adaptação */}
+        {primary?.flag_calibracao && primary.texto_calibracao && (
+          <div className="rounded-2xl px-5 py-4 mb-5"
+            style={{ background: "#1a1200", border: "1px solid #3d2e00" }}>
+            <p className="text-xs font-bold uppercase tracking-wider mb-2" style={{ color: "#f59e0b" }}>
+              ⚠️ Período de Adaptação
+            </p>
+            <p className="text-sm leading-relaxed" style={{ color: "#d4a017" }}>
+              {primary.texto_calibracao}
+            </p>
+          </div>
+        )}
+
+        {/* Confiança */}
+        {primary && !produtosLoading && (
+          <div className="rounded-xl px-4 py-3 mb-5 flex items-center gap-3"
+            style={{ background: "#0e0e0e", border: "1px solid #1e1e1e" }}>
+            <div className="w-2 h-2 rounded-full shrink-0" style={{ background: RED }} />
+            <p className="text-xs" style={{ color: "#666" }}>
+              Compatibilidade biomecânica:{" "}
+              <span className="font-bold" style={{ color: "#aaa" }}>
+                {Math.round((primary.confianca ?? 0) * 100)}%
+              </span>
+            </p>
+          </div>
+        )}
+
         {/* Perfil */}
         <div className="rounded-2xl px-5 py-4 mb-5" style={{ background: "#0e0e0e", border: `1px solid #1e1e1e` }}>
           <p className="text-xs font-bold uppercase tracking-wider mb-3" style={{ color: "#555" }}>Seu Perfil</p>
@@ -1034,9 +1175,11 @@ export default function MapaSono({ embedded = false }: MapaSonoProps) {
   const [recomendacoes, setRecomendacoes] = useState<ScoredProduto[]>([]);
   const [produtosLoading, setProdutosLoading] = useState(false);
 
-  const midTimer       = useRef<number | null>(null);
-  const analyzingTimer = useRef<number | null>(null);
-  const autoTimer      = useRef<number | null>(null);
+  const midTimer        = useRef<number | null>(null);
+  const analyzingTimer  = useRef<number | null>(null);
+  const autoTimer       = useRef<number | null>(null);
+  const quizStartedAt   = useRef<number>(Date.now());
+  const stepTimestamps  = useRef<Record<number, number>>({});
 
   useEffect(() => () => {
     [midTimer, analyzingTimer, autoTimer].forEach(r => {
@@ -1053,6 +1196,9 @@ export default function MapaSono({ embedded = false }: MapaSonoProps) {
   function advance(id: keyof Answers, cur: Answers) {
     const steps = getActiveSteps(cur);
     const idx   = steps.findIndex(s => s.id === id);
+
+    // Track timestamp per step for behavioral analysis
+    stepTimestamps.current[idx] = Date.now();
 
     if (id === "peso") {
       // Mid-loading só após peso da pessoa 1
@@ -1105,6 +1251,24 @@ export default function MapaSono({ embedded = false }: MapaSonoProps) {
     setPhase("analyzing");
     setRecomendacoes([]);
     setProdutosLoading(true);
+
+    const totalMs = Date.now() - quizStartedAt.current;
+
+    // Fire-and-forget: persist diagnosis + resolve Digital Twin
+    fetch("/api/diagnostico", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        ...answers,
+        nome,
+        whatsapp: zap,
+        perfil_comportamental: {
+          quiz_duration_ms:  totalMs,
+          step_timestamps:   stepTimestamps.current,
+          total_steps:       getActiveSteps(answers).length,
+        },
+      }),
+    }).catch(() => { /* non-critical */ });
 
     fetchRecomendacoes(answers)
       .then(r => { setRecomendacoes(r); setProdutosLoading(false); })
