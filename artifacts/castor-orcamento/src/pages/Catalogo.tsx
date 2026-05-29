@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo, Fragment } from "react";
 import { Search, Loader2, PackageX, MessageCircle, Moon, Tag, X } from "lucide-react";
-import { useLocation } from "wouter";
+import { useLocation, useSearch } from "wouter";
 import { motion, AnimatePresence } from "framer-motion";
 import { useQuery } from "@tanstack/react-query";
 import { useDebounce } from "@/hooks/use-debounce";
@@ -99,6 +99,7 @@ function toProductGroup(family: CatalogFamily): ProductGroup {
 
 export default function Catalogo() {
   const [location] = useLocation();
+  const search = useSearch();
   const [searchTerm, setSearchTerm] = useState("");
   const [activeCategory, setActiveCategory] = useState<string>("Todas");
   const waInfo = useWAInfo();
@@ -109,11 +110,14 @@ export default function Catalogo() {
 
   useEffect(() => { trackPageView("catalogo"); trackCatalogoView(); }, []);
 
+  // Fires on both initial mount and every time the query string changes
+  // (e.g. clicking "Outlet 🔥" nav link from within /catalogo).
   useEffect(() => {
-    const params = new URLSearchParams(window.location.search);
+    const params = new URLSearchParams(search);
     const cat = params.get("categoria");
     if (cat) setActiveCategory(cat);
-  }, [location]);
+    else if (!search) setActiveCategory("Todas");
+  }, [search, location]);
 
   // ── Scroll nudges ─────────────────────────────────────────────────────────
   useEffect(() => {

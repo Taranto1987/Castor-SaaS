@@ -203,6 +203,7 @@ async function executarCrawler() {
 
         try {
           await db.insert(produtosTable).values({
+            lojaId: 1,
             nome: item.name,
             sku: item.sku,
             slug,

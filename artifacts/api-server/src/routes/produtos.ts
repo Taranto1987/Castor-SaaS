@@ -51,14 +51,19 @@ function mapProduto(p: typeof produtosTable.$inferSelect) {
   };
 }
 
+// Public-safe mapper: strips internal cost/margin fields; keeps outletPrice (the selling price).
+function mapProdutoPublic(p: typeof produtosTable.$inferSelect) {
+  const { custoBRL: _c, precoBase: _pb, factoryCost: _fc, outletMarkupPercent: _om, ...pub } = mapProduto(p);
+  return pub;
+}
+
 async function getLojaPricing(lojaId: number) {
-  return db
+  const rows = await db
     .select({ configJson: lojasTable.configJson })
     .from(lojasTable)
     .where(eq(lojasTable.id, lojaId))
-    .limit(1)
-    .then((rows) => getPricingConfig(rows[0]?.configJson))
-    .catch(() => DEFAULT_PRICING);
+    .limit(1);
+  return getPricingConfig(rows[0]?.configJson);
 }
 
 router.get("/", async (req, res) => {
@@ -84,16 +89,25 @@ router.get("/", async (req, res) => {
 
 router.get("/outlet", async (req, res) => {
   try {
+    // Restrict ?lojaId= to known tenant IDs — prevents cross-tenant enumeration.
+    const VALID_LOJA_IDS = [1, 2];
     const queryLojaId = req.query.lojaId ? parseInt(req.query.lojaId as string, 10) : null;
-    const lojaId = (queryLojaId && !isNaN(queryLojaId)) ? queryLojaId : resolveLojaId(req);
+    const lojaId = (queryLojaId && !isNaN(queryLojaId) && VALID_LOJA_IDS.includes(queryLojaId))
+      ? queryLojaId
+      : resolveLojaId(req);
     const limite = req.query.limite ? parseInt(req.query.limite as string, 10) : undefined;
     const results = await db
       .select()
       .from(produtosTable)
-      .where(and(eq(produtosTable.encomenda, true), eq(produtosTable.lojaId, lojaId)))
+      .where(and(
+        eq(produtosTable.encomenda, true),
+        eq(produtosTable.lojaId, lojaId),
+        or(isNull(produtosTable.disponivel), eq(produtosTable.disponivel, true)),
+        or(isNull(produtosTable.estoque), gt(produtosTable.estoque, 0))
+      ))
       .orderBy(produtosTable.nome)
       .limit(limite && !isNaN(limite) ? limite : 1000);
-    res.json(results.map(mapProduto));
+    res.json(results.map(mapProdutoPublic));
   } catch (error) {
     console.error("Erro ao listar outlet:", error);
     res.status(500).json({ error: "Erro interno" });

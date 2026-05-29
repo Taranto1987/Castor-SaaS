@@ -25,11 +25,15 @@ export function ProductCardGrouped({ group, waInfo, className, isOutlet }: Props
   const [activeIdx, setActiveIdx] = useState(defaultIdx);
   const v = group.variants[activeIdx];
 
+  const pixDisplay = isOutlet && v.outletPrice
+    ? v.outletPrice.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })
+    : v.precoPix || null;
+
   const waMsg =
     `Olá, ${waInfo.contato}! 👋 Vi o site da Castor ${waInfo.loja} e tenho interesse:\n\n` +
     `*${group.familia}${group.hasSizes ? ` — ${v.size}` : ""}*\n` +
     (v.medidas ? `📐 Medidas: ${v.medidas}\n` : "") +
-    (v.precoPix ? `💰 Pix: ${v.precoPix}\n` : "") +
+    (pixDisplay ? `💰 Pix: ${pixDisplay}\n` : "") +
     `\nGostaria de mais informações e disponibilidade!`;
 
   return (
@@ -124,7 +128,7 @@ export function ProductCardGrouped({ group, waInfo, className, isOutlet }: Props
           <div className="flex items-end justify-between">
             <span className="text-xs text-muted-foreground">Pix</span>
             <span className="font-bold text-primary text-xl tracking-tight">
-              {v.precoPix || "Sob consulta"}
+              {pixDisplay || "Sob consulta"}
             </span>
           </div>
           {v.preco && (
