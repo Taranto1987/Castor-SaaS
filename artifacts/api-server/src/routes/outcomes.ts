@@ -58,7 +58,7 @@ router.post("/outcomes", requireDono, async (req: AuthRequest, res) => {
  */
 router.patch("/outcomes/:id", requireDono, async (req: AuthRequest, res) => {
   try {
-    const id = parseInt(req.params.id, 10);
+    const id = parseInt(req.params.id as string, 10);
     const {
       satisfacao_30d, satisfacao_90d, satisfacao_180d, satisfacao_365d,
       dor_melhorou, trocou, motivo_troca, indicou, nps,
@@ -110,7 +110,7 @@ router.patch("/outcomes/:id", requireDono, async (req: AuthRequest, res) => {
  */
 router.get("/outcomes/diagnostico/:diagnosticoId", requireDono, async (req: AuthRequest, res) => {
   try {
-    const diagnosticoId = parseInt(req.params.diagnosticoId, 10);
+    const diagnosticoId = parseInt(req.params.diagnosticoId as string, 10);
     const rows = await db
       .select()
       .from(sleepOutcomesTable)

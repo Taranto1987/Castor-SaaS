@@ -15,7 +15,7 @@ const router = Router();
  */
 router.get("/twin/:customerId", requireDono, async (req: AuthRequest, res) => {
   try {
-    const customerId = parseInt(req.params.customerId, 10);
+    const customerId = parseInt(req.params.customerId as string, 10);
     const lojaId     = req.session!.lojaId;
 
     const [identity, score, capsule, diagnosticos] = await Promise.all([
@@ -70,7 +70,7 @@ router.get("/twin/:customerId", requireDono, async (req: AuthRequest, res) => {
  */
 router.get("/twin/by-phone/:phone", requireDono, async (req: AuthRequest, res) => {
   try {
-    const phone   = req.params.phone.replace(/\D/g, "");
+    const phone   = (req.params.phone as string).replace(/\D/g, "");
     const lojaId  = req.session!.lojaId;
 
     const [identity] = await db.select()
