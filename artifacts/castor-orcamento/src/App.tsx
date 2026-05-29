@@ -46,6 +46,7 @@ const EntradaEstoque= lazy(() => import("@/pages/EntradaEstoque"));
 const Financeiro      = lazy(() => import("@/pages/Financeiro"));
 const Usuarios        = lazy(() => import("@/pages/Usuarios"));
 const ClienteDetalhe  = lazy(() => import("@/pages/ClienteDetalhe"));
+const Outcomes        = lazy(() => import("@/pages/Outcomes"));
 const Inbox           = lazy(() => import("@/pages/Inbox"));
 const NotFound        = lazy(() => import("@/pages/not-found"));
 
@@ -144,6 +145,7 @@ function AppRoutes() {
         <Route path="/entrada-estoque"  component={() => <DonoRoute component={EntradaEstoque} />} />
         <Route path="/financeiro"       component={() => <PrivateRoute component={Financeiro} />} />
         <Route path="/usuarios"         component={() => <DonoRoute component={Usuarios} />} />
+        <Route path="/diagnosticos"     component={() => <DonoRoute component={Outcomes} />} />
 
         <Route component={NotFound} />
       </Switch>

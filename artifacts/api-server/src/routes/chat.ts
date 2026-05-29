@@ -3,7 +3,10 @@ import type { Response } from "express";
 import Anthropic from "@anthropic-ai/sdk";
 import { getProductContextCompact } from "../services/chat/repository";
 import { processarLeadDaConversa } from "../services/chat/lead-extractor";
-import { SYSTEM_PROMPT, buildFallbackMessage, buildSessionIntentBlock } from "../services/chat/prompt";
+import { SYSTEM_PROMPT, buildFallbackMessage, buildSessionIntentBlock, buildDiagnosticBlock } from "../services/chat/prompt";
+import { db } from "@workspace/db";
+import { diagnosticosTable, sleepOutcomesTable } from "@workspace/db/schema";
+import { eq, and, desc } from "drizzle-orm";
 import type { ChatMessage } from "../services/chat/lead-extractor";
 import { resolvePublicLojaId } from "../middlewares/auth";
 import { emitEvent } from "../services/events/emit";
@@ -109,6 +112,34 @@ router.post("/", async (req, res) => {
     const intentBlock = buildSessionIntentBlock(chatMessages);
     if (intentBlock) {
       systemBlocks.push({ type: "text", text: intentBlock });
+    }
+
+    // Block 5: Diagnostic Twin context — only for customers who used Mapa do Sono
+    if (customerId) {
+      try {
+        const [latestDiag] = await db
+          .select()
+          .from(diagnosticosTable)
+          .where(and(eq(diagnosticosTable.customerId, customerId), eq(diagnosticosTable.lojaId, lojaId)))
+          .orderBy(desc(diagnosticosTable.criadoEm))
+          .limit(1);
+
+        if (latestDiag) {
+          const [latestOutcome] = await db
+            .select()
+            .from(sleepOutcomesTable)
+            .where(eq(sleepOutcomesTable.diagnosticoId, latestDiag.id))
+            .orderBy(desc(sleepOutcomesTable.criadoEm))
+            .limit(1);
+
+          systemBlocks.push({
+            type: "text",
+            text: buildDiagnosticBlock(latestDiag, latestOutcome ?? null),
+          });
+        }
+      } catch (err) {
+        console.error("[Memory] Diagnostic context load failed:", err);
+      }
     }
 
     // ── Tool-aware streaming ──────────────────────────────────────────────────
