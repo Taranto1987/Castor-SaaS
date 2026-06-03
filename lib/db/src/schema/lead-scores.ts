@@ -1,4 +1,4 @@
-import { pgTable, serial, integer, real, text, jsonb, timestamp, index, unique } from "drizzle-orm/pg-core";
+import { pgTable, serial, integer, real, text, jsonb, timestamp, index } from "drizzle-orm/pg-core";
 
 export const leadScoresTable = pgTable("lead_scores", {
   id: serial("id").primaryKey(),
@@ -15,7 +15,11 @@ export const leadScoresTable = pgTable("lead_scores", {
   firstSeenAt: timestamp("first_seen_at").defaultNow(),
   atualizadoEm: timestamp("atualizado_em").defaultNow(),
 }, (t) => [
-  unique("lead_scores_customer_loja_uq").on(t.customerId, t.lojaId),
+  // NOTE: era `unique(...)`, mas a aplicação dessa constraint em produção exigia um
+  // prompt interativo do drizzle-kit push (truncate?) que travava TODO o deploy — inclusive
+  // a criação de novas tabelas. A unicidade já é garantida na aplicação por persistLeadScore()
+  // (upsert por customer_id+loja_id). Mantido como índice composto para o lookup.
+  index("lead_scores_customer_loja_idx").on(t.customerId, t.lojaId),
   index("lead_scores_loja_score_idx").on(t.lojaId, t.score),
   index("lead_scores_customer_idx").on(t.customerId),
 ]);
