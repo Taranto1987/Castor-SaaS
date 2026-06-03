@@ -5,7 +5,7 @@ import {
   FileText, Search, Clock, BarChart2, Truck,
   LogOut, User, Users, ShoppingCart, Package, DollarSign,
   TrendingUp, ClipboardPlus, UserCog, Menu, X, ChevronRight,
-  RefreshCw, MessageSquare, Sun, Moon, ChevronLeft, Command, Brain,
+  RefreshCw, MessageSquare, Sun, Moon, ChevronLeft, Command, Brain, Radar,
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useAuth } from "@/contexts/AuthContext";
@@ -45,8 +45,9 @@ function useSections(isDono: boolean): NavSection[] {
     {
       label: "Operações",
       items: [
-        { path: "/logistica",  label: "Logística",  icon: Truck     },
-        { path: "/dashboard",  label: "Dashboard",  icon: BarChart2 },
+        { path: "/operacoes",  label: "Central de Operações", icon: Radar     },
+        { path: "/logistica",  label: "Logística",            icon: Truck     },
+        { path: "/dashboard",  label: "Dashboard",            icon: BarChart2 },
       ],
     },
     ...(isDono
