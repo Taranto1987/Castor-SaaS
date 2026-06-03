@@ -2,7 +2,7 @@ import { useQuery } from "@tanstack/react-query";
 import { Link } from "wouter";
 import {
   Radar, TrendingUp, Flame, CalendarClock, Truck, PackageX,
-  Phone, MessageCircle, User, Loader2, Inbox,
+  Phone, MessageCircle, User, Loader2, Inbox, Percent,
 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 
@@ -31,6 +31,7 @@ interface OperacoesData {
     followupsHoje: number;
     entregasPendentes: number;
     produtosSemEstoque: number;
+    margensCriticas: number;
   };
   acaoAgora: Opportunity[];
   pipeline: Opportunity[];
@@ -164,6 +165,7 @@ export default function Operacoes() {
             <StatCard icon={CalendarClock} label="Follow-ups Hoje" value={data.resumo.followupsHoje} tone="bg-blue-100 text-blue-700 dark:bg-blue-950 dark:text-blue-400" />
             <StatCard icon={Truck} label="Entregas Pendentes" value={data.resumo.entregasPendentes} tone="bg-indigo-100 text-indigo-700 dark:bg-indigo-950 dark:text-indigo-400" />
             <StatCard icon={PackageX} label="Produtos Sem Estoque" value={data.resumo.produtosSemEstoque} tone="bg-amber-100 text-amber-700 dark:bg-amber-950 dark:text-amber-400" />
+            <StatCard icon={Percent} label="Margens Críticas" value={data.resumo.margensCriticas} tone="bg-rose-100 text-rose-700 dark:bg-rose-950 dark:text-rose-400" />
           </section>
 
           {/* Ação Agora */}

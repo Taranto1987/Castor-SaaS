@@ -27,6 +27,12 @@ interface NavSection {
 function useSections(isDono: boolean): NavSection[] {
   return [
     {
+      label: "Comercial",
+      items: [
+        { path: "/operacoes", label: "Central de Operações", icon: Radar },
+      ],
+    },
+    {
       label: "Vendas",
       items: [
         { path: "/equipe",          label: "Catálogo",   icon: Search       },
@@ -45,9 +51,8 @@ function useSections(isDono: boolean): NavSection[] {
     {
       label: "Operações",
       items: [
-        { path: "/operacoes",  label: "Central de Operações", icon: Radar     },
-        { path: "/logistica",  label: "Logística",            icon: Truck     },
-        { path: "/dashboard",  label: "Dashboard",            icon: BarChart2 },
+        { path: "/logistica",  label: "Logística",  icon: Truck     },
+        { path: "/dashboard",  label: "Dashboard",  icon: BarChart2 },
       ],
     },
     ...(isDono
@@ -76,7 +81,7 @@ function useSections(isDono: boolean): NavSection[] {
   ];
 }
 
-const PINNED_PATHS = ["/equipe", "/orcamento", "/inbox", "/dashboard"];
+const PINNED_PATHS = ["/operacoes", "/equipe", "/orcamento", "/inbox"];
 
 // ── Sidebar nav item ──────────────────────────────────────────────────────────
 

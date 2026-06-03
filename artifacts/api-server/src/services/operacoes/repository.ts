@@ -204,6 +204,16 @@ export async function listOperacoes(lojaId: number) {
     .from(produtosTable)
     .where(and(eq(produtosTable.lojaId, lojaId), lte(produtosTable.estoque, 0)));
 
+  // Margens críticas: disponíveis com margem < 20% (precisa de custo + preço base preenchidos)
+  const [{ count: margensCriticas } = { count: 0 }] = await db
+    .select({ count: sql<number>`count(*)::int` })
+    .from(produtosTable)
+    .where(and(
+      eq(produtosTable.lojaId, lojaId),
+      eq(produtosTable.disponivel, true),
+      sql`${produtosTable.factoryCost} > 0 AND ${produtosTable.precoBase} > 0 AND (${produtosTable.precoBase} - ${produtosTable.factoryCost}) / ${produtosTable.precoBase} < 0.20`,
+    ));
+
   return {
     resumo: {
       pipelineTotal: pipeline.length,
@@ -212,6 +222,7 @@ export async function listOperacoes(lojaId: number) {
       followupsHoje: followupsHoje ?? 0,
       entregasPendentes: entregasPendentes ?? 0,
       produtosSemEstoque: produtosSemEstoque ?? 0,
+      margensCriticas: margensCriticas ?? 0,
     },
     acaoAgora,
     pipeline,

@@ -102,12 +102,14 @@ function DonoRoute({ component: Component }: { component: React.ComponentType })
 }
 
 function AppRoutes() {
+  const { isAuthenticated } = useAuth();
   return (
     <Suspense fallback={<PageLoader />}>
       <Switch>
         {/* ── PUBLIC ───────────────────────────────────────────────────── */}
+        {/* Logged-in users land on the Central de Operações (COCA) — anonymous visitors see the marketing landing (SEO intact) */}
         <Route path="/">
-          <PublicLayout><Landing /></PublicLayout>
+          {isAuthenticated ? <Redirect to="/operacoes" /> : <PublicLayout><Landing /></PublicLayout>}
         </Route>
         <Route path="/catalogo">
           <PublicLayout><Catalogo /></PublicLayout>

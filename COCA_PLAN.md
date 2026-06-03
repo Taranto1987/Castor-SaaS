@@ -26,7 +26,9 @@ Chave: `serial` integer + FKs integer (consistente com todo o schema; **não** u
   - `routes/orcamento.ts`: `/salvar` cria/atualiza oportunidade + evento `ORCAMENTO_CRIADO`; `/:id/fechar` → `GANHO` + `VENDA_FECHADA`
   - `GET /api/operacoes` (pipeline + "Ação Agora" + widgets), filtrado por `lojaId`
   - Frontend `/operacoes` (Central de Operações) + item no menu
-- [ ] **Fase 2 — Widgets cruzados** (margens críticas; promover `/operacoes` a home)
+- [x] **Fase 2 — Widgets cruzados + home**
+  - Widget "Margens Críticas" (produtos disponíveis com margem `(precoBase−factoryCost)/precoBase < 20%`)
+  - `/operacoes` promovida a tela principal: redirect de usuário autenticado em `/`, item no topo do menu ("Comercial") e fixado na barra mobile
 - [ ] **Fase 3 — Histórico → Pipeline de Oportunidades**
 - [ ] **Fase 4 — Follow-up Engine** (D2/D5/D10/reativação sobre `follow_ups`)
 - [ ] **Fase 5 — Painel CRM lateral** (perfil biomecânico/compatibilidade via `diagnosticos` + `motor.ts`)
