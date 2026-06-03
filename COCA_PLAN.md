@@ -32,7 +32,11 @@ Chave: `serial` integer + FKs integer (consistente com todo o schema; **não** u
 - [x] **Fase 3 — Histórico → Pipeline de Oportunidades**
   - `GET /api/operacoes/pipeline` (todas as oportunidades agrupáveis por status + contagem de follow-ups, escopo lojaId)
   - Histórico vira abas **Pipeline** (oportunidades por status, com score/probabilidade/próxima ação/follow-ups) **| Orçamentos** (lista existente preservada, fechar venda intacto)
-- [ ] **Fase 4 — Follow-up Engine** (D2/D5/D10/reativação sobre `follow_ups`)
+- [x] **Fase 4 — Follow-up Engine**
+  - Cadência COCA no scheduler existente: `FOLLOWUP_D2/D5/D10` + `REATIVACAO_D30` + `RECUPERACAO_D60` (janelas por dias sem resposta)
+  - Cada estágio **avança o estado da oportunidade** (`AGUARDANDO_RESPOSTA → INTERVENCAO_HUMANA → REATIVACAO`) e a próxima ação
+  - Eventos em `eventos_operacionais`: `FOLLOWUP_GERADO`, `REATIVACAO_INICIADA`, `FOLLOWUP_ENVIADO`
+  - Contrato OpenAPI atualizado + client regenerado (Orval)
 - [ ] **Fase 5 — Painel CRM lateral** (perfil biomecânico/compatibilidade via `diagnosticos` + `motor.ts`)
 - [ ] **Fase 6 — Automações Evolution API + pós-venda** (somente com credencial/infra)
 
