@@ -29,7 +29,9 @@ Chave: `serial` integer + FKs integer (consistente com todo o schema; **não** u
 - [x] **Fase 2 — Widgets cruzados + home**
   - Widget "Margens Críticas" (produtos disponíveis com margem `(precoBase−factoryCost)/precoBase < 20%`)
   - `/operacoes` promovida a tela principal: redirect de usuário autenticado em `/`, item no topo do menu ("Comercial") e fixado na barra mobile
-- [ ] **Fase 3 — Histórico → Pipeline de Oportunidades**
+- [x] **Fase 3 — Histórico → Pipeline de Oportunidades**
+  - `GET /api/operacoes/pipeline` (todas as oportunidades agrupáveis por status + contagem de follow-ups, escopo lojaId)
+  - Histórico vira abas **Pipeline** (oportunidades por status, com score/probabilidade/próxima ação/follow-ups) **| Orçamentos** (lista existente preservada, fechar venda intacto)
 - [ ] **Fase 4 — Follow-up Engine** (D2/D5/D10/reativação sobre `follow_ups`)
 - [ ] **Fase 5 — Painel CRM lateral** (perfil biomecânico/compatibilidade via `diagnosticos` + `motor.ts`)
 - [ ] **Fase 6 — Automações Evolution API + pós-venda** (somente com credencial/infra)

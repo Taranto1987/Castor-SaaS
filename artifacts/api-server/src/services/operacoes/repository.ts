@@ -4,6 +4,7 @@ import {
   leadScoresTable,
   entregasTable,
   produtosTable,
+  followUpsTable,
 } from "@workspace/db/schema";
 import { and, eq, desc, ne, sql, lte } from "drizzle-orm";
 import { resolveOrCreateCustomerByPhone } from "../memory/identity";
@@ -227,4 +228,64 @@ export async function listOperacoes(lojaId: number) {
     acaoAgora,
     pipeline,
   };
+}
+
+const STATUS_ORDER = [
+  "CRITICO", "INTERVENCAO_HUMANA", "QUENTE", "NEGOCIANDO",
+  "AGUARDANDO_RESPOSTA", "ORCAMENTO_ENVIADO", "NOVO", "REATIVACAO",
+  "GANHO", "PERDIDO",
+];
+
+/**
+ * Full opportunity pipeline (all statuses) for the Histórico → Pipeline view.
+ * Enriches each opportunity with its follow-up counts (reused from `follow_ups`,
+ * keyed by orcamentoId). Scoped to lojaId.
+ */
+export async function listPipeline(lojaId: number) {
+  const opps = await db
+    .select()
+    .from(salesOpportunitiesTable)
+    .where(eq(salesOpportunitiesTable.lojaId, lojaId))
+    .orderBy(desc(salesOpportunitiesTable.score), desc(salesOpportunitiesTable.criadoEm))
+    .limit(500);
+
+  // Follow-up counts per orçamento (reuse existing follow_ups table)
+  const fuRows = await db
+    .select({
+      orcamentoId: followUpsTable.orcamentoId,
+      total: sql<number>`count(*)::int`,
+      pendentes: sql<number>`sum(case when ${followUpsTable.executadoEm} is null then 1 else 0 end)::int`,
+    })
+    .from(followUpsTable)
+    .where(eq(followUpsTable.lojaId, lojaId))
+    .groupBy(followUpsTable.orcamentoId);
+
+  const fuByOrc = new Map(fuRows.map((r) => [r.orcamentoId, r]));
+
+  const opportunities = opps.map((o) => {
+    const fu = fuByOrc.get(o.orcamentoId);
+    return {
+      id: o.id,
+      orcamentoId: o.orcamentoId,
+      customerId: o.customerId,
+      cliente: o.cliente,
+      whatsapp: o.whatsapp,
+      status: o.status,
+      score: Math.round(o.score),
+      closingProbability: Math.round(o.closingProbability),
+      valorNumerico: o.valorNumerico,
+      valorBrl: o.valorBrl,
+      diasSemResposta: daysSince(o.ultimoContatoEm ?? o.criadoEm),
+      proximaAcao: o.proximaAcao,
+      responsavel: o.responsavel,
+      criadoEm: o.criadoEm,
+      followupsTotal: fu?.total ?? 0,
+      followupsPendentes: fu?.pendentes ?? 0,
+    };
+  });
+
+  const statusCounts: Record<string, number> = {};
+  for (const o of opportunities) statusCounts[o.status] = (statusCounts[o.status] ?? 0) + 1;
+
+  return { statusOrder: STATUS_ORDER, statusCounts, opportunities };
 }

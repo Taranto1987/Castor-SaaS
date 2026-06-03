@@ -2,7 +2,8 @@ import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   Clock, ChevronDown, ChevronUp, Copy, CheckCircle2, Phone, Package,
-  RefreshCw, FileText, ShoppingBag, MapPin, X, AlertCircle, MessageCircle
+  RefreshCw, FileText, ShoppingBag, MapPin, X, AlertCircle, MessageCircle,
+  Radar, Target, Bell, Layers
 } from "lucide-react";
 import type { HistoricoItem } from "@workspace/api-client-react";
 import { useToast } from "@/hooks/use-toast";
@@ -339,8 +340,159 @@ function ItemCard({ item }: { item: HistoricoItem }) {
   );
 }
 
+// ── Pipeline de Oportunidades (COCA) ──────────────────────────────────────────
+
+interface PipelineOpportunity {
+  id: number;
+  orcamentoId: number;
+  customerId: number | null;
+  cliente: string;
+  whatsapp: string | null;
+  status: string;
+  score: number;
+  closingProbability: number;
+  valorNumerico: number;
+  valorBrl: string | null;
+  diasSemResposta: number;
+  proximaAcao: string | null;
+  responsavel: string | null;
+  criadoEm: string | null;
+  followupsTotal: number;
+  followupsPendentes: number;
+}
+
+interface PipelineData {
+  statusOrder: string[];
+  statusCounts: Record<string, number>;
+  opportunities: PipelineOpportunity[];
+}
+
+const STATUS_META: Record<string, { label: string; cls: string }> = {
+  CRITICO:             { label: "Crítico",             cls: "bg-red-100 text-red-700 border-red-200" },
+  INTERVENCAO_HUMANA:  { label: "Intervenção Humana",  cls: "bg-red-100 text-red-700 border-red-200" },
+  QUENTE:              { label: "Quente",              cls: "bg-orange-100 text-orange-700 border-orange-200" },
+  NEGOCIANDO:          { label: "Negociando",          cls: "bg-amber-100 text-amber-700 border-amber-200" },
+  AGUARDANDO_RESPOSTA: { label: "Aguardando Resposta", cls: "bg-blue-100 text-blue-700 border-blue-200" },
+  ORCAMENTO_ENVIADO:   { label: "Orçamento Enviado",   cls: "bg-slate-100 text-slate-700 border-slate-200" },
+  NOVO:                { label: "Novo",                cls: "bg-slate-100 text-slate-600 border-slate-200" },
+  REATIVACAO:          { label: "Reativação",          cls: "bg-violet-100 text-violet-700 border-violet-200" },
+  GANHO:               { label: "Ganho",               cls: "bg-emerald-100 text-emerald-700 border-emerald-200" },
+  PERDIDO:             { label: "Perdido",             cls: "bg-slate-100 text-slate-400 border-slate-200" },
+};
+
+function statusMeta(s: string) {
+  return STATUS_META[s] ?? { label: s, cls: "bg-slate-100 text-slate-600 border-slate-200" };
+}
+
+function scoreBadge(score: number) {
+  if (score >= 90) return "bg-red-600 text-white";
+  if (score >= 70) return "bg-orange-500 text-white";
+  if (score >= 40) return "bg-amber-400 text-amber-950";
+  return "bg-slate-200 text-slate-600";
+}
+
+function OpportunityCard({ o }: { o: PipelineOpportunity }) {
+  const digits = (o.whatsapp ?? "").replace(/\D/g, "");
+  const waHref = digits ? `https://wa.me/55${digits}` : undefined;
+  return (
+    <div className="bg-white border border-slate-200 rounded-2xl p-4 shadow-sm flex items-start gap-3">
+      <span className={cn("shrink-0 grid place-items-center w-11 h-11 rounded-xl font-extrabold", scoreBadge(o.score))}>
+        {o.score}
+      </span>
+      <div className="flex-1 min-w-0">
+        <div className="flex items-center gap-2 flex-wrap">
+          <span className="font-bold text-slate-900 truncate">{o.cliente}</span>
+          <span className="text-xs text-slate-400">#{o.orcamentoId}</span>
+        </div>
+        <div className="flex items-center gap-3 mt-1 text-xs text-slate-500 flex-wrap">
+          {o.valorBrl && <span className="font-bold text-emerald-600">{o.valorBrl}</span>}
+          <span className="flex items-center gap-1"><Target className="w-3 h-3" />{o.closingProbability}% fechamento</span>
+          {o.diasSemResposta > 0 && <span>{o.diasSemResposta}d sem resposta</span>}
+          {o.followupsTotal > 0 && (
+            <span className="flex items-center gap-1">
+              <Bell className="w-3 h-3" />{o.followupsPendentes}/{o.followupsTotal} follow-ups
+            </span>
+          )}
+        </div>
+        {o.proximaAcao && (
+          <p className="text-xs font-semibold text-slate-600 mt-1">Próxima ação: {o.proximaAcao}</p>
+        )}
+      </div>
+      {waHref && (
+        <a
+          href={waHref}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="shrink-0 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold bg-green-500 hover:bg-green-600 text-white transition-all"
+        >
+          <Phone className="w-3.5 h-3.5" /> WA
+        </a>
+      )}
+    </div>
+  );
+}
+
+function PipelineView() {
+  const { user } = useAuth();
+  const token = user?.sessionToken ?? "";
+  const { data, isLoading } = useQuery<PipelineData>({
+    queryKey: ["operacoes-pipeline"],
+    queryFn: async () => {
+      const res = await fetch("/api/operacoes/pipeline", { headers: { "x-session-token": token } });
+      if (!res.ok) throw new Error("Erro ao carregar o pipeline");
+      return res.json();
+    },
+  });
+
+  if (isLoading) {
+    return (
+      <div className="flex flex-col items-center justify-center py-20 text-slate-400 gap-3">
+        <RefreshCw className="w-8 h-8 animate-spin" />
+        <p className="text-sm font-medium">Carregando pipeline...</p>
+      </div>
+    );
+  }
+
+  if (!data || data.opportunities.length === 0) {
+    return (
+      <div className="flex flex-col items-center justify-center py-20 text-slate-400 gap-3">
+        <div className="w-16 h-16 bg-white rounded-2xl shadow-sm border border-slate-100 flex items-center justify-center mb-2">
+          <Radar className="w-8 h-8 text-slate-300" />
+        </div>
+        <p className="font-bold text-slate-600">Nenhuma oportunidade ainda</p>
+        <p className="text-sm text-slate-400 max-w-md text-center">
+          Cada orçamento salvo vira uma oportunidade aqui, organizada por status e prioridade.
+        </p>
+      </div>
+    );
+  }
+
+  const visibleStatuses = data.statusOrder.filter((s) => (data.statusCounts[s] ?? 0) > 0);
+
+  return (
+    <div className="space-y-6">
+      {visibleStatuses.map((status) => {
+        const meta = statusMeta(status);
+        const items = data.opportunities.filter((o) => o.status === status);
+        return (
+          <div key={status} className="space-y-3">
+            <div className="flex items-center gap-2">
+              <span className={cn("text-xs font-bold px-2.5 py-1 rounded-full border", meta.cls)}>
+                {meta.label}
+              </span>
+              <span className="text-xs text-slate-400 font-semibold">{items.length}</span>
+            </div>
+            {items.map((o) => <OpportunityCard key={o.id} o={o} />)}
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
 export default function Historico() {
   const { user } = useAuth();
+  const [tab, setTab] = useState<"pipeline" | "orcamentos">("pipeline");
   const params = new URLSearchParams();
   if (user?.nome) params.set("vendedor", user.nome);
   if (user?.papel) params.set("papel", user.papel);
@@ -389,7 +541,29 @@ export default function Historico() {
         </button>
       </div>
 
-      {isLoading ? (
+      {/* Abas: Pipeline (COCA) | Orçamentos */}
+      <div className="flex gap-1 border-b border-slate-200">
+        <button
+          onClick={() => setTab("pipeline")}
+          className={cn(
+            "px-4 py-2 text-sm font-bold border-b-2 -mb-px transition-colors flex items-center gap-1.5",
+            tab === "pipeline" ? "border-red-600 text-red-600" : "border-transparent text-slate-400 hover:text-slate-600"
+          )}
+        >
+          <Layers className="w-4 h-4" /> Pipeline
+        </button>
+        <button
+          onClick={() => setTab("orcamentos")}
+          className={cn(
+            "px-4 py-2 text-sm font-bold border-b-2 -mb-px transition-colors flex items-center gap-1.5",
+            tab === "orcamentos" ? "border-red-600 text-red-600" : "border-transparent text-slate-400 hover:text-slate-600"
+          )}
+        >
+          <FileText className="w-4 h-4" /> Orçamentos
+        </button>
+      </div>
+
+      {tab === "pipeline" ? <PipelineView /> : isLoading ? (
         <div className="flex flex-col items-center justify-center py-20 text-slate-400 gap-3">
           <RefreshCw className="w-8 h-8 animate-spin" />
           <p className="text-sm font-medium">Carregando histórico...</p>
