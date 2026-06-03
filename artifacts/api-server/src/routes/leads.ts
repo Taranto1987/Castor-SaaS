@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { db, leadsTable, leadInteracoesTable, leadTarefasTable, leadScoresTable, relationalCapsulesTable } from "@workspace/db";
+import { db, leadsTable, leadInteracoesTable, leadTarefasTable, leadScoresTable, relationalCapsulesTable, diagnosticosTable } from "@workspace/db";
 import { eq, and, desc, sql } from "drizzle-orm";
 import { requireAuth, type AuthRequest } from "../middlewares/auth";
 import { logEvent } from "../lib/log-event";
@@ -94,6 +94,7 @@ router.get("/leads/:id", requireAuth, async (req: AuthRequest, res) => {
 
     let score = null;
     let capsule = null;
+    let diagnostico = null;
 
     if (lead.customerProfileId) {
       const [scoreRow] = await db
@@ -107,9 +108,18 @@ router.get("/leads/:id", requireAuth, async (req: AuthRequest, res) => {
         .from(relationalCapsulesTable)
         .where(and(eq(relationalCapsulesTable.customerId, lead.customerProfileId), eq(relationalCapsulesTable.lojaId, lojaId)));
       capsule = capsuleRow ?? null;
+
+      // SleepMap: latest Mapa do Sono diagnosis for this customer (powers the CRM sleep panel)
+      const [diagRow] = await db
+        .select()
+        .from(diagnosticosTable)
+        .where(and(eq(diagnosticosTable.customerId, lead.customerProfileId), eq(diagnosticosTable.lojaId, lojaId)))
+        .orderBy(desc(diagnosticosTable.criadoEm))
+        .limit(1);
+      diagnostico = diagRow ?? null;
     }
 
-    res.json({ lead, interacoes, tarefas, score, capsule });
+    res.json({ lead, interacoes, tarefas, score, capsule, diagnostico });
   } catch (err) {
     console.error("[Leads] GET /:id error:", err);
     res.status(500).json({ error: "Erro ao carregar lead" });

@@ -37,7 +37,10 @@ Chave: `serial` integer + FKs integer (consistente com todo o schema; **não** u
   - Cada estágio **avança o estado da oportunidade** (`AGUARDANDO_RESPOSTA → INTERVENCAO_HUMANA → REATIVACAO`) e a próxima ação
   - Eventos em `eventos_operacionais`: `FOLLOWUP_GERADO`, `REATIVACAO_INICIADA`, `FOLLOWUP_ENVIADO`
   - Contrato OpenAPI atualizado + client regenerado (Orval)
-- [ ] **Fase 5 — Painel CRM lateral** (perfil biomecânico/compatibilidade via `diagnosticos` + `motor.ts`)
+- [x] **Fase 5 — Painel CRM "Diagnóstico do Sono"**
+  - `GET /leads/:id` agora inclui o último `diagnostico` do cliente (reuso de `diagnosticos`)
+  - CRM (`ClienteDetalhe`) ganha card: produto recomendado + confiança, chance de fechamento (de `lead_scores`), suporte/firmeza/tecnologia, principal dor, perfil térmico, posição
+  - Compatibilidade %/produto alternativo (SleepMap 4.0) NÃO incluídos — exigem motor de ranking inexistente (evitar fabricar sem dados)
 - [ ] **Fase 6 — Automações Evolution API + pós-venda** (somente com credencial/infra)
 
 ## ⚠️ Passo de operação obrigatório (CLAUDE.md)
