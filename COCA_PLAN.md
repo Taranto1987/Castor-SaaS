@@ -41,7 +41,12 @@ Chave: `serial` integer + FKs integer (consistente com todo o schema; **não** u
   - `GET /leads/:id` agora inclui o último `diagnostico` do cliente (reuso de `diagnosticos`)
   - CRM (`ClienteDetalhe`) ganha card: produto recomendado + confiança, chance de fechamento (de `lead_scores`), suporte/firmeza/tecnologia, principal dor, perfil térmico, posição
   - Compatibilidade %/produto alternativo (SleepMap 4.0) NÃO incluídos — exigem motor de ranking inexistente (evitar fabricar sem dados)
-- [ ] **Fase 6 — Automações Evolution API + pós-venda** (somente com credencial/infra)
+- [x] **Fase 6 — Pós-venda + eventos de logística** (código pronto; envio real ativa com credencial `EVOLUTION_*`)
+  - `services/posvenda.ts`: na entrega concluída, envia mensagem de satisfação/avaliação
+    (degrada sem credencial), registra em `follow_ups` (tipo `POS_VENDA`, idempotente) e emite evento
+  - `routes/entregas.ts`: emite `ENTREGA_AGENDADA / EM_ROTA / FINALIZADA / CANCELADA` em `eventos_operacionais`;
+    `FINALIZADA` dispara o pós-venda
+  - Pendente de infra (você): adicionar `EVOLUTION_API_URL/KEY` no Railway para o envio automático real
 
 ## ⚠️ Passo de operação obrigatório (CLAUDE.md)
 

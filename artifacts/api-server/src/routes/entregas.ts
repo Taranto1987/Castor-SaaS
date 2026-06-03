@@ -3,6 +3,7 @@ import { db } from "@workspace/db";
 import { entregasTable } from "@workspace/db/schema";
 import { eq, and, desc } from "drizzle-orm";
 import { requireAuth, type AuthRequest } from "../middlewares/auth";
+import { dispararPosVenda, emitirEventoEntrega } from "../services/posvenda";
 
 const router: IRouter = Router();
 
@@ -43,6 +44,8 @@ router.post("/", requireAuth, async (req: AuthRequest, res) => {
       observacoes: observacoes || null,
       dataEntrega: dataEntrega || null,
     }).returning();
+    // COCA: entrega criada → evento de logística
+    await emitirEventoEntrega(lojaId, inserted[0].id, inserted[0].orcamentoId, "ENTREGA_AGENDADA");
     res.json(inserted[0]);
   } catch (error) {
     console.error("Erro ao criar entrega:", error);
@@ -63,7 +66,19 @@ router.patch("/:id/status", requireAuth, async (req: AuthRequest, res) => {
       .where(and(eq(entregasTable.id, id), eq(entregasTable.lojaId, lojaId)))
       .returning();
     if (updated.length === 0) { res.status(404).json({ error: "Entrega não encontrada" }); return; }
-    res.json(updated[0]);
+
+    // COCA: eventos de logística + pós-venda no fechamento do ciclo
+    const entrega = updated[0];
+    if (status === "em_rota") {
+      await emitirEventoEntrega(lojaId, entrega.id, entrega.orcamentoId, "ENTREGA_EM_ROTA");
+    } else if (status === "entregue") {
+      await emitirEventoEntrega(lojaId, entrega.id, entrega.orcamentoId, "ENTREGA_FINALIZADA");
+      await dispararPosVenda(entrega, lojaId);
+    } else if (status === "cancelado") {
+      await emitirEventoEntrega(lojaId, entrega.id, entrega.orcamentoId, "ENTREGA_CANCELADA");
+    }
+
+    res.json(entrega);
   } catch (error) {
     console.error("Erro ao atualizar entrega:", error);
     res.status(500).json({ error: "Erro interno" });
