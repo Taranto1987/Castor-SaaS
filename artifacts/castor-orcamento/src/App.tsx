@@ -48,6 +48,7 @@ const Usuarios        = lazy(() => import("@/pages/Usuarios"));
 const ClienteDetalhe  = lazy(() => import("@/pages/ClienteDetalhe"));
 const Outcomes        = lazy(() => import("@/pages/Outcomes"));
 const Inbox           = lazy(() => import("@/pages/Inbox"));
+const Operacoes       = lazy(() => import("@/pages/Operacoes"));
 const NotFound        = lazy(() => import("@/pages/not-found"));
 
 const queryClient = new QueryClient({
@@ -101,12 +102,14 @@ function DonoRoute({ component: Component }: { component: React.ComponentType })
 }
 
 function AppRoutes() {
+  const { isAuthenticated } = useAuth();
   return (
     <Suspense fallback={<PageLoader />}>
       <Switch>
         {/* ── PUBLIC ───────────────────────────────────────────────────── */}
+        {/* Logged-in users land on the Central de Operações (COCA) — anonymous visitors see the marketing landing (SEO intact) */}
         <Route path="/">
-          <PublicLayout><Landing /></PublicLayout>
+          {isAuthenticated ? <Redirect to="/operacoes" /> : <PublicLayout><Landing /></PublicLayout>}
         </Route>
         <Route path="/catalogo">
           <PublicLayout><Catalogo /></PublicLayout>
@@ -133,6 +136,7 @@ function AppRoutes() {
         <Route path="/equipe"           component={() => <PrivateRoute component={Home} />} />
         <Route path="/orcamento"        component={() => <PrivateRoute component={Orcamento} />} />
         <Route path="/historico"        component={() => <PrivateRoute component={Historico} />} />
+        <Route path="/operacoes"        component={() => <PrivateRoute component={Operacoes} />} />
         <Route path="/dashboard"        component={() => <PrivateRoute component={Dashboard} />} />
         <Route path="/logistica"        component={() => <PrivateRoute component={Logistica} />} />
         <Route path="/crawler"          component={() => <PrivateRoute component={Crawler} />} />

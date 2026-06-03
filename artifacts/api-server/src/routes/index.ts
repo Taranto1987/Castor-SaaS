@@ -24,6 +24,7 @@ import mcpRouter from "./mcp";
 import whatsappRouter from "./whatsapp";
 import leadsRouter from "./leads";
 import inboxRouter from "./inbox";
+import operacoesRouter from "./operacoes";
 
 const router: IRouter = Router();
 
@@ -53,5 +54,6 @@ router.use(mcpRouter);
 router.use("/whatsapp", whatsappRouter);
 router.use("/leads", leadsRouter);
 router.use(inboxRouter);
+router.use(operacoesRouter);
 
 export default router;

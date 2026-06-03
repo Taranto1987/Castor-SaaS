@@ -1121,7 +1121,13 @@ export const ListFollowUpsPendentesHeader = zod.object({
 
 export const ListFollowUpsPendentesResponseItem = zod.object({
   id: zod.number(),
-  tipo: zod.enum(["dia3", "dia7", "dia14"]),
+  tipo: zod.enum([
+    "FOLLOWUP_D2",
+    "FOLLOWUP_D5",
+    "FOLLOWUP_D10",
+    "REATIVACAO_D30",
+    "RECUPERACAO_D60",
+  ]),
   mensagem: zod.string(),
   waLink: zod.string().nullish(),
   geradoEm: zod.string(),

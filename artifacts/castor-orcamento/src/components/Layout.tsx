@@ -5,7 +5,7 @@ import {
   FileText, Search, Clock, BarChart2, Truck,
   LogOut, User, Users, ShoppingCart, Package, DollarSign,
   TrendingUp, ClipboardPlus, UserCog, Menu, X, ChevronRight,
-  RefreshCw, MessageSquare, Sun, Moon, ChevronLeft, Command, Brain,
+  RefreshCw, MessageSquare, Sun, Moon, ChevronLeft, Command, Brain, Radar,
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useAuth } from "@/contexts/AuthContext";
@@ -26,6 +26,12 @@ interface NavSection {
 
 function useSections(isDono: boolean): NavSection[] {
   return [
+    {
+      label: "Comercial",
+      items: [
+        { path: "/operacoes", label: "Central de Operações", icon: Radar },
+      ],
+    },
     {
       label: "Vendas",
       items: [
@@ -75,7 +81,7 @@ function useSections(isDono: boolean): NavSection[] {
   ];
 }
 
-const PINNED_PATHS = ["/equipe", "/orcamento", "/inbox", "/dashboard"];
+const PINNED_PATHS = ["/operacoes", "/equipe", "/orcamento", "/inbox"];
 
 // ── Sidebar nav item ──────────────────────────────────────────────────────────
 

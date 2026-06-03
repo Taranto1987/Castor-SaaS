@@ -6,7 +6,7 @@ export const followUpsTable = pgTable("follow_ups", {
   id: serial("id").primaryKey(),
   lojaId: integer("loja_id").default(1),
   orcamentoId: integer("orcamento_id").notNull().references(() => orcamentosTable.id),
-  tipo: text("tipo").notNull(), // "dia3" | "dia7" | "dia14"
+  tipo: text("tipo").notNull(), // cadência COCA: FOLLOWUP_D2 | FOLLOWUP_D5 | FOLLOWUP_D10 | REATIVACAO_D30 | RECUPERACAO_D60
   mensagem: text("mensagem").notNull(),
   waLink: text("wa_link"),
   geradoEm: timestamp("gerado_em").defaultNow().notNull(),

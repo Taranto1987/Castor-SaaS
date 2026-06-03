@@ -2,6 +2,7 @@ import { Router } from "express";
 import { requireAuth, resolveLojaId } from "../middlewares/auth";
 import { findProdutosByIds, saveOrcamento, findHistorico, findOrcamentoById, fecharVendaTransaction } from "../services/orcamento/repository";
 import { gerarTextoOrcamento } from "../services/orcamento/generator";
+import { ensureOpportunityForOrcamento, markOpportunityWon } from "../services/operacoes/repository";
 import type { AuthRequest } from "../middlewares/auth";
 
 const router = Router();
@@ -36,6 +37,8 @@ router.post("/salvar", requireAuth, async (req: AuthRequest, res) => {
     if (!cliente || !texto) { res.status(400).json({ error: "Dados insuficientes para salvar" }); return; }
     const lojaId = req.session?.lojaId ?? resolveLojaId(req);
     const row = await saveOrcamento({ lojaId, cliente, whatsapp, produtosJson, observacoes, descontoPix, totalPix, totalPrazo, texto, vendedor, precoBaseTotal, descontoAplicado });
+    // COCA: every saved quote becomes a pipeline opportunity (best-effort, non-blocking)
+    await ensureOpportunityForOrcamento({ id: row.id, lojaId, cliente, whatsapp, vendedor, totalPix, totalPrazo });
     res.json({ id: row.id, mensagem: "Orçamento salvo com sucesso!" });
   } catch {
     res.status(500).json({ error: "Erro interno" });
@@ -63,6 +66,8 @@ router.post("/:id/fechar", requireAuth, async (req: AuthRequest, res) => {
     if (orc.status === "vendido") { res.status(409).json({ error: "Orçamento já foi fechado como venda" }); return; }
 
     const entrega = await fecharVendaTransaction(id, orc, { endereco, observacoes, dataEntrega });
+    // COCA: close the opportunity tied to this quote
+    await markOpportunityWon(id, req.session!.lojaId);
     res.json({ mensagem: "Venda fechada! Entrega criada.", entregaId: entrega.id });
   } catch {
     res.status(500).json({ error: "Erro interno" });

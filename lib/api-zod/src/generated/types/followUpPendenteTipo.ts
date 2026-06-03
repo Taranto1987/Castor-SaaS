@@ -10,7 +10,9 @@ export type FollowUpPendenteTipo =
   (typeof FollowUpPendenteTipo)[keyof typeof FollowUpPendenteTipo];
 
 export const FollowUpPendenteTipo = {
-  dia3: "dia3",
-  dia7: "dia7",
-  dia14: "dia14",
+  FOLLOWUP_D2: "FOLLOWUP_D2",
+  FOLLOWUP_D5: "FOLLOWUP_D5",
+  FOLLOWUP_D10: "FOLLOWUP_D10",
+  REATIVACAO_D30: "REATIVACAO_D30",
+  RECUPERACAO_D60: "RECUPERACAO_D60",
 } as const;

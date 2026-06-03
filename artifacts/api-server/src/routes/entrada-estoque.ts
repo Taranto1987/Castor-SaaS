@@ -168,6 +168,7 @@ router.post("/extrair-xml", uploadXml.single("arquivo"), async (req, res) => {
 // ── /match — fuzzy matching + markup suggestion ───────────────────────────────
 
 router.post("/match", async (req, res) => {
+  const lojaId = (req as Request & { lojaId: number }).lojaId;
   try {
     const { itens } = req.body as { itens: ItemExtraido[] };
     if (!itens || !Array.isArray(itens)) { res.status(400).json({ error: "Lista de itens é obrigatória" }); return; }
@@ -183,6 +184,7 @@ router.post("/match", async (req, res) => {
         categoria: produtosTable.categoria,
       })
       .from(produtosTable)
+      .where(eq(produtosTable.lojaId, lojaId))
       .orderBy(produtosTable.nome);
 
     const results = itens.map((item) => {
@@ -285,7 +287,7 @@ router.post("/confirmar", async (req, res) => {
           const [produto] = await tx
             .select()
             .from(produtosTable)
-            .where(eq(produtosTable.id, item.produtoId))
+            .where(and(eq(produtosTable.id, item.produtoId), eq(produtosTable.lojaId, lojaId)))
             .limit(1);
 
           if (produto) {
@@ -309,7 +311,7 @@ router.post("/confirmar", async (req, res) => {
               update.outletPrice = String(item.outletPrice);
             }
 
-            await tx.update(produtosTable).set(update).where(eq(produtosTable.id, item.produtoId));
+            await tx.update(produtosTable).set(update).where(and(eq(produtosTable.id, item.produtoId), eq(produtosTable.lojaId, lojaId)));
           }
         }
       }
@@ -326,11 +328,13 @@ router.post("/confirmar", async (req, res) => {
 
 // ── /historico ────────────────────────────────────────────────────────────────
 
-router.get("/historico", async (_req, res) => {
+router.get("/historico", async (req, res) => {
+  const lojaId = (req as Request & { lojaId: number }).lojaId;
   try {
     const entradas = await db
       .select()
       .from(entradasEstoqueTable)
+      .where(eq(entradasEstoqueTable.lojaId, lojaId))
       .orderBy(desc(entradasEstoqueTable.criadoEm))
       .limit(50);
     const result = [];
@@ -351,6 +355,7 @@ router.get("/historico", async (_req, res) => {
 // ── /produtos/buscar ──────────────────────────────────────────────────────────
 
 router.get("/produtos/buscar", async (req, res) => {
+  const lojaId = (req as Request & { lojaId: number }).lojaId;
   try {
     const { q } = req.query;
     if (!q || typeof q !== "string") { res.status(400).json({ error: "Parâmetro q obrigatório" }); return; }
@@ -374,7 +379,7 @@ router.get("/produtos/buscar", async (req, res) => {
         categoria: produtosTable.categoria,
       })
       .from(produtosTable)
-      .where(conds.length === 1 ? conds[0] : and(...conds))
+      .where(and(eq(produtosTable.lojaId, lojaId), ...conds))
       .limit(20);
 
     res.json(results);

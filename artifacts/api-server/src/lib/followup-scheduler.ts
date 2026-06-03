@@ -1,8 +1,9 @@
 import { db } from "@workspace/db";
-import { orcamentosTable, followUpsTable, leadScoresTable } from "@workspace/db/schema";
-import { eq, and, lte, isNull, lt, gt } from "drizzle-orm";
+import { orcamentosTable, followUpsTable, leadScoresTable, salesOpportunitiesTable } from "@workspace/db/schema";
+import { eq, and, lte, isNull, lt, gt, ne } from "drizzle-orm";
 import { enviarWhatsApp } from "../services/whatsapp";
 import { computeScore, type StoredSignals } from "../services/scoring/engine";
+import { logEvent } from "./log-event";
 import { logger } from "./logger";
 
 function sanitizarTelefone(tel: string | null | undefined): string | null {
@@ -28,22 +29,58 @@ function gerarMensagem(
   const remetente = vendedor && vendedor !== "ThallesZzz" ? vendedor : "Equipe Castor";
 
   switch (tipo) {
-    case "dia3":
+    case "FOLLOWUP_D2":
       return `Oi ${nome}! 👋 Aqui é ${remetente} da Castor Exclusiva.\n\nPassei pra ver se ficou com alguma dúvida sobre o ${produtos}${valor} que te apresentei. Está disponível e posso fechar hoje! 😊`;
-    case "dia7":
+    case "FOLLOWUP_D5":
       return `Oi ${nome}! ${remetente} da Castor aqui. 🛏️\n\nO orçamento do ${produtos}${valor} ainda está em aberto. Estoque é limitado e não quero que você perca essa condição. Podemos finalizar? ✅`;
-    case "dia14":
+    case "FOLLOWUP_D10":
       return `Oi ${nome}, tudo bem? ${remetente} da Castor.\n\nSeu orçamento${valor} está prestes a expirar. Quer garantir o preço especial ainda? Me avisa que finalizo agora! 🙏`;
+    case "REATIVACAO_D30":
+      return `Oi ${nome}! ${remetente} da Castor. 🌙\n\nFaz um tempinho que conversamos sobre o ${produtos}. Surgiu uma condição nova essa semana e lembrei de você. Quer que eu te mande? 😊`;
+    case "RECUPERACAO_D60":
+      return `Oi ${nome}! ${remetente} da Castor.\n\nReservei uma oferta especial pra fechar seu ${produtos}${valor}. É por tempo limitado — posso te passar os detalhes? 🎁`;
     default:
       return `Oi ${nome}! ${remetente} da Castor. Passando pra dar um alô sobre seu orçamento${valor}. Posso ajudar? 😊`;
   }
 }
 
+// Cadência COCA: gatilhos por dias sem resposta sobre orçamento em aberto.
 const JANELAS = [
-  { tipo: "dia3",  minDias: 3,  maxDias: 6  },
-  { tipo: "dia7",  minDias: 7,  maxDias: 13 },
-  { tipo: "dia14", minDias: 14, maxDias: 45 },
+  { tipo: "FOLLOWUP_D2",     minDias: 2,  maxDias: 4   },
+  { tipo: "FOLLOWUP_D5",     minDias: 5,  maxDias: 9   },
+  { tipo: "FOLLOWUP_D10",    minDias: 10, maxDias: 29  },
+  { tipo: "REATIVACAO_D30",  minDias: 30, maxDias: 59  },
+  { tipo: "RECUPERACAO_D60", minDias: 60, maxDias: 120 },
 ];
+
+// Cada estágio da cadência avança o estado da oportunidade (pipeline) e emite evento.
+const CADENCIA: Record<string, { status: string; acao: string; evento: string }> = {
+  FOLLOWUP_D2:     { status: "AGUARDANDO_RESPOSTA", acao: "WhatsApp Automático", evento: "FOLLOWUP_GERADO" },
+  FOLLOWUP_D5:     { status: "AGUARDANDO_RESPOSTA", acao: "Ligar",              evento: "FOLLOWUP_GERADO" },
+  FOLLOWUP_D10:    { status: "INTERVENCAO_HUMANA",  acao: "Intervenção Humana", evento: "FOLLOWUP_GERADO" },
+  REATIVACAO_D30:  { status: "REATIVACAO",          acao: "Reativar cliente",   evento: "REATIVACAO_INICIADA" },
+  RECUPERACAO_D60: { status: "REATIVACAO",          acao: "Recuperação",        evento: "REATIVACAO_INICIADA" },
+};
+
+/** Avança o estado da oportunidade conforme o estágio da cadência e registra o evento. */
+async function avancarOportunidade(orcamentoId: number, lojaId: number, tipo: string): Promise<void> {
+  const c = CADENCIA[tipo];
+  if (!c) return;
+  try {
+    await db
+      .update(salesOpportunitiesTable)
+      .set({ status: c.status, proximaAcao: c.acao, atualizadoEm: new Date() })
+      .where(and(
+        eq(salesOpportunitiesTable.orcamentoId, orcamentoId),
+        eq(salesOpportunitiesTable.lojaId, lojaId),
+        ne(salesOpportunitiesTable.status, "GANHO"),
+        ne(salesOpportunitiesTable.status, "PERDIDO"),
+      ));
+  } catch (err) {
+    logger.error({ err, orcamentoId, tipo }, "followup_opportunity_sync_failed");
+  }
+  await logEvent({ lojaId, entidade: "orcamento", entidadeId: String(orcamentoId), acao: c.evento, payload: { tipo } });
+}
 
 async function ciclo(): Promise<{ geradas: number; enviados: number }> {
   const agora = new Date();
@@ -88,6 +125,9 @@ async function ciclo(): Promise<{ geradas: number; enviados: number }> {
         waLink,
       });
 
+      // COCA: avança o estado da oportunidade e registra o evento da cadência
+      await avancarOportunidade(orc.id, orc.lojaId ?? 1, janela.tipo);
+
       geradas++;
     }
   }
@@ -117,6 +157,13 @@ async function ciclo(): Promise<{ geradas: number; enviados: number }> {
     try {
       await enviarWhatsApp(tel, fu.mensagem);
       await db.update(followUpsTable).set({ executadoEm: new Date() }).where(eq(followUpsTable.id, fu.id));
+      await logEvent({
+        lojaId: fu.lojaId ?? 1,
+        entidade: "orcamento",
+        entidadeId: String(fu.orcamentoId),
+        acao: "FOLLOWUP_ENVIADO",
+        payload: { tipo: fu.tipo },
+      });
       enviados++;
     } catch (err) {
       // WAHA offline ou não configurado — será tentado no próximo ciclo

@@ -1840,7 +1840,7 @@ components:
           type: number
         tipo:
           type: string
-          enum: [dia3, dia7, dia14]
+          enum: [FOLLOWUP_D2, FOLLOWUP_D5, FOLLOWUP_D10, REATIVACAO_D30, RECUPERACAO_D60]
         mensagem:
           type: string
         waLink:

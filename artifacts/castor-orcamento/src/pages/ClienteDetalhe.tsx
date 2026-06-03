@@ -6,6 +6,7 @@ import {
   ArrowLeft, Phone, Mail, User, Clock, MessageSquare, FileText,
   Plus, Flame, Thermometer, Snowflake, CheckCircle2, Circle,
   Brain, Stethoscope, ChevronDown, ChevronUp, Edit2, Check, X,
+  Moon, Sparkles, Target, Activity,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -83,6 +84,7 @@ export default function ClienteDetalhe() {
         tarefas: any[];
         score: any;
         capsule: any;
+        diagnostico: any;
       }>;
     },
   });
@@ -137,11 +139,25 @@ export default function ClienteDetalhe() {
     );
   }
 
-  const { lead, interacoes, tarefas, score, capsule } = data;
+  const { lead, interacoes, tarefas, score, capsule, diagnostico } = data;
   const estagio = ESTAGIOS.find((e) => e.key === lead.estagio) ?? ESTAGIOS[0];
   const scoreMeta = scoreLabel(score?.score ?? 0);
   const ScoreIcon = scoreMeta.icon;
   const perfil = (lead.perfilBiomecanico as Record<string, unknown>) ?? {};
+
+  // ── Painel de Sono (Fase 5): dados reais do Mapa do Sono + scoring ──────────
+  const bio = (diagnostico?.perfil_biomecanico as Record<string, unknown>) ?? {};
+  const respostas = (diagnostico?.respostas as Record<string, unknown>) ?? {};
+  const humanize = (v: unknown) =>
+    v == null || v === "" ? "—" : String(v).replace(/_/g, " ").replace(/^\w/, (c) => c.toUpperCase());
+  const confiancaPct = (() => {
+    const c = Number(diagnostico?.confianca);
+    if (isNaN(c)) return null;
+    return Math.round(c <= 1 ? c * 100 : c);
+  })();
+  const chanceFechamento = score?.closingProbability != null
+    ? Math.round((score.closingProbability <= 1 ? score.closingProbability * 100 : score.closingProbability))
+    : null;
 
   return (
     <div className="space-y-5 pb-20 max-w-3xl mx-auto">
@@ -232,7 +248,66 @@ export default function ClienteDetalhe() {
         </div>
       </div>
 
-      {/* Perfil Biomecânico */}
+      {/* Diagnóstico do Sono (Mapa do Sono) — Fase 5 */}
+      {diagnostico && (
+        <div className="bg-white dark:bg-slate-800 border border-indigo-200 dark:border-indigo-900 rounded-2xl overflow-hidden shadow-sm">
+          <div className="px-4 py-3 border-b border-slate-100 dark:border-slate-700 flex items-center gap-2 bg-indigo-50/50 dark:bg-indigo-950/30">
+            <Moon className="w-4 h-4 text-indigo-500" />
+            <h3 className="font-semibold text-slate-800 dark:text-slate-200 text-sm flex-1">Diagnóstico do Sono</h3>
+            <span className="text-[10px] text-slate-400 dark:text-slate-500">{formatDate(diagnostico.criadoEm)}</span>
+          </div>
+          <div className="p-4 space-y-4">
+            {/* Produto recomendado + confiança + chance de fechamento */}
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+              <div className="sm:col-span-2 bg-indigo-50 dark:bg-indigo-950/40 rounded-xl p-3">
+                <p className="text-[10px] font-semibold text-indigo-400 uppercase tracking-wide mb-0.5 flex items-center gap-1">
+                  <Sparkles className="w-3 h-3" /> Produto Recomendado
+                </p>
+                <p className="text-sm font-bold text-slate-800 dark:text-slate-100">{diagnostico.produto_recomendado ?? "—"}</p>
+                {confiancaPct != null && (
+                  <p className="text-xs text-indigo-600 dark:text-indigo-400 mt-0.5">Confiança: {confiancaPct}%</p>
+                )}
+              </div>
+              <div className="bg-slate-50 dark:bg-slate-700/50 rounded-xl p-3">
+                <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-wide mb-0.5 flex items-center gap-1">
+                  <Target className="w-3 h-3" /> Chance de Fechamento
+                </p>
+                <p className="text-lg font-extrabold text-slate-800 dark:text-slate-100">
+                  {chanceFechamento != null ? `${chanceFechamento}%` : "—"}
+                </p>
+              </div>
+            </div>
+
+            {/* Perfil biomecânico + respostas-chave */}
+            <div className="grid grid-cols-2 md:grid-cols-3 gap-2.5">
+              {[
+                { label: "Suporte",      value: bio["suporte"] },
+                { label: "Firmeza",      value: bio["firmeza_final"] ?? bio["firmeza"] },
+                { label: "Tecnologia",   value: bio["tecnologia"] },
+                { label: "Principal Dor", value: respostas["dor"] },
+                { label: "Perfil Térmico", value: respostas["calor"] },
+                { label: "Posição",      value: respostas["posicao"] },
+                { label: "Usuário",      value: respostas["usuario_tipo"] },
+                { label: "Tamanho",      value: respostas["tamanho"] },
+              ].map((f) => (
+                <div key={f.label} className="bg-slate-50 dark:bg-slate-700/50 rounded-xl p-2.5">
+                  <p className="text-[10px] font-semibold text-slate-400 dark:text-slate-500 uppercase tracking-wide mb-0.5">{f.label}</p>
+                  <p className="text-sm font-semibold text-slate-700 dark:text-slate-200">{humanize(f.value)}</p>
+                </div>
+              ))}
+            </div>
+
+            {diagnostico.flag_calibracao && (
+              <div className="flex items-center gap-2 text-xs text-amber-700 dark:text-amber-400 bg-amber-50 dark:bg-amber-950/40 rounded-lg px-3 py-2">
+                <Activity className="w-3.5 h-3.5 shrink-0" />
+                Calibração sugerida: {humanize(diagnostico.flag_calibracao)}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Perfil Biomecânico (dados manuais do lead) */}
       <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl overflow-hidden shadow-sm">
         <div className="px-4 py-3 border-b border-slate-100 dark:border-slate-700 flex items-center gap-2">
           <Stethoscope className="w-4 h-4 text-slate-500" />
