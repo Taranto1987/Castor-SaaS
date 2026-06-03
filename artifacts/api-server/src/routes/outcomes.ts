@@ -1,7 +1,7 @@
 import { Router } from "express";
 import { db } from "@workspace/db";
 import { sleepOutcomesTable, diagnosticosTable } from "@workspace/db/schema";
-import { eq } from "drizzle-orm";
+import { eq, and } from "drizzle-orm";
 import { requireDono, type AuthRequest } from "../middlewares/auth";
 
 const router = Router();
@@ -13,6 +13,7 @@ const router = Router();
  */
 router.post("/outcomes", requireDono, async (req: AuthRequest, res) => {
   try {
+    const lojaId = req.session!.lojaId;
     const { diagnosticoId, vendeu, produto_vendido, ticket } = req.body;
 
     if (!diagnosticoId) {
@@ -20,11 +21,11 @@ router.post("/outcomes", requireDono, async (req: AuthRequest, res) => {
       return;
     }
 
-    // Fetch diagnostico to inherit customerId
+    // Fetch diagnostico to inherit customerId — scoped to the caller's loja
     const [diag] = await db
       .select({ customerId: diagnosticosTable.customerId, lojaId: diagnosticosTable.lojaId })
       .from(diagnosticosTable)
-      .where(eq(diagnosticosTable.id, diagnosticoId))
+      .where(and(eq(diagnosticosTable.id, diagnosticoId), eq(diagnosticosTable.lojaId, lojaId)))
       .limit(1);
 
     if (!diag) {
@@ -37,7 +38,7 @@ router.post("/outcomes", requireDono, async (req: AuthRequest, res) => {
       .values({
         diagnosticoId,
         customerId:      diag.customerId ?? undefined,
-        lojaId:          diag.lojaId ?? 1,
+        lojaId,
         vendeu:          vendeu ?? null,
         produto_vendido: produto_vendido ?? null,
         ticket:          ticket ? String(ticket) : null,
@@ -58,6 +59,7 @@ router.post("/outcomes", requireDono, async (req: AuthRequest, res) => {
  */
 router.patch("/outcomes/:id", requireDono, async (req: AuthRequest, res) => {
   try {
+    const lojaId = req.session!.lojaId;
     const id = parseInt(req.params.id as string, 10);
     const {
       satisfacao_30d, satisfacao_90d, satisfacao_180d, satisfacao_365d,
@@ -82,19 +84,22 @@ router.patch("/outcomes/:id", requireDono, async (req: AuthRequest, res) => {
     const [current] = await db
       .select()
       .from(sleepOutcomesTable)
-      .where(eq(sleepOutcomesTable.id, id))
+      .where(and(eq(sleepOutcomesTable.id, id), eq(sleepOutcomesTable.lojaId, lojaId)))
       .limit(1);
 
-    if (current) {
-      const merged = { ...current, ...updates };
-      const score = calcSleepSuccessScore(merged);
-      if (score !== null) updates.sleep_success_score = String(score);
+    if (!current) {
+      res.status(404).json({ error: "outcome not found" });
+      return;
     }
+
+    const merged = { ...current, ...updates };
+    const score = calcSleepSuccessScore(merged);
+    if (score !== null) updates.sleep_success_score = String(score);
 
     const [updated] = await db
       .update(sleepOutcomesTable)
       .set(updates)
-      .where(eq(sleepOutcomesTable.id, id))
+      .where(and(eq(sleepOutcomesTable.id, id), eq(sleepOutcomesTable.lojaId, lojaId)))
       .returning();
 
     res.json(updated);
@@ -110,11 +115,12 @@ router.patch("/outcomes/:id", requireDono, async (req: AuthRequest, res) => {
  */
 router.get("/outcomes/diagnostico/:diagnosticoId", requireDono, async (req: AuthRequest, res) => {
   try {
+    const lojaId = req.session!.lojaId;
     const diagnosticoId = parseInt(req.params.diagnosticoId as string, 10);
     const rows = await db
       .select()
       .from(sleepOutcomesTable)
-      .where(eq(sleepOutcomesTable.diagnosticoId, diagnosticoId));
+      .where(and(eq(sleepOutcomesTable.diagnosticoId, diagnosticoId), eq(sleepOutcomesTable.lojaId, lojaId)));
     res.json(rows);
   } catch (err) {
     console.error("[outcomes] fetch error:", err);
