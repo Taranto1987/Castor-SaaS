@@ -580,7 +580,7 @@ CREATE INDEX "chat_events_loja_created_idx" ON "chat_events" USING btree ("loja_
 CREATE INDEX "chat_events_session_idx" ON "chat_events" USING btree ("session_id");--> statement-breakpoint
 CREATE INDEX "colaboradores_loja_idx" ON "colaboradores" USING btree ("loja_id");--> statement-breakpoint
 CREATE INDEX "colaboradores_wa_raw_idx" ON "colaboradores" USING btree ("wa_raw") WHERE "colaboradores"."wa_raw" is not null;--> statement-breakpoint
-CREATE INDEX "despesas_recorrentes_loja_ativo_idx" ON "despesas_recorrentes" USING btree ("loja_id","ativo") WHERE "despesas_recorrentes"."ativo" = $1;--> statement-breakpoint
+CREATE INDEX "despesas_recorrentes_loja_ativo_idx" ON "despesas_recorrentes" USING btree ("loja_id","ativo") WHERE "despesas_recorrentes"."ativo" = true;--> statement-breakpoint
 CREATE INDEX "despesas_loja_data_idx" ON "despesas" USING btree ("loja_id","data");--> statement-breakpoint
 CREATE INDEX "follow_ups_orcamento_tipo_idx" ON "follow_ups" USING btree ("orcamento_id","tipo");--> statement-breakpoint
 CREATE INDEX "follow_ups_pendentes_idx" ON "follow_ups" USING btree ("executado_em") WHERE "follow_ups"."executado_em" is null;--> statement-breakpoint
