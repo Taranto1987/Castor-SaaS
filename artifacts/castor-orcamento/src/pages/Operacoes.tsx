@@ -54,8 +54,8 @@ function acaoTone(acao: string | null) {
 }
 
 function StatCard({
-  icon: Icon, label, value, tone,
-}: { icon: typeof Radar; label: string; value: string | number; tone: string }) {
+  icon: Icon, label, value, tone, sub,
+}: { icon: typeof Radar; label: string; value: string | number; tone: string; sub?: string }) {
   return (
     <div className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-4">
       <div className="flex items-center gap-2 text-slate-500 dark:text-slate-400">
@@ -65,8 +65,34 @@ function StatCard({
         <span className="text-xs font-semibold">{label}</span>
       </div>
       <p className="mt-2 text-2xl font-extrabold text-slate-900 dark:text-slate-50">{value}</p>
+      {sub && <p className="text-[10px] font-medium text-slate-400 dark:text-slate-500 uppercase tracking-wide">{sub}</p>}
     </div>
   );
+}
+
+const STATUS_LABEL: Record<string, string> = {
+  NOVO: "Novo", ORCAMENTO_ENVIADO: "Orçamento enviado", AGUARDANDO_RESPOSTA: "Aguardando resposta",
+  NEGOCIANDO: "Negociando", QUENTE: "Quente", CRITICO: "Crítico",
+  INTERVENCAO_HUMANA: "Intervenção humana", GANHO: "Ganho", PERDIDO: "Perdido", REATIVACAO: "Reativação",
+};
+
+function temperatura(score: number): string {
+  if (score >= 90) return "Crítico";
+  if (score >= 70) return "Quente";
+  if (score >= 40) return "Morno";
+  return "Frio";
+}
+
+function formatPhone(wa: string | null): string | null {
+  if (!wa) return null;
+  const d = wa.replace(/\D/g, "").replace(/^55/, "");
+  if (d.length < 10) return wa;
+  return `(${d.slice(0, 2)}) ${d.slice(2, 7)}-${d.slice(7, 11)}`;
+}
+
+function formatDia(iso: string | null): string | null {
+  if (!iso) return null;
+  return new Date(iso).toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit" });
 }
 
 function ActionCard({ o }: { o: Opportunity }) {
@@ -74,22 +100,39 @@ function ActionCard({ o }: { o: Opportunity }) {
   const waHref = digits ? `https://wa.me/${digits}` : undefined;
   const telHref = digits ? `tel:+${digits}` : undefined;
 
+  const fone = formatPhone(o.whatsapp);
+  const ultimo = formatDia(o.criadoEm);
+  const motivo = o.diasSemResposta >= 7
+    ? `${o.diasSemResposta} dias sem resposta`
+    : o.score >= 70 ? "Lead quente" : "Orçamento em aberto";
+
   return (
     <div className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-4 flex flex-col gap-3">
       <div className="flex items-start justify-between gap-3">
-        <div className="min-w-0">
-          <p className="font-bold text-slate-900 dark:text-slate-50 truncate">{o.cliente}</p>
-          <p className="text-sm text-slate-500 dark:text-slate-400">
+        <div className="min-w-0 space-y-1">
+          <div className="flex items-center gap-2 flex-wrap">
+            <p className="font-bold text-slate-900 dark:text-slate-50 truncate">{o.cliente}</p>
+            <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300">
+              {STATUS_LABEL[o.status] ?? o.status}
+            </span>
+          </div>
+          {fone && <p className="text-xs text-green-600 dark:text-green-400 flex items-center gap-1"><Phone className="w-3 h-3" />{fone}</p>}
+          <p className="text-sm font-bold text-emerald-600 dark:text-emerald-400">
             {o.valorBrl ?? BRL(o.valorNumerico)}
-            {o.diasSemResposta > 0 && <> · {o.diasSemResposta} dias sem resposta</>}
+            <span className="font-normal text-slate-400"> · {o.closingProbability}% fechamento</span>
           </p>
-          <p className={`text-xs font-semibold mt-1 ${acaoTone(o.proximaAcao)}`}>
-            {o.proximaAcao ?? "—"}
+          <p className="text-xs text-slate-400 dark:text-slate-500">
+            {ultimo && <>Último contato: {ultimo} · </>}{motivo}
+            {o.responsavel && <> · {o.responsavel}</>}
+          </p>
+          <p className={`text-xs font-semibold ${acaoTone(o.proximaAcao)}`}>
+            Próxima ação: {o.proximaAcao ?? "—"}
           </p>
         </div>
-        <span className={`shrink-0 grid place-items-center w-12 h-12 rounded-xl font-extrabold ${scoreTone(o.score)}`}>
-          {o.score}
-        </span>
+        <div className={`shrink-0 grid place-items-center w-14 h-14 rounded-xl ${scoreTone(o.score)}`}>
+          <span className="text-lg font-extrabold leading-none">{o.score}</span>
+          <span className="text-[8px] font-bold uppercase tracking-wide opacity-80">{temperatura(o.score)}</span>
+        </div>
       </div>
       <div className="flex items-center gap-2">
         <a
@@ -159,13 +202,13 @@ export default function Operacoes() {
         <>
           {/* Widgets */}
           <section className="grid grid-cols-2 lg:grid-cols-3 gap-3">
-            <StatCard icon={TrendingUp} label="Pipeline Total" value={data.resumo.pipelineTotal} tone="bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300" />
-            <StatCard icon={TrendingUp} label="Receita Prevista" value={BRL(data.resumo.receitaPrevista)} tone="bg-emerald-100 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-400" />
-            <StatCard icon={Flame} label="Leads Críticos" value={data.resumo.leadsCriticos} tone="bg-red-100 text-red-700 dark:bg-red-950 dark:text-red-400" />
-            <StatCard icon={CalendarClock} label="Follow-ups Hoje" value={data.resumo.followupsHoje} tone="bg-blue-100 text-blue-700 dark:bg-blue-950 dark:text-blue-400" />
-            <StatCard icon={Truck} label="Entregas Pendentes" value={data.resumo.entregasPendentes} tone="bg-indigo-100 text-indigo-700 dark:bg-indigo-950 dark:text-indigo-400" />
-            <StatCard icon={PackageX} label="Produtos Sem Estoque" value={data.resumo.produtosSemEstoque} tone="bg-amber-100 text-amber-700 dark:bg-amber-950 dark:text-amber-400" />
-            <StatCard icon={Percent} label="Margens Críticas" value={data.resumo.margensCriticas} tone="bg-rose-100 text-rose-700 dark:bg-rose-950 dark:text-rose-400" />
+            <StatCard icon={TrendingUp} label="Pipeline Total" value={data.resumo.pipelineTotal} sub="em aberto" tone="bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300" />
+            <StatCard icon={TrendingUp} label="Receita Prevista" value={BRL(data.resumo.receitaPrevista)} sub="pipeline aberto" tone="bg-emerald-100 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-400" />
+            <StatCard icon={Flame} label="Leads Críticos" value={data.resumo.leadsCriticos} sub="score ≥ 90" tone="bg-red-100 text-red-700 dark:bg-red-950 dark:text-red-400" />
+            <StatCard icon={CalendarClock} label="Follow-ups Hoje" value={data.resumo.followupsHoje} sub="vencendo hoje" tone="bg-blue-100 text-blue-700 dark:bg-blue-950 dark:text-blue-400" />
+            <StatCard icon={Truck} label="Entregas Pendentes" value={data.resumo.entregasPendentes} sub="a entregar" tone="bg-indigo-100 text-indigo-700 dark:bg-indigo-950 dark:text-indigo-400" />
+            <StatCard icon={PackageX} label="Produtos Sem Estoque" value={data.resumo.produtosSemEstoque} sub="agora" tone="bg-amber-100 text-amber-700 dark:bg-amber-950 dark:text-amber-400" />
+            <StatCard icon={Percent} label="Margens Críticas" value={data.resumo.margensCriticas} sub="margem < 20%" tone="bg-rose-100 text-rose-700 dark:bg-rose-950 dark:text-rose-400" />
           </section>
 
           {/* Ação Agora */}
