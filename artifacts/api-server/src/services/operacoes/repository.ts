@@ -2,6 +2,7 @@ import { db } from "@workspace/db";
 import {
   salesOpportunitiesTable,
   leadScoresTable,
+  leadsTable,
   entregasTable,
   produtosTable,
   followUpsTable,
@@ -29,6 +30,63 @@ function deriveProximaAcao(score: number, status: string): string {
 }
 
 const TERMINAL = ["GANHO", "PERDIDO"];
+
+/**
+ * Ingestão comercial unificada — garante 1 lead (CRM) por cliente (customer_profile),
+ * sem duplicar. É o que mantém COCA e CRM com a MESMA fonte de verdade: qualquer ponto
+ * de entrada (orçamento, diagnóstico, chat) deve resolver o customer_profile e chamar isto.
+ * Best-effort: nunca lança. Retorna o leadId quando possível.
+ */
+export async function ensureLeadForCustomer(params: {
+  lojaId: number;
+  customerId: number;
+  nome: string;
+  whatsapp?: string | null;
+  vendedor?: string | null;
+  origem?: string;
+  estagioMinimo?: string;
+}): Promise<number | null> {
+  const { lojaId, customerId, nome, whatsapp, vendedor, origem = "orcamento", estagioMinimo } = params;
+  try {
+    const now = new Date();
+    const [existing] = await db
+      .select({ id: leadsTable.id, estagio: leadsTable.estagio })
+      .from(leadsTable)
+      .where(and(eq(leadsTable.lojaId, lojaId), eq(leadsTable.customerProfileId, customerId)))
+      .limit(1);
+
+    if (existing) {
+      // Avança o estágio só pra frente (nunca regride um lead já em negociação/ganho)
+      const ordem = ["novo", "contato", "proposta", "negociacao", "ganho", "perdido"];
+      const atual = ordem.indexOf(existing.estagio);
+      const alvo = estagioMinimo ? ordem.indexOf(estagioMinimo) : -1;
+      const estagio = alvo > atual ? estagioMinimo! : existing.estagio;
+      await db
+        .update(leadsTable)
+        .set({ nome, whatsapp: whatsapp ?? null, estagio, ultimoContato: now, atualizadoEm: now })
+        .where(eq(leadsTable.id, existing.id));
+      return existing.id;
+    }
+
+    const [created] = await db
+      .insert(leadsTable)
+      .values({
+        lojaId,
+        customerProfileId: customerId,
+        nome,
+        whatsapp: whatsapp ?? null,
+        origem,
+        estagio: estagioMinimo ?? "novo",
+        vendedorAtribuido: vendedor ?? null,
+        ultimoContato: now,
+      })
+      .returning({ id: leadsTable.id });
+    return created?.id ?? null;
+  } catch (err) {
+    console.error("[operacoes] ensureLeadForCustomer failed:", err);
+    return null;
+  }
+}
 
 export interface OrcamentoForOpportunity {
   id: number;
@@ -73,6 +131,20 @@ export async function ensureOpportunityForOrcamento(orc: OrcamentoForOpportunity
       }
     }
 
+    // Ingestão unificada: garante o lead (CRM) ligado ao mesmo cliente → COCA e CRM em sincronia
+    let leadId: number | null = null;
+    if (customerId) {
+      leadId = await ensureLeadForCustomer({
+        lojaId,
+        customerId,
+        nome: orc.cliente,
+        whatsapp: orc.whatsapp ?? null,
+        vendedor: orc.vendedor ?? null,
+        origem: "orcamento",
+        estagioMinimo: "proposta", // um orçamento enviado = lead em proposta
+      });
+    }
+
     const valorNumerico = parseBRL(orc.totalPix ?? orc.totalPrazo);
     const now = new Date();
     const proximoContato = new Date(now.getTime() + 2 * 24 * 60 * 60 * 1000); // D+2
@@ -84,6 +156,7 @@ export async function ensureOpportunityForOrcamento(orc: OrcamentoForOpportunity
         lojaId,
         orcamentoId: orc.id,
         customerId,
+        leadId,
         cliente: orc.cliente,
         whatsapp: orc.whatsapp ?? null,
         status,
@@ -101,6 +174,7 @@ export async function ensureOpportunityForOrcamento(orc: OrcamentoForOpportunity
         target: [salesOpportunitiesTable.lojaId, salesOpportunitiesTable.orcamentoId],
         set: {
           customerId,
+          leadId,
           score,
           closingProbability,
           valorNumerico,
@@ -126,10 +200,19 @@ export async function ensureOpportunityForOrcamento(orc: OrcamentoForOpportunity
 export async function markOpportunityWon(orcamentoId: number, lojaId: number): Promise<void> {
   try {
     const now = new Date();
-    await db
+    const [opp] = await db
       .update(salesOpportunitiesTable)
       .set({ status: "GANHO", proximaAcao: "Concluído", atualizadoEm: now })
-      .where(and(eq(salesOpportunitiesTable.orcamentoId, orcamentoId), eq(salesOpportunitiesTable.lojaId, lojaId)));
+      .where(and(eq(salesOpportunitiesTable.orcamentoId, orcamentoId), eq(salesOpportunitiesTable.lojaId, lojaId)))
+      .returning({ leadId: salesOpportunitiesTable.leadId });
+
+    // Sincroniza o CRM: lead vinculado também vai para "ganho"
+    if (opp?.leadId) {
+      await db
+        .update(leadsTable)
+        .set({ estagio: "ganho", ultimoContato: now, atualizadoEm: now })
+        .where(and(eq(leadsTable.id, opp.leadId), eq(leadsTable.lojaId, lojaId)));
+    }
 
     await logEvent({
       lojaId,
