@@ -39,7 +39,7 @@ const TERMINAL = ["GANHO", "PERDIDO"];
  */
 export async function ensureLeadForCustomer(params: {
   lojaId: number;
-  customerId: number;
+  customerId: number | null;
   nome: string;
   whatsapp?: string | null;
   vendedor?: string | null;
@@ -47,12 +47,18 @@ export async function ensureLeadForCustomer(params: {
   estagioMinimo?: string;
 }): Promise<number | null> {
   const { lojaId, customerId, nome, whatsapp, vendedor, origem = "orcamento", estagioMinimo } = params;
+  // Precisa de ao menos UMA chave de dedup. NÃO depende de customerId — se a resolução
+  // do customer_profile falhar, o lead ainda é criado (dedup por whatsapp), pra o CRM nunca ficar vazio.
+  if (customerId == null && !whatsapp) return null;
   try {
     const now = new Date();
+    const dedup = customerId != null
+      ? eq(leadsTable.customerProfileId, customerId)
+      : eq(leadsTable.whatsapp, whatsapp!);
     const [existing] = await db
       .select({ id: leadsTable.id, estagio: leadsTable.estagio })
       .from(leadsTable)
-      .where(and(eq(leadsTable.lojaId, lojaId), eq(leadsTable.customerProfileId, customerId)))
+      .where(and(eq(leadsTable.lojaId, lojaId), dedup))
       .limit(1);
 
     if (existing) {
@@ -63,7 +69,14 @@ export async function ensureLeadForCustomer(params: {
       const estagio = alvo > atual ? estagioMinimo! : existing.estagio;
       await db
         .update(leadsTable)
-        .set({ nome, whatsapp: whatsapp ?? null, estagio, ultimoContato: now, atualizadoEm: now })
+        .set({
+          nome,
+          whatsapp: whatsapp ?? null,
+          ...(customerId != null ? { customerProfileId: customerId } : {}),
+          estagio,
+          ultimoContato: now,
+          atualizadoEm: now,
+        })
         .where(eq(leadsTable.id, existing.id));
       return existing.id;
     }
@@ -72,7 +85,7 @@ export async function ensureLeadForCustomer(params: {
       .insert(leadsTable)
       .values({
         lojaId,
-        customerProfileId: customerId,
+        customerProfileId: customerId ?? null,
         nome,
         whatsapp: whatsapp ?? null,
         origem,
@@ -112,7 +125,9 @@ export async function ensureOpportunityForOrcamento(orc: OrcamentoForOpportunity
     if (orc.whatsapp) {
       try {
         customerId = await resolveOrCreateCustomerByPhone(orc.whatsapp, orc.cliente ?? null, lojaId);
-      } catch {
+      } catch (err) {
+        // NÃO engolir silenciosamente — logar a causa real (ex.: schema de customer_profiles)
+        console.error("[operacoes] resolveOrCreateCustomerByPhone falhou:", err);
         customerId = null;
       }
     }
@@ -131,19 +146,17 @@ export async function ensureOpportunityForOrcamento(orc: OrcamentoForOpportunity
       }
     }
 
-    // Ingestão unificada: garante o lead (CRM) ligado ao mesmo cliente → COCA e CRM em sincronia
-    let leadId: number | null = null;
-    if (customerId) {
-      leadId = await ensureLeadForCustomer({
-        lojaId,
-        customerId,
-        nome: orc.cliente,
-        whatsapp: orc.whatsapp ?? null,
-        vendedor: orc.vendedor ?? null,
-        origem: "orcamento",
-        estagioMinimo: "proposta", // um orçamento enviado = lead em proposta
-      });
-    }
+    // Ingestão unificada: garante o lead (CRM) — SEMPRE, mesmo sem customerId (dedup por telefone).
+    // Assim o CRM nunca fica vazio por causa de uma falha na resolução do customer_profile.
+    const leadId = await ensureLeadForCustomer({
+      lojaId,
+      customerId,
+      nome: orc.cliente,
+      whatsapp: orc.whatsapp ?? null,
+      vendedor: orc.vendedor ?? null,
+      origem: "orcamento",
+      estagioMinimo: "proposta", // um orçamento enviado = lead em proposta
+    });
 
     const valorNumerico = parseBRL(orc.totalPix ?? orc.totalPrazo);
     const now = new Date();
