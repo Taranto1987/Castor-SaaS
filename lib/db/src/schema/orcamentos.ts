@@ -17,6 +17,10 @@ export const orcamentosTable = pgTable("orcamentos", {
   precoBaseTotal: text("preco_base_total"),   // soma dos preços cheios (formatted BRL)
   descontoAplicado: text("desconto_aplicado"), // valor total descontado (formatted BRL)
   criadoEm: timestamp("criado_em").defaultNow(),
+  // Data em que o orçamento foi efetivamente fechado como venda. Usada para
+  // atribuição correta no Financeiro — sem isso, vendas fechadas num mês posterior
+  // ao da criação do orçamento não aparecem no relatório do mês de fechamento.
+  vendidoEm: timestamp("vendido_em"),
 }, (t) => [
   index("orcamentos_loja_status_criado_idx").on(t.lojaId, t.status, t.criadoEm),
 ]);
