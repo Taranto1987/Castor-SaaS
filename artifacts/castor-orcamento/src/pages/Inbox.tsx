@@ -11,8 +11,6 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 
-const API_URL = import.meta.env.VITE_API_URL ?? "";
-
 function getAuthHeaders(): Record<string, string> {
   const raw = sessionStorage.getItem("castor_auth_user");
   if (!raw) return {};
@@ -166,7 +164,7 @@ export default function Inbox() {
     const token = JSON.parse(sessionStorage.getItem("castor_auth_user") ?? "{}")?.sessionToken;
     if (!token) return;
 
-    const es = new EventSource(`${API_URL}/api/inbox/stream?token=${token}`);
+    const es = new EventSource(`/api/inbox/stream?token=${token}`);
     es.onmessage = (e) => {
       try {
         const data = JSON.parse(e.data);
@@ -188,7 +186,7 @@ export default function Inbox() {
   const { data: conversasData, isLoading: loadingConversas } = useQuery({
     queryKey: ["inbox-conversas"],
     queryFn: async () => {
-      const res = await fetch(`${API_URL}/api/inbox/conversas`, { headers: getAuthHeaders() });
+      const res = await fetch(`/api/inbox/conversas`, { headers: getAuthHeaders() });
       if (!res.ok) throw new Error("Erro");
       return res.json() as Promise<{ conversas: Conversa[] }>;
     },
@@ -199,7 +197,7 @@ export default function Inbox() {
   const { data: mensagensData, isLoading: loadingMsgs } = useQuery({
     queryKey: ["inbox-mensagens", selectedPhone],
     queryFn: async () => {
-      const res = await fetch(`${API_URL}/api/inbox/conversas/${encodeURIComponent(selectedPhone!)}`, {
+      const res = await fetch(`/api/inbox/conversas/${encodeURIComponent(selectedPhone!)}`, {
         headers: getAuthHeaders(),
       });
       if (!res.ok) throw new Error("Erro");
@@ -217,7 +215,7 @@ export default function Inbox() {
 
   const enviar = useMutation({
     mutationFn: async () => {
-      const res = await fetch(`${API_URL}/api/inbox/conversas/${encodeURIComponent(selectedPhone!)}/enviar`, {
+      const res = await fetch(`/api/inbox/conversas/${encodeURIComponent(selectedPhone!)}/enviar`, {
         method: "POST",
         headers: { "Content-Type": "application/json", ...getAuthHeaders() },
         body: JSON.stringify({ texto: inputMsg }),
@@ -234,7 +232,7 @@ export default function Inbox() {
 
   const assumir = useMutation({
     mutationFn: async () => {
-      const res = await fetch(`${API_URL}/api/inbox/conversas/${encodeURIComponent(selectedPhone!)}/assumir`, {
+      const res = await fetch(`/api/inbox/conversas/${encodeURIComponent(selectedPhone!)}/assumir`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json", ...getAuthHeaders() },
       });
@@ -249,7 +247,7 @@ export default function Inbox() {
 
   const devolver = useMutation({
     mutationFn: async () => {
-      const res = await fetch(`${API_URL}/api/inbox/conversas/${encodeURIComponent(selectedPhone!)}/devolver`, {
+      const res = await fetch(`/api/inbox/conversas/${encodeURIComponent(selectedPhone!)}/devolver`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json", ...getAuthHeaders() },
       });

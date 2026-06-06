@@ -18,8 +18,6 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
-const API_URL = import.meta.env.VITE_API_URL ?? "";
-
 function getAuthHeaders(): Record<string, string> {
   const raw = sessionStorage.getItem("castor_auth_user");
   if (!raw) return {};
@@ -226,7 +224,7 @@ function NovoLeadModal({ open, onClose }: { open: boolean; onClose: () => void }
 
   const criar = useMutation({
     mutationFn: async () => {
-      const res = await fetch(`${API_URL}/api/leads`, {
+      const res = await fetch(`/api/leads`, {
         method: "POST",
         headers: { "Content-Type": "application/json", ...getAuthHeaders() },
         body: JSON.stringify({ nome, whatsapp, origem, vendedorAtribuido: user?.nome }),
@@ -296,7 +294,7 @@ function ClientesHistorico() {
   const { data: historico, isLoading, refetch } = useQuery<any[]>({
     queryKey: ["historico-orcamentos", user?.nome, user?.papel],
     queryFn: async () => {
-      const res = await fetch(`${API_URL}/api/orcamento/historico?${params}`);
+      const res = await fetch(`/api/orcamento/historico?${params}`);
       if (!res.ok) throw new Error("Erro");
       return res.json();
     },
@@ -397,7 +395,7 @@ export default function Clientes() {
   const { data, isLoading, refetch } = useQuery<{ leads: Lead[] }>({
     queryKey: ["leads"],
     queryFn: async () => {
-      const res = await fetch(`${API_URL}/api/leads`, { headers: getAuthHeaders() });
+      const res = await fetch(`/api/leads`, { headers: getAuthHeaders() });
       if (!res.ok) throw new Error("Erro ao carregar leads");
       return res.json();
     },
