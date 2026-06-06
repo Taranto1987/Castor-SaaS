@@ -1,0 +1,236 @@
+==========================================================================
+SOLUCAO COMPLETA E DEFINITIVA — CASTOR SAAS
+Data: 2026-06-06
+Repositorio: Taranto1987/Castor-SaaS
+Branch producao: main   |   Branch trabalho: claude/project-inventory-audit-tBV4V
+==========================================================================
+
+Este documento contem a SOLUCAO COMPLETA para os 3 problemas confirmados
+por evidencia (runtime Railway + codigo) mais a correcao estrutural que
+impede o problema #1 de voltar a acontecer.
+
+Cada problema tem: CAUSA RAIZ (com arquivo:linha) + SOLUCAO EXATA +
+ORDEM DE EXECUCAO + RISCO. Nada aqui depende de suposicao.
+
+==========================================================================
+INDICE
+==========================================================================
+  P1 [CRITICO]  coluna "vendido_em" ausente no banco -> quebra Financeiro
+                /DRE + fechamento de venda + scheduler_cycle_error
+  P2 [ALTO]     CRM (Pipeline/Lista de leads) vazio -> VITE_API_URL aponta
+                para host errado (404/CORS no navegador)
+  P3 [MEDIO]    Logistica 401 -> x-session-token faltando nas chamadas de
+                entregas (ja corrigido na branch fix/logistica-auth-401)
+  P4 [FUNDO]    reconcile.mjs nao aplica colunas novas -> causa raiz de P1
+  ORDEM GLOBAL DE EXECUCAO
+  CHECKLIST FINAL
+
+==========================================================================
+P1 [CRITICO] — coluna "vendido_em" ausente no banco de producao
+==========================================================================
+
+SINTOMA (logs Postgres producao, 2026-06-06):
+  ERROR: column "vendido_em" does not exist
+  STATEMENT: SELECT ... FROM "orcamentos" WHERE ... COALESCE("orcamentos"."vendido_em", ...)
+  Recorrente: 11:35:28, 17:27:36..42 (12x), 17:35:28
+  Consequencia: scheduler_cycle_error @ 2026-06-06T17:35:36
+
+CAUSA RAIZ (codigo em main):
+  - lib/db/src/schema/orcamentos.ts:23
+        vendidoEm: timestamp("vendido_em"),          <- coluna DECLARADA no schema
+  - artifacts/api-server/src/services/finance/repository.ts:127-128
+        sql`COALESCE(${orcamentosTable.vendidoEm}, ${orcamentosTable.criadoEm}) >= ${inicio}`
+        sql`COALESCE(${orcamentosTable.vendidoEm}, ${orcamentosTable.criadoEm}) <= ${fim}`
+  - artifacts/api-server/src/services/orcamento/repository.ts:99
+        .set({ status: "vendido", vendidoEm: new Date() })   <- fechamento de venda grava a coluna
+
+  POR QUE A COLUNA NAO EXISTE NO BANCO:
+  O pre-deploy roda `pnpm --filter @workspace/db run push` -> reconcile.mjs.
+  Log: "[reconcile] aplicados=0 ja_existiam=73 falhas=0".
+  O reconcile SO CRIA tabelas/indices que faltam. Ele NAO faz ALTER TABLE
+  para adicionar colunas novas em tabelas que ja existem. Quando vendido_em
+  foi adicionada ao schema, a tabela orcamentos ja existia -> reconcile pulou
+  -> a coluna nunca foi criada no Postgres. (Ver P4 para a correcao de fundo.)
+
+--------------------------------------------------------------------------
+SOLUCAO P1 — PASSO 1: CONFIRMAR (READ-ONLY, seguro) via agente Railway
+--------------------------------------------------------------------------
+Cole no agente Railway / psql (somente leitura):
+
+  -- (A) a coluna existe mesmo? (esperado: vendido_em AUSENTE)
+  SELECT column_name, data_type
+  FROM information_schema.columns
+  WHERE table_name = 'orcamentos'
+  ORDER BY ordinal_position;
+
+  -- (B) contagens reais (validacao geral de dados)
+  SELECT 'leads' t, count(*) FROM leads
+  UNION ALL SELECT 'sales_opportunities', count(*) FROM sales_opportunities
+  UNION ALL SELECT 'orcamentos', count(*) FROM orcamentos
+  UNION ALL SELECT 'entregas', count(*) FROM entregas
+  UNION ALL SELECT 'sessions', count(*) FROM sessions
+  UNION ALL SELECT 'lojas', count(*) FROM lojas;
+
+  -- (C) consistencia multi-tenant
+  SELECT loja_id, count(*) FROM leads GROUP BY loja_id;
+  SELECT loja_id, count(*) FROM orcamentos GROUP BY loja_id;
+
+  Criterio: se em (A) "vendido_em" NAO aparece -> causa raiz provada -> Passo 2.
+
+--------------------------------------------------------------------------
+SOLUCAO P1 — PASSO 2: CORRIGIR (apos confirmar) via agente Railway
+--------------------------------------------------------------------------
+Comando unico, aditivo, idempotente, reversivel:
+
+  ALTER TABLE orcamentos ADD COLUMN IF NOT EXISTS vendido_em timestamp;
+
+POR QUE E SEGURO (RISCO BAIXISSIMO):
+  - E exatamente o que o schema Drizzle declara: timestamp("vendido_em"),
+    nullable, sem default.
+  - Nullable -> nao quebra linhas existentes; o codigo ja faz
+    COALESCE(vendido_em, criado_em), entao registros antigos seguem
+    funcionando SEM backfill.
+  - IF NOT EXISTS -> idempotente; nao erra se ja existir.
+  - Nao dropa, nao recria, nao altera tipo -> zero risco de perda de dados.
+
+VERIFICACAO POS-FIX (read-only):
+  SELECT column_name FROM information_schema.columns
+  WHERE table_name='orcamentos' AND column_name='vendido_em';   -- deve retornar 1 linha
+
+  Depois: abrir Financeiro/DRE no app e confirmar que nao ha mais 500.
+  Conferir nos logs que scheduler_cycle_error parou de aparecer.
+
+ROLLBACK (se necessario, improvavel):
+  ALTER TABLE orcamentos DROP COLUMN IF EXISTS vendido_em;
+
+==========================================================================
+P2 [ALTO] — CRM (Pipeline/Lista de leads) vazio
+==========================================================================
+
+SINTOMA (DevTools navegador):
+  GET /api/leads -> host workspaceapi-server-production-69cc...
+  -> OPTIONS 404 -> navegador reporta erro de CORS -> lista de leads vazia.
+
+CAUSA RAIZ:
+  O backend que SERVE /api/leads e o api-server (servico Railway evolution-api
+  = https://evolution-api-production-405f.up.railway.app):
+    - artifacts/api-server/src/routes/leads.ts  (router.get("/leads", requireAuth, ...))
+    - artifacts/api-server/src/routes/index.ts:55  router.use("/leads", leadsRouter)
+  Mas o frontend chama outro host porque VITE_API_URL (embutida no build Vite
+  na Vercel) aponta para o host errado. Lido em:
+    - artifacts/castor-orcamento/src/pages/Clientes.tsx:21
+    - artifacts/castor-orcamento/src/pages/Inbox.tsx:14
+    - artifacts/castor-orcamento/src/pages/ClienteDetalhe.tsx:19
+  (.env.example:48 documenta o valor correto.)
+
+  O "CORS" e SINTOMA, nao causa: app.ts:21-24 usa ALLOWED_ORIGINS; como essa
+  var esta AUSENTE no runtime, o cors LIBERA todas as origens. Ou seja, o
+  backend correto nao recusaria por CORS. O erro aparece porque o OPTIONS da
+  404 no host errado, e o navegador rotula como CORS.
+  >>> NAO e cache do React Query: houve requisicao real, host resolvido e erro.
+
+--------------------------------------------------------------------------
+SOLUCAO P2 — DUAS OPCOES (escolher 1; a "C" faz as duas e fecha de vez)
+--------------------------------------------------------------------------
+OPCAO A — RAPIDA (so painel Vercel, sem commit):
+  1. Vercel -> projeto castor-saa-s-castor-orcamento -> Settings -> Environment Variables
+  2. Definir:  VITE_API_URL = https://evolution-api-production-405f.up.railway.app
+     (ou REMOVER a variavel se o app usa proxy/same-origin)
+  3. Redeploy do frontend (build refaz o bake da env).
+  Limitacao: mantem a dependencia da env var nas 3 paginas.
+
+OPCAO B — DURAVEL (codigo, elimina a env var das 3 paginas):
+  Trocar chamadas absolutas por caminhos relativos /api/... (como o resto do
+  app, que passa pelo proxy do vercel.json). Em cada arquivo abaixo, remover o
+  prefixo ${API_URL} dos fetch e a const API_URL:
+    - artifacts/castor-orcamento/src/pages/Clientes.tsx
+    - artifacts/castor-orcamento/src/pages/ClienteDetalhe.tsx
+    - artifacts/castor-orcamento/src/pages/Inbox.tsx
+  Ex.: fetch(`${API_URL}/api/leads`)  ->  fetch(`/api/leads`)
+  Requer commit + PR + deploy de main.
+
+OPCAO C — RECOMENDADA (as duas): aplicar B (blinda o futuro) + ajustar/remover
+  a env var na Vercel (resolve imediato enquanto o deploy de B nao sai).
+
+RISCO: baixo. Nao toca backend nem banco. Pior caso = rebuild do frontend.
+
+==========================================================================
+P3 [MEDIO] — Logistica 401 (x-session-token faltando)
+==========================================================================
+
+CAUSA RAIZ: as chamadas a /api/entregas no frontend nao enviavam o header
+  x-session-token -> backend respondia 401.
+
+SOLUCAO: JA IMPLEMENTADA na branch fix/logistica-auth-401
+  Commit bd5db8b "fix(logistica): adiciona x-session-token nas chamadas a API de entregas".
+  ACAO: revisar e mergear o PR correspondente em main (deploy automatico de main
+  aplica em producao). Independente de P1 e P2.
+
+RISCO: baixo. Apenas adiciona header de auth ja esperado pelo backend.
+
+==========================================================================
+P4 [FUNDO] — reconcile.mjs nao aplica colunas novas (causa raiz de P1)
+==========================================================================
+
+PROBLEMA: lib/db/reconcile.mjs (pre-deploy `db push`) cria tabelas/indices
+  faltantes mas NAO adiciona colunas novas em tabelas existentes. Por isso
+  qualquer coluna adicionada ao schema Drizzle depois da tabela ja existir
+  (como vendido_em) nunca chega ao banco -> P1 se repete a cada coluna nova.
+
+SOLUCAO (escolher 1):
+  OPCAO 1 (minima, mantem o fluxo atual) — fazer o reconcile detectar colunas
+    do schema ausentes no banco e aplicar:
+      ALTER TABLE <tabela> ADD COLUMN IF NOT EXISTS <col> <tipo>;
+    Comparar colunas do schema Drizzle vs information_schema.columns e gerar os
+    ALTERs idempotentes. Log: "[reconcile] colunas adicionadas=N".
+
+  OPCAO 2 (trocar o motor) — usar `drizzle-kit push` real no pre-deploy, que ja
+    faz diff de colunas automaticamente, no lugar do reconcile.mjs custom.
+    Avaliar antes se o drizzle-kit push nao tenta operacoes destrutivas no
+    schema atual (rodar com --verbose em staging/local primeiro).
+
+RECOMENDACAO: Opcao 1 (menor risco, mantem o comportamento conhecido).
+  Entregar como PR draft na branch de trabalho, sem tocar producao ate revisao.
+
+ENTREGA: PR draft em claude/project-inventory-audit-tBV4V. Nao faz deploy
+  (so main deploya). Validar local com `pnpm --filter @workspace/db run push`.
+
+==========================================================================
+ORDEM GLOBAL DE EXECUCAO (recomendada)
+==========================================================================
+  1. P1 Passo 1 (read-only) no agente Railway -> confirmar vendido_em ausente
+     e coletar contagens/multi-tenant.
+  2. P1 Passo 2 (ALTER) no agente Railway -> producao volta a fechar venda e
+     abrir Financeiro/DRE. [autorizacao explicita necessaria]
+  3. P4 Opcao 1 -> PR draft do fix estrutural do reconcile (impede recaida).
+     Mergear em main quando revisado.
+  4. P2 Opcao C -> ajustar VITE_API_URL na Vercel (imediato) + PR do fix
+     relativo nas 3 paginas. CRM passa a listar leads.
+  5. P3 -> mergear PR da Logistica (fix/logistica-auth-401) em main.
+
+  Observacao: P1 e producao-critico e independe dos demais. P2/P3/P4 podem
+  seguir em paralelo via PR.
+
+==========================================================================
+CHECKLIST FINAL
+==========================================================================
+  [ ] P1 confirmado por SELECT information_schema (vendido_em ausente)
+  [ ] P1 corrigido: ALTER TABLE orcamentos ADD COLUMN IF NOT EXISTS vendido_em timestamp;
+  [ ] P1 verificado: Financeiro/DRE sem 500; scheduler_cycle_error cessou
+  [ ] P4 PR draft do reconcile aberto e revisado
+  [ ] P2 VITE_API_URL ajustada na Vercel + redeploy frontend
+  [ ] P2 PR do fix relativo (Clientes/ClienteDetalhe/Inbox) mergeado
+  [ ] P2 verificado: GET /api/leads 200 no host correto; CRM lista leads
+  [ ] P3 PR Logistica mergeado; GET/POST/PATCH /api/entregas 200
+
+==========================================================================
+NOTAS DE SEGURANCA / GOVERNANCA
+==========================================================================
+  - Nenhuma mudanca de producao foi aplicada na geracao deste documento.
+  - Schema change (P1 ALTER) exige confirmacao read-only antes (regra CLAUDE.md)
+    e autorizacao explicita (regra CFO projeto unico diligent-endurance).
+  - Deploy automatico SO via branch main. Feature branches nao deployam.
+  - ALTER de P1 e aditivo/nullable/idempotente -> reversivel via DROP COLUMN.
+==========================================================================
+FIM
+==========================================================================
