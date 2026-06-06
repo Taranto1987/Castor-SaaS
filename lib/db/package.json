@@ -10,7 +10,10 @@
   "scripts": {
     "generate": "drizzle-kit generate --config ./drizzle.config.ts",
     "migrate": "drizzle-kit migrate --config ./drizzle.config.ts",
-    "push": "drizzle-kit push --config ./drizzle.config.ts",
+    "push": "node reconcile.mjs",
+    "push:generate": "drizzle-kit generate --name reconcile --config ./drizzle.config.ts && cp migrations/0000_reconcile.sql reconcile.sql && rm -rf migrations",
+    "push:drizzle": "drizzle-kit push --force --config ./drizzle.config.ts",
+    "push-interactive": "drizzle-kit push --config ./drizzle.config.ts",
     "push-force": "drizzle-kit push --force --config ./drizzle.config.ts"
   },
   "dependencies": {

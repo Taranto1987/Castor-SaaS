@@ -401,6 +401,10 @@ export default function Clientes() {
       if (!res.ok) throw new Error("Erro ao carregar leads");
       return res.json();
     },
+    // Config global tem refetchOnMount:false — força busca fresca ao abrir o CRM,
+    // senão a tela serve cache vazio (carregado antes dos leads existirem) pra sempre.
+    refetchOnMount: "always",
+    staleTime: 0,
   });
 
   const leads = data?.leads ?? [];

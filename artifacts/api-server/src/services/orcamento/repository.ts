@@ -96,7 +96,7 @@ export async function fecharVendaTransaction(id: number, orc: {
   }
 
   return db.transaction(async (tx) => {
-    await tx.update(orcamentosTable).set({ status: "vendido" }).where(eq(orcamentosTable.id, id));
+    await tx.update(orcamentosTable).set({ status: "vendido", vendidoEm: new Date() }).where(eq(orcamentosTable.id, id));
 
     if (qtdPorId.size > 0) {
       const prods = await tx.select().from(produtosTable).where(inArray(produtosTable.id, [...qtdPorId.keys()]));

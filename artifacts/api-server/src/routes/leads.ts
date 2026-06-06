@@ -1,6 +1,6 @@
 import { Router } from "express";
-import { db, leadsTable, leadInteracoesTable, leadTarefasTable, leadScoresTable, relationalCapsulesTable, diagnosticosTable } from "@workspace/db";
-import { eq, and, desc, sql } from "drizzle-orm";
+import { db, leadsTable, leadInteracoesTable, leadTarefasTable, leadScoresTable, relationalCapsulesTable, diagnosticosTable, salesOpportunitiesTable } from "@workspace/db";
+import { eq, and, desc, sql, ne } from "drizzle-orm";
 import { requireAuth, type AuthRequest } from "../middlewares/auth";
 import { logEvent } from "../lib/log-event";
 
@@ -219,6 +219,29 @@ router.patch("/leads/:id", requireAuth, async (req: AuthRequest, res) => {
       .set(updates)
       .where(and(eq(leadsTable.id, id), eq(leadsTable.lojaId, lojaId)))
       .returning();
+
+    // Sync salesOpportunity status when lead reaches terminal stage
+    if ("estagio" in req.body && req.body.estagio !== existing.estagio) {
+      const novoEstagio = req.body.estagio as string;
+      if (novoEstagio === "ganho" || novoEstagio === "perdido") {
+        const oppStatus = novoEstagio === "ganho" ? "GANHO" : "PERDIDO";
+        try {
+          await db
+            .update(salesOpportunitiesTable)
+            .set({ status: oppStatus, proximaAcao: "Concluído", atualizadoEm: new Date() })
+            .where(
+              and(
+                eq(salesOpportunitiesTable.leadId, id),
+                eq(salesOpportunitiesTable.lojaId, lojaId),
+                ne(salesOpportunitiesTable.status, "GANHO"),
+                ne(salesOpportunitiesTable.status, "PERDIDO"),
+              )
+            );
+        } catch (syncErr) {
+          console.error("[Leads] PATCH: falha ao sincronizar opportunity:", syncErr);
+        }
+      }
+    }
 
     res.json({ lead });
   } catch (err) {

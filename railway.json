@@ -5,7 +5,8 @@
     "SERVICO": "evolution-api — serviço de produção (NÃO duplicar)",
     "URL": "https://evolution-api-production-405f.up.railway.app",
     "REGRA_CFO": "É PROIBIDO criar novos projetos, ambientes ou serviços Railway fora deste projeto",
-    "DEPLOY": "Deploy automático APENAS via branch main — feature branches NÃO fazem deploy"
+    "DEPLOY": "Deploy automático APENAS via branch main — feature branches NÃO fazem deploy",
+    "RELEASE_COMMAND": "O comando real de pre-deploy está no PAINEL do serviço (preDeployCommand = 'pnpm --filter @workspace/db push') e SOBREPÕE este arquivo. O script 'push' executa o reconciliador idempotente (node reconcile.mjs). Mantido aqui apenas por consistência documental."
   },
   "build": {
     "builder": "DOCKERFILE"
