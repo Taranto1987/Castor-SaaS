@@ -16,8 +16,6 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Skeleton } from "@/components/ui/skeleton";
 import { Link } from "wouter";
 
-const API_URL = import.meta.env.VITE_API_URL ?? "";
-
 function getAuthHeaders(): Record<string, string> {
   const raw = sessionStorage.getItem("castor_auth_user");
   if (!raw) return {};
@@ -76,7 +74,7 @@ export default function ClienteDetalhe() {
   const { data, isLoading } = useQuery({
     queryKey: ["lead", id],
     queryFn: async () => {
-      const res = await fetch(`${API_URL}/api/leads/${id}`, { headers: getAuthHeaders() });
+      const res = await fetch(`/api/leads/${id}`, { headers: getAuthHeaders() });
       if (!res.ok) throw new Error("Não encontrado");
       return res.json() as Promise<{
         lead: any;
@@ -91,7 +89,7 @@ export default function ClienteDetalhe() {
 
   const patchLead = useMutation({
     mutationFn: async (body: Record<string, unknown>) => {
-      const res = await fetch(`${API_URL}/api/leads/${id}`, {
+      const res = await fetch(`/api/leads/${id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json", ...getAuthHeaders() },
         body: JSON.stringify(body),
@@ -104,7 +102,7 @@ export default function ClienteDetalhe() {
 
   const addInteracao = useMutation({
     mutationFn: async () => {
-      const res = await fetch(`${API_URL}/api/leads/${id}/interacoes`, {
+      const res = await fetch(`/api/leads/${id}/interacoes`, {
         method: "POST",
         headers: { "Content-Type": "application/json", ...getAuthHeaders() },
         body: JSON.stringify({ tipo: tipoInteracao, conteudo: novaInteracao }),
