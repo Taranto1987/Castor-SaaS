@@ -296,7 +296,9 @@ function ClientesHistorico() {
   const { data: historico, isLoading, refetch } = useQuery<any[]>({
     queryKey: ["historico-orcamentos", user?.nome, user?.papel],
     queryFn: async () => {
-      const res = await fetch(`${API_URL}/api/orcamento/historico?${params}`);
+      const res = await fetch(`${API_URL}/api/orcamento/historico?${params}`, {
+        headers: getAuthHeaders(),
+      });
       if (!res.ok) throw new Error("Erro");
       return res.json();
     },
