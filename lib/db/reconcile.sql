@@ -597,4 +597,5 @@ CREATE INDEX "tool_executions_loja_created_idx" ON "tool_executions" USING btree
 CREATE INDEX "tool_executions_correlation_idx" ON "tool_executions" USING btree ("correlation_id") WHERE "tool_executions"."correlation_id" is not null;--> statement-breakpoint
 CREATE UNIQUE INDEX "uq_waha_msg" ON "mensagens_whatsapp" USING btree ("loja_id","waha_message_id");--> statement-breakpoint
 CREATE UNIQUE INDEX "sales_opp_loja_orcamento_uq" ON "sales_opportunities" USING btree ("loja_id","orcamento_id");--> statement-breakpoint
+ALTER TABLE "orcamentos" ADD COLUMN IF NOT EXISTS "vendido_em" timestamp;
 CREATE INDEX "sales_opp_loja_status_score_idx" ON "sales_opportunities" USING btree ("loja_id","status","score");
