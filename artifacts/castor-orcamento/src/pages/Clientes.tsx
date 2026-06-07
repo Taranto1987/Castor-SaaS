@@ -294,7 +294,7 @@ function ClientesHistorico() {
   if (user?.papel) params.set("papel", user.papel);
 
   const { data: historico, isLoading, refetch } = useQuery<any[]>({
-    queryKey: ["historico-orcamentos", user?.nome, user?.papel],
+    queryKey: ["historico-orcamentos", user?.sessionToken],
     queryFn: async () => {
       const res = await fetch(`${API_URL}/api/orcamento/historico?${params}`, {
         headers: getAuthHeaders(),
@@ -302,6 +302,8 @@ function ClientesHistorico() {
       if (!res.ok) throw new Error("Erro");
       return res.json();
     },
+    enabled: !!user?.sessionToken,
+    staleTime: 0,
   });
 
   const clientes = useMemo(() => {
@@ -396,16 +398,15 @@ export default function Clientes() {
   const [search, setSearch] = useState("");
   const [filterEstagio, setFilterEstagio] = useState("todos");
 
-  const { data, isLoading, refetch } = useQuery<{ leads: Lead[] }>({
-    queryKey: ["leads"],
+  const { data, isLoading, isError, refetch } = useQuery<{ leads: Lead[] }>({
+    // Inclui o token na key: nova query automaticamente ao trocar de sessão/login.
+    queryKey: ["leads", user?.sessionToken],
     queryFn: async () => {
       const res = await fetch(`${API_URL}/api/leads`, { headers: getAuthHeaders() });
-      if (!res.ok) throw new Error("Erro ao carregar leads");
+      if (!res.ok) throw new Error(`${res.status}`);
       return res.json();
     },
-    // Config global tem refetchOnMount:false — força busca fresca ao abrir o CRM,
-    // senão a tela serve cache vazio (carregado antes dos leads existirem) pra sempre.
-    refetchOnMount: "always",
+    enabled: !!user?.sessionToken,
     staleTime: 0,
   });
 
@@ -492,6 +493,14 @@ export default function Clientes() {
               <RefreshCw className="w-5 h-5 animate-spin" />
               Carregando pipeline...
             </div>
+          ) : isError ? (
+            <div className="flex flex-col items-center justify-center py-20 text-slate-400 gap-3">
+              <p className="text-sm font-medium text-red-500">Erro ao carregar leads. Tente novamente.</p>
+              <Button variant="outline" size="sm" onClick={() => refetch()}>
+                <RefreshCw className="w-3.5 h-3.5 mr-1.5" />
+                Tentar novamente
+              </Button>
+            </div>
           ) : (
             <PipelineBoard leads={filteredLeads} />
           )}
@@ -503,6 +512,11 @@ export default function Clientes() {
               <div className="flex items-center justify-center py-16 text-slate-400 gap-2">
                 <RefreshCw className="w-5 h-5 animate-spin" />
                 Carregando...
+              </div>
+            ) : isError ? (
+              <div className="text-center py-16 text-red-500">
+                <p className="text-sm font-medium">Erro ao carregar leads.</p>
+                <Button variant="outline" size="sm" className="mt-3" onClick={() => refetch()}>Tentar novamente</Button>
               </div>
             ) : filteredLeads.length === 0 ? (
               <div className="text-center py-16 text-slate-400 dark:text-slate-500">
