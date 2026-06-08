@@ -56,7 +56,23 @@ export async function searchProducts(params: {
   lojaId: number;
 }): Promise<ProductResult[]> {
   const { query, category, lojaId } = params;
-  const q = `%${query}%`;
+
+  // Split into individual terms so "casal médio" also matches products where
+  // "Casal" is in the size column and the model name doesn't contain that word.
+  const terms = query.trim().split(/\s+/).filter(t => t.length > 1);
+  const fullQ = `%${query}%`;
+
+  const searchConds = or(
+    ilike(produtosTable.nome, fullQ),
+    ilike(produtosTable.sku, fullQ),
+    ilike(produtosTable.size, fullQ),
+    ilike(produtosTable.familyName, fullQ),
+    ...terms.flatMap(t => [
+      ilike(produtosTable.nome, `%${t}%`),
+      ilike(produtosTable.size, `%${t}%`),
+      ilike(produtosTable.familyName, `%${t}%`),
+    ]),
+  );
 
   const rows = await db
     .select()
@@ -65,7 +81,7 @@ export async function searchProducts(params: {
       and(
         eq(produtosTable.disponivel, true),
         eq(produtosTable.lojaId, lojaId),
-        or(ilike(produtosTable.nome, q), ilike(produtosTable.sku ?? produtosTable.nome, q)),
+        searchConds,
         ...(category ? [eq(produtosTable.categoria, category)] : []),
       )
     )
