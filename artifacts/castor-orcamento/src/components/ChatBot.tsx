@@ -85,9 +85,20 @@ export default function ChatBot() {
     setMessages((prev) => [...prev, assistantMsg]);
 
     try {
-      const apiMessages = newMessages
-        .filter((m) => m.content)
-        .map((m) => ({ role: m.role, content: m.content }));
+      // Build a properly alternating conversation — if a previous response was empty
+      // (failed silently), merging consecutive user messages avoids Anthropic 400 errors.
+      const apiMessages: { role: "user" | "assistant"; content: string }[] = [];
+      for (const m of newMessages.filter((m) => m.content)) {
+        if (
+          apiMessages.length > 0 &&
+          apiMessages[apiMessages.length - 1].role === "user" &&
+          m.role === "user"
+        ) {
+          apiMessages[apiMessages.length - 1].content += "\n" + m.content;
+        } else {
+          apiMessages.push({ role: m.role, content: m.content });
+        }
+      }
 
       const response = await fetch("/api/chat", {
         method: "POST",
@@ -95,7 +106,7 @@ export default function ChatBot() {
         body: JSON.stringify({ messages: apiMessages, anonymousId, sessionId }),
       });
 
-      if (!response.ok) throw new Error("Chat request failed");
+      if (!response.ok) throw new Error(`Chat request failed: ${response.status}`);
 
       const reader = response.body?.getReader();
       const decoder = new TextDecoder();
@@ -131,16 +142,25 @@ export default function ChatBot() {
                 fullContent = "Desculpe, tive um problema técnico. Tente novamente ou fale direto no WhatsApp!";
                 setMessages((prev) => {
                   const updated = [...prev];
-                  updated[updated.length - 1] = {
-                    role: "assistant",
-                    content: fullContent,
-                  };
+                  updated[updated.length - 1] = { role: "assistant", content: fullContent };
                   return updated;
                 });
               }
             } catch {}
           }
         }
+      }
+
+      // Stream ended with no content — backend crash or silent network drop
+      if (!fullContent) {
+        setMessages((prev) => {
+          const updated = [...prev];
+          updated[updated.length - 1] = {
+            role: "assistant",
+            content: "Desculpe, estou com dificuldades técnicas no momento. Fale direto com a gente no WhatsApp! 📱",
+          };
+          return updated;
+        });
       }
     } catch {
       setMessages((prev) => {
