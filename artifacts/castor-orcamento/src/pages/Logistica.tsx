@@ -449,10 +449,14 @@ export default function Logistica() {
   if (user?.nome) entregaParams.set("vendedor", user.nome);
   if (user?.papel) entregaParams.set("papel", user.papel);
 
+  const token = user?.sessionToken ?? "";
+
   const { data: entregas = [], isLoading, refetch } = useQuery<Entrega[]>({
     queryKey: ["entregas", user?.nome, user?.papel],
     queryFn: async () => {
-      const res = await fetch(`/api/entregas?${entregaParams.toString()}`);
+      const res = await fetch(`/api/entregas?${entregaParams.toString()}`, {
+        headers: { "x-session-token": token },
+      });
       if (!res.ok) throw new Error("Erro ao carregar entregas");
       return res.json();
     },
@@ -463,7 +467,7 @@ export default function Logistica() {
     mutationFn: async ({ id, status }: { id: number; status: string }) => {
       const res = await fetch(`/api/entregas/${id}/status`, {
         method: "PATCH",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", "x-session-token": token },
         body: JSON.stringify({ status }),
       });
       if (!res.ok) throw new Error("Erro ao atualizar status");
@@ -484,7 +488,7 @@ export default function Logistica() {
     mutationFn: async (data: Partial<Entrega>) => {
       const res = await fetch("/api/entregas", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", "x-session-token": token },
         body: JSON.stringify(data),
       });
       if (!res.ok) throw new Error("Erro ao criar entrega");

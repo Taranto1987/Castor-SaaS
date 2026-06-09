@@ -176,7 +176,9 @@ export default function Dashboard() {
   const { data, isLoading, refetch } = useQuery<DashboardData>({
     queryKey: ["dashboard", user?.nome, user?.papel],
     queryFn: async () => {
-      const res = await fetch(`/api/dashboard?${dashParams.toString()}`);
+      const res = await fetch(`/api/dashboard?${dashParams.toString()}`, {
+        headers: { "x-session-token": user?.sessionToken ?? "" },
+      });
       if (!res.ok) throw new Error("Erro ao carregar dashboard");
       return res.json();
     },

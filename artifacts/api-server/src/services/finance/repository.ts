@@ -7,7 +7,7 @@ import {
   orcamentosTable,
   produtosTable,
 } from "@workspace/db/schema";
-import { desc, eq, and, gte, lte } from "drizzle-orm";
+import { desc, eq, and, gte, lte, sql } from "drizzle-orm";
 
 export async function findDespesas(inicio: Date, fim: Date, categoria?: string, lojaId = 1) {
   const conditions = [
@@ -117,8 +117,16 @@ export async function upsertComissaoConfig(vendedor: string, percentual: string,
 }
 
 export async function findVendasPeriodo(inicio: Date, fim: Date, lojaId = 1) {
+  // Use vendidoEm (sale close date) when available, fall back to criadoEm for older records.
+  // This ensures sales closed in a different month than their orçamento creation date
+  // are correctly attributed to the month they were actually closed.
   return db.select().from(orcamentosTable).where(
-    and(eq(orcamentosTable.lojaId, lojaId), eq(orcamentosTable.status, "vendido"), gte(orcamentosTable.criadoEm, inicio), lte(orcamentosTable.criadoEm, fim))
+    and(
+      eq(orcamentosTable.lojaId, lojaId),
+      eq(orcamentosTable.status, "vendido"),
+      sql`COALESCE(${orcamentosTable.vendidoEm}, ${orcamentosTable.criadoEm}) >= ${inicio}`,
+      sql`COALESCE(${orcamentosTable.vendidoEm}, ${orcamentosTable.criadoEm}) <= ${fim}`,
+    )
   );
 }
 
