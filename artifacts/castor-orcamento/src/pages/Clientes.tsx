@@ -888,6 +888,7 @@ export default function Clientes() {
     },
     enabled: !!user?.sessionToken,
     staleTime: 0,
+    refetchOnMount: true,
   });
 
   const leads = data?.leads ?? [];
