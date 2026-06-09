@@ -1,8 +1,9 @@
 import { Router } from "express";
 import { db, leadsTable, leadInteracoesTable, leadTarefasTable, leadScoresTable, relationalCapsulesTable, diagnosticosTable, salesOpportunitiesTable } from "@workspace/db";
-import { eq, and, desc, sql, ne } from "drizzle-orm";
+import { eq, and, desc, sql, ne, inArray } from "drizzle-orm";
 import { requireAuth, type AuthRequest } from "../middlewares/auth";
 import { logEvent } from "../lib/log-event";
+import { isDono } from "../lib/sessions";
 
 const router = Router();
 
@@ -173,6 +174,54 @@ router.post("/leads", requireAuth, async (req: AuthRequest, res) => {
   }
 });
 
+// POST /leads/reset — arquivar todos os leads ativos (dono/admin only, soft delete)
+router.post("/leads/reset", requireAuth, async (req: AuthRequest, res) => {
+  try {
+    const session = req.session!;
+    if (!isDono(session)) {
+      res.status(403).json({ error: "Apenas dono/admin pode resetar o CRM" });
+      return;
+    }
+    const lojaId = session.lojaId;
+    const ESTAGIOS_ATIVOS = ["novo", "contato", "proposta", "negociacao"];
+
+    const arquivados = await db
+      .update(leadsTable)
+      .set({ estagio: "arquivado", atualizadoEm: new Date() })
+      .where(and(
+        eq(leadsTable.lojaId, lojaId),
+        inArray(leadsTable.estagio, ESTAGIOS_ATIVOS),
+      ))
+      .returning({ id: leadsTable.id });
+
+    if (arquivados.length > 0) {
+      await db.insert(leadInteracoesTable).values(
+        arquivados.map(({ id }) => ({
+          leadId: id,
+          lojaId,
+          tipo: "nota" as const,
+          conteudo: `Lead arquivado no reset do CRM por ${session.nome}`,
+          autorNome: session.nome,
+          autorId: String(session.userId),
+        }))
+      );
+    }
+
+    logEvent({
+      lojaId,
+      entidade: "lead",
+      acao: "crm.reset",
+      atorTipo: "usuario",
+      payload: { arquivados: arquivados.length, por: session.nome },
+    });
+
+    res.json({ arquivados: arquivados.length });
+  } catch (err) {
+    console.error("[Leads] POST /leads/reset error:", err);
+    res.status(500).json({ error: "Erro ao resetar CRM" });
+  }
+});
+
 // PATCH /leads/:id — atualizar lead
 router.patch("/leads/:id", requireAuth, async (req: AuthRequest, res) => {
   try {
@@ -189,6 +238,15 @@ router.patch("/leads/:id", requireAuth, async (req: AuthRequest, res) => {
       return;
     }
 
+    // Cancelamento requer motivo obrigatório
+    if ("estagio" in req.body && req.body.estagio === "cancelado" && existing.estagio !== "cancelado") {
+      const motivo = String(req.body.motivo ?? "").trim();
+      if (!motivo) {
+        res.status(400).json({ error: "Motivo é obrigatório para cancelar um lead" });
+        return;
+      }
+    }
+
     const allowed = [
       "nome", "whatsapp", "email", "estagio", "origem", "tags",
       "observacoes", "vendedorAtribuido", "perfilBiomecanico",
@@ -201,17 +259,22 @@ router.patch("/leads/:id", requireAuth, async (req: AuthRequest, res) => {
 
     // Registrar mudança de estágio como interação
     if ("estagio" in req.body && req.body.estagio !== existing.estagio) {
+      const novoEstagio = req.body.estagio as string;
+      let conteudo = `Estágio alterado: ${existing.estagio} → ${novoEstagio}`;
+      if (novoEstagio === "cancelado" && req.body.motivo) {
+        conteudo += `. Motivo: ${String(req.body.motivo).trim()}`;
+      }
       await db.insert(leadInteracoesTable).values({
         leadId: id,
         lojaId,
         tipo: "nota",
-        conteudo: `Estágio alterado: ${existing.estagio} → ${req.body.estagio}`,
+        conteudo,
         autorNome: req.session!.nome,
       });
       updates.ultimoContato = new Date();
       logEvent({ lojaId, entidade: "lead", entidadeId: String(id),
                  acao: "lead.stage_changed", atorTipo: "usuario",
-                 payload: { de: existing.estagio, para: req.body.estagio } });
+                 payload: { de: existing.estagio, para: novoEstagio } });
     }
 
     const [lead] = await db

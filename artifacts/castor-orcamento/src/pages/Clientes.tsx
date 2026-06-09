@@ -4,7 +4,7 @@ import {
   Users, Phone, ShoppingBag, Calendar, TrendingUp, RefreshCw,
   MessageCircle, CheckCircle2, Clock, Plus, BarChart2, List,
   Flame, Thermometer, Snowflake, ArrowRight, Search, Filter,
-  LayoutGrid,
+  LayoutGrid, Edit2, XCircle, Archive, AlertTriangle,
 } from "lucide-react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Link } from "wouter";
@@ -17,6 +17,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import type { AuthUser } from "@/contexts/AuthContext";
 
 const API_URL = import.meta.env.VITE_API_URL ?? "";
 
@@ -26,6 +27,10 @@ function getAuthHeaders(): Record<string, string> {
   const user = JSON.parse(raw);
   if (user?.sessionToken) return { "x-session-token": user.sessionToken };
   return {};
+}
+
+function userIsDono(user: AuthUser | null): boolean {
+  return user?.papel === "dono" || user?.papel === "ADMIN" || user?.papel === "GERENTE";
 }
 
 // ── Types ────────────────────────────────────────────────────────────────────
@@ -46,13 +51,17 @@ interface Lead {
 }
 
 const ESTAGIOS = [
-  { key: "novo",        label: "Novo",         color: "bg-slate-100 text-slate-700 border-slate-200"  },
-  { key: "contato",     label: "Contato",       color: "bg-blue-100 text-blue-700 border-blue-200"    },
-  { key: "proposta",    label: "Proposta",      color: "bg-violet-100 text-violet-700 border-violet-200" },
-  { key: "negociacao",  label: "Negociação",    color: "bg-amber-100 text-amber-700 border-amber-200" },
-  { key: "ganho",       label: "Ganho",         color: "bg-emerald-100 text-emerald-700 border-emerald-200" },
-  { key: "perdido",     label: "Perdido",       color: "bg-red-100 text-red-600 border-red-200"       },
+  { key: "novo",       label: "Novo",       color: "bg-slate-100 text-slate-700 border-slate-200"    },
+  { key: "contato",    label: "Contato",    color: "bg-blue-100 text-blue-700 border-blue-200"       },
+  { key: "proposta",   label: "Proposta",   color: "bg-violet-100 text-violet-700 border-violet-200" },
+  { key: "negociacao", label: "Negociação", color: "bg-amber-100 text-amber-700 border-amber-200"    },
+  { key: "ganho",      label: "Ganho",      color: "bg-emerald-100 text-emerald-700 border-emerald-200" },
+  { key: "perdido",    label: "Perdido",    color: "bg-red-100 text-red-600 border-red-200"           },
+  { key: "arquivado",  label: "Arquivado",  color: "bg-slate-100 text-slate-500 border-slate-300"    },
+  { key: "cancelado",  label: "Cancelado",  color: "bg-orange-100 text-orange-600 border-orange-200" },
 ] as const;
+
+const PIPELINE_STAGES = ["novo", "contato", "proposta", "negociacao", "ganho"];
 
 function scoreIcon(score: number) {
   if (score >= 70) return <Flame className="w-3.5 h-3.5 text-red-500" />;
@@ -80,13 +89,22 @@ function formatBRL(val: number) {
   return val.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
 }
 
-// ── Lead Card (Kanban) ───────────────────────────────────────────────────────
+// ── Lead Card (Kanban) ────────────────────────────────────────────────────────
 
-function LeadCard({ lead }: { lead: Lead }) {
+function LeadCard({
+  lead,
+  onEdit,
+  onCancel,
+}: {
+  lead: Lead;
+  onEdit?: (lead: Lead) => void;
+  onCancel?: (lead: Lead) => void;
+}) {
   const score = lead.pontuacao ?? 0;
   const sl = scoreLabel(score);
   const dias = diasDesde(lead.ultimoContato);
-  const estagio = ESTAGIOS.find((e) => e.key === lead.estagio);
+
+  const isTerminal = ["ganho", "perdido", "arquivado", "cancelado"].includes(lead.estagio);
 
   return (
     <Link href={`/equipe/clientes/${lead.id}`}>
@@ -97,10 +115,34 @@ function LeadCard({ lead }: { lead: Lead }) {
       >
         <div className="flex items-start justify-between gap-2">
           <span className="font-semibold text-slate-900 dark:text-slate-100 text-sm leading-tight">{lead.nome}</span>
-          <Badge variant="outline" className={cn("text-[10px] shrink-0 flex items-center gap-1", sl.color)}>
-            {scoreIcon(score)}
-            {score > 0 && <span>{Math.round(score)}</span>}
-          </Badge>
+          <div className="flex items-center gap-1 shrink-0">
+            <Badge variant="outline" className={cn("text-[10px] flex items-center gap-1", sl.color)}>
+              {scoreIcon(score)}
+              {score > 0 && <span>{Math.round(score)}</span>}
+            </Badge>
+            {(onEdit || onCancel) && (
+              <div className="hidden group-hover:flex items-center gap-0.5">
+                {onEdit && (
+                  <button
+                    onClick={(e) => { e.preventDefault(); e.stopPropagation(); onEdit(lead); }}
+                    className="p-1 rounded hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-400 hover:text-slate-600 transition-colors"
+                    title="Editar lead"
+                  >
+                    <Edit2 className="w-3 h-3" />
+                  </button>
+                )}
+                {onCancel && !isTerminal && (
+                  <button
+                    onClick={(e) => { e.preventDefault(); e.stopPropagation(); onCancel(lead); }}
+                    className="p-1 rounded hover:bg-red-50 dark:hover:bg-red-900/20 text-slate-400 hover:text-red-500 transition-colors"
+                    title="Cancelar lead"
+                  >
+                    <XCircle className="w-3 h-3" />
+                  </button>
+                )}
+              </div>
+            )}
+          </div>
         </div>
         {lead.whatsapp && (
           <p className="text-xs text-green-600 dark:text-green-400 mt-1 flex items-center gap-1">
@@ -128,10 +170,18 @@ function LeadCard({ lead }: { lead: Lead }) {
   );
 }
 
-// ── Pipeline Board ───────────────────────────────────────────────────────────
+// ── Pipeline Board ────────────────────────────────────────────────────────────
 
-function PipelineBoard({ leads }: { leads: Lead[] }) {
-  const colunas = ESTAGIOS.filter((e) => e.key !== "perdido");
+function PipelineBoard({
+  leads,
+  onEdit,
+  onCancel,
+}: {
+  leads: Lead[];
+  onEdit: (lead: Lead) => void;
+  onCancel: (lead: Lead) => void;
+}) {
+  const colunas = ESTAGIOS.filter((e) => PIPELINE_STAGES.includes(e.key as string));
   const perdidos = leads.filter((l) => l.estagio === "perdido");
 
   return (
@@ -147,7 +197,7 @@ function PipelineBoard({ leads }: { leads: Lead[] }) {
               </div>
               <div className="space-y-2">
                 {itens.map((lead) => (
-                  <LeadCard key={lead.id} lead={lead} />
+                  <LeadCard key={lead.id} lead={lead} onEdit={onEdit} onCancel={onCancel} />
                 ))}
                 {itens.length === 0 && (
                   <div className="border-2 border-dashed border-slate-200 dark:border-slate-700 rounded-xl p-4 text-center text-xs text-slate-400 dark:text-slate-600">
@@ -167,7 +217,7 @@ function PipelineBoard({ leads }: { leads: Lead[] }) {
             </div>
             <div className="space-y-2">
               {perdidos.slice(0, 3).map((lead) => (
-                <LeadCard key={lead.id} lead={lead} />
+                <LeadCard key={lead.id} lead={lead} onEdit={onEdit} onCancel={onCancel} />
               ))}
               {perdidos.length > 3 && (
                 <p className="text-xs text-center text-slate-400 dark:text-slate-500">+{perdidos.length - 3} mais</p>
@@ -182,11 +232,20 @@ function PipelineBoard({ leads }: { leads: Lead[] }) {
 
 // ── Lista Row ─────────────────────────────────────────────────────────────────
 
-function LeadRow({ lead }: { lead: Lead }) {
+function LeadRow({
+  lead,
+  onEdit,
+  onCancel,
+}: {
+  lead: Lead;
+  onEdit?: (lead: Lead) => void;
+  onCancel?: (lead: Lead) => void;
+}) {
   const score = lead.pontuacao ?? 0;
   const sl = scoreLabel(score);
   const estagio = ESTAGIOS.find((e) => e.key === lead.estagio);
   const dias = diasDesde(lead.ultimoContato);
+  const isTerminal = ["ganho", "perdido", "arquivado", "cancelado"].includes(lead.estagio);
 
   return (
     <Link href={`/equipe/clientes/${lead.id}`}>
@@ -209,6 +268,27 @@ function LeadRow({ lead }: { lead: Lead }) {
         <span className="text-xs text-slate-400 dark:text-slate-500 shrink-0 w-20 text-right">
           {dias === 0 ? "hoje" : `${dias}d`}
         </span>
+        {/* Action buttons — appear on hover, stop propagation */}
+        <div className="hidden group-hover:flex items-center gap-1 shrink-0">
+          {onEdit && (
+            <button
+              onClick={(e) => { e.preventDefault(); e.stopPropagation(); onEdit(lead); }}
+              className="p-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-400 hover:text-slate-600 transition-colors"
+              title="Editar"
+            >
+              <Edit2 className="w-3.5 h-3.5" />
+            </button>
+          )}
+          {onCancel && !isTerminal && (
+            <button
+              onClick={(e) => { e.preventDefault(); e.stopPropagation(); onCancel(lead); }}
+              className="p-1.5 rounded-lg hover:bg-red-50 dark:hover:bg-red-900/20 text-slate-400 hover:text-red-500 transition-colors"
+              title="Cancelar"
+            >
+              <XCircle className="w-3.5 h-3.5" />
+            </button>
+          )}
+        </div>
         <ArrowRight className="w-4 h-4 text-slate-300 dark:text-slate-600 group-hover:text-slate-500 transition-colors shrink-0" />
       </div>
     </Link>
@@ -278,6 +358,257 @@ function NovoLeadModal({ open, onClose }: { open: boolean; onClose: () => void }
             onClick={() => criar.mutate()}
           >
             {criar.isPending ? "Criando..." : "Criar lead"}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+// ── Editar Lead Modal ─────────────────────────────────────────────────────────
+
+function EditarLeadModal({ lead, onClose }: { lead: Lead; onClose: () => void }) {
+  const qc = useQueryClient();
+  const [nome, setNome] = useState(lead.nome);
+  const [whatsapp, setWhatsapp] = useState(lead.whatsapp ?? "");
+  const [origem, setOrigem] = useState(lead.origem ?? "loja");
+  const [estagio, setEstagio] = useState(lead.estagio);
+  const [observacoes, setObservacoes] = useState(lead.observacoes ?? "");
+  const [tagsRaw, setTagsRaw] = useState((lead.tags as string[]).join(", "));
+
+  const salvar = useMutation({
+    mutationFn: async () => {
+      const tags = tagsRaw.split(",").map((t) => t.trim()).filter(Boolean);
+      const res = await fetch(`${API_URL}/api/leads/${lead.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json", ...getAuthHeaders() },
+        body: JSON.stringify({ nome: nome.trim(), whatsapp: whatsapp.trim() || null, origem, estagio, observacoes: observacoes.trim() || null, tags }),
+      });
+      if (!res.ok) throw new Error("Erro ao salvar");
+      return res.json();
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["leads"] });
+      onClose();
+    },
+  });
+
+  const EDIT_ESTAGIOS = ESTAGIOS.filter((e) => e.key !== "cancelado");
+
+  return (
+    <Dialog open onOpenChange={(v) => !v && onClose()}>
+      <DialogContent className="max-w-md">
+        <DialogHeader>
+          <DialogTitle>Editar Lead</DialogTitle>
+        </DialogHeader>
+        <div className="space-y-4 py-2">
+          <div className="space-y-1.5">
+            <Label>Nome *</Label>
+            <Input value={nome} onChange={(e) => setNome(e.target.value)} />
+          </div>
+          <div className="space-y-1.5">
+            <Label>WhatsApp</Label>
+            <Input value={whatsapp} onChange={(e) => setWhatsapp(e.target.value)} placeholder="(22) 99999-9999" />
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-1.5">
+              <Label>Origem</Label>
+              <Select value={origem} onValueChange={setOrigem}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="loja">Loja física</SelectItem>
+                  <SelectItem value="chat">Chat</SelectItem>
+                  <SelectItem value="indicacao">Indicação</SelectItem>
+                  <SelectItem value="instagram">Instagram</SelectItem>
+                  <SelectItem value="google">Google</SelectItem>
+                  <SelectItem value="whatsapp_direto">WhatsApp</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-1.5">
+              <Label>Estágio</Label>
+              <Select value={estagio} onValueChange={setEstagio}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  {EDIT_ESTAGIOS.map((e) => (
+                    <SelectItem key={e.key} value={e.key}>{e.label}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+          <div className="space-y-1.5">
+            <Label>Tags (separadas por vírgula)</Label>
+            <Input value={tagsRaw} onChange={(e) => setTagsRaw(e.target.value)} placeholder="interesse, urgente, retorno..." />
+          </div>
+          <div className="space-y-1.5">
+            <Label>Observações</Label>
+            <textarea
+              className="flex min-h-[72px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 resize-none"
+              value={observacoes}
+              onChange={(e) => setObservacoes(e.target.value)}
+              placeholder="Notas sobre o cliente..."
+              rows={3}
+            />
+          </div>
+        </div>
+        <DialogFooter>
+          <Button variant="outline" onClick={onClose}>Cancelar</Button>
+          <Button
+            disabled={!nome.trim() || salvar.isPending}
+            onClick={() => salvar.mutate()}
+          >
+            {salvar.isPending ? "Salvando..." : "Salvar"}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+// ── Cancelar Lead Modal ───────────────────────────────────────────────────────
+
+function CancelarLeadModal({ lead, onClose }: { lead: Lead; onClose: () => void }) {
+  const qc = useQueryClient();
+  const [motivo, setMotivo] = useState("");
+
+  const cancelar = useMutation({
+    mutationFn: async () => {
+      const res = await fetch(`${API_URL}/api/leads/${lead.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json", ...getAuthHeaders() },
+        body: JSON.stringify({ estagio: "cancelado", motivo: motivo.trim() }),
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.error ?? "Erro ao cancelar");
+      }
+      return res.json();
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["leads"] });
+      onClose();
+    },
+  });
+
+  return (
+    <Dialog open onOpenChange={(v) => !v && onClose()}>
+      <DialogContent className="max-w-sm">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2 text-orange-600">
+            <XCircle className="w-5 h-5" />
+            Cancelar Lead
+          </DialogTitle>
+        </DialogHeader>
+        <div className="py-2 space-y-3">
+          <p className="text-sm text-slate-600 dark:text-slate-400">
+            Cancelar <strong>{lead.nome}</strong>? O lead será mantido no histórico com status "Cancelado".
+          </p>
+          <div className="space-y-1.5">
+            <Label>Motivo *</Label>
+            <textarea
+              className="flex min-h-[72px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 resize-none"
+              value={motivo}
+              onChange={(e) => setMotivo(e.target.value)}
+              placeholder="Ex: Cliente comprou de concorrente, desistiu, sem contato..."
+              rows={3}
+              autoFocus
+            />
+          </div>
+          {cancelar.isError && (
+            <p className="text-xs text-red-500">{(cancelar.error as Error).message}</p>
+          )}
+        </div>
+        <DialogFooter>
+          <Button variant="outline" onClick={onClose}>Voltar</Button>
+          <Button
+            variant="destructive"
+            disabled={!motivo.trim() || cancelar.isPending}
+            onClick={() => cancelar.mutate()}
+          >
+            {cancelar.isPending ? "Cancelando..." : "Confirmar cancelamento"}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+// ── Resetar CRM Modal ─────────────────────────────────────────────────────────
+
+function ResetarCRMModal({
+  activeCount,
+  onClose,
+}: {
+  activeCount: number;
+  onClose: () => void;
+}) {
+  const qc = useQueryClient();
+  const [confirm, setConfirm] = useState("");
+
+  const resetar = useMutation({
+    mutationFn: async () => {
+      const res = await fetch(`${API_URL}/api/leads/reset`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", ...getAuthHeaders() },
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.error ?? "Erro ao resetar");
+      }
+      return res.json() as Promise<{ arquivados: number }>;
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["leads"] });
+      onClose();
+    },
+  });
+
+  const confirmado = confirm.trim().toUpperCase() === "RESETAR";
+
+  return (
+    <Dialog open onOpenChange={(v) => !v && onClose()}>
+      <DialogContent className="max-w-sm">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2 text-amber-600">
+            <AlertTriangle className="w-5 h-5" />
+            Resetar CRM
+          </DialogTitle>
+        </DialogHeader>
+        <div className="py-2 space-y-4">
+          <p className="text-sm text-slate-600 dark:text-slate-400">
+            Isso irá arquivar <strong>{activeCount} lead{activeCount !== 1 ? "s" : ""}</strong> em estágio ativo
+            (Novo, Contato, Proposta, Negociação). Os leads ficam no histórico com status "Arquivado" — nenhum dado é apagado.
+          </p>
+          <div className="rounded-lg bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-700 px-3 py-2">
+            <p className="text-xs text-amber-700 dark:text-amber-400 flex items-start gap-1.5">
+              <Archive className="w-3.5 h-3.5 mt-0.5 shrink-0" />
+              Leads ganhos e perdidos não são afetados.
+            </p>
+          </div>
+          <div className="space-y-1.5">
+            <Label className="text-xs text-slate-500">
+              Digite <span className="font-mono font-bold text-slate-700 dark:text-slate-300">RESETAR</span> para confirmar
+            </Label>
+            <Input
+              value={confirm}
+              onChange={(e) => setConfirm(e.target.value)}
+              placeholder="RESETAR"
+              className="font-mono"
+            />
+          </div>
+          {resetar.isError && (
+            <p className="text-xs text-red-500">{(resetar.error as Error).message}</p>
+          )}
+        </div>
+        <DialogFooter>
+          <Button variant="outline" onClick={onClose}>Cancelar</Button>
+          <Button
+            variant="destructive"
+            disabled={!confirmado || resetar.isPending || activeCount === 0}
+            onClick={() => resetar.mutate()}
+          >
+            {resetar.isPending ? "Arquivando..." : `Arquivar ${activeCount} lead${activeCount !== 1 ? "s" : ""}`}
           </Button>
         </DialogFooter>
       </DialogContent>
@@ -395,11 +726,16 @@ function ClientesHistorico() {
 export default function Clientes() {
   const { user } = useAuth();
   const [novoModal, setNovoModal] = useState(false);
+  const [editLead, setEditLead] = useState<Lead | null>(null);
+  const [cancelLead, setCancelLead] = useState<Lead | null>(null);
+  const [showResetModal, setShowResetModal] = useState(false);
+  const [showArchived, setShowArchived] = useState(false);
   const [search, setSearch] = useState("");
   const [filterEstagio, setFilterEstagio] = useState("todos");
 
+  const isDono = userIsDono(user);
+
   const { data, isLoading, isError, refetch } = useQuery<{ leads: Lead[] }>({
-    // Inclui o token na key: nova query automaticamente ao trocar de sessão/login.
     queryKey: ["leads", user?.sessionToken],
     queryFn: async () => {
       const res = await fetch(`${API_URL}/api/leads`, { headers: getAuthHeaders() });
@@ -412,13 +748,38 @@ export default function Clientes() {
 
   const leads = data?.leads ?? [];
 
-  const filteredLeads = useMemo(() => {
+  const activeLeadsCount = leads.filter(
+    (l) => PIPELINE_STAGES.includes(l.estagio)
+  ).length;
+
+  const archivedCount = leads.filter(
+    (l) => l.estagio === "arquivado" || l.estagio === "cancelado"
+  ).length;
+
+  // Lista tab: excludes archived/cancelled unless showArchived is on or a specific stage filter is set
+  const listaLeads = useMemo(() => {
     let l = leads;
+    if (!showArchived && filterEstagio === "todos") {
+      l = l.filter((r) => r.estagio !== "arquivado" && r.estagio !== "cancelado");
+    }
     if (search) {
       const q = search.toLowerCase();
       l = l.filter((r) => r.nome.toLowerCase().includes(q) || (r.whatsapp ?? "").includes(q));
     }
     if (filterEstagio !== "todos") l = l.filter((r) => r.estagio === filterEstagio);
+    return l;
+  }, [leads, search, filterEstagio, showArchived]);
+
+  // Pipeline tab: only active stages, search/estagio filter applied on top
+  const pipelineLeads = useMemo(() => {
+    let l = leads;
+    if (search) {
+      const q = search.toLowerCase();
+      l = l.filter((r) => r.nome.toLowerCase().includes(q) || (r.whatsapp ?? "").includes(q));
+    }
+    if (filterEstagio !== "todos" && PIPELINE_STAGES.includes(filterEstagio)) {
+      l = l.filter((r) => r.estagio === filterEstagio);
+    }
     return l;
   }, [leads, search, filterEstagio]);
 
@@ -430,10 +791,22 @@ export default function Clientes() {
             CRM
           </h1>
           <p className="text-slate-500 dark:text-slate-400 mt-1 text-sm">
-            Pipeline de leads · {leads.length} total
+            {activeLeadsCount} lead{activeLeadsCount !== 1 ? "s" : ""} ativo{activeLeadsCount !== 1 ? "s" : ""}
+            {archivedCount > 0 && ` · ${archivedCount} arquivado${archivedCount !== 1 ? "s" : ""}`}
           </p>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 flex-wrap">
+          {isDono && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setShowResetModal(true)}
+              className="text-amber-600 border-amber-200 hover:bg-amber-50 dark:border-amber-700 dark:hover:bg-amber-900/20"
+            >
+              <Archive className="w-3.5 h-3.5 mr-1.5" />
+              Resetar CRM
+            </Button>
+          )}
           <Button variant="outline" size="sm" onClick={() => refetch()} disabled={isLoading}>
             <RefreshCw className={cn("w-3.5 h-3.5 mr-1.5", isLoading && "animate-spin")} />
             Atualizar
@@ -502,12 +875,29 @@ export default function Clientes() {
               </Button>
             </div>
           ) : (
-            <PipelineBoard leads={filteredLeads} />
+            <PipelineBoard
+              leads={pipelineLeads}
+              onEdit={setEditLead}
+              onCancel={setCancelLead}
+            />
           )}
         </TabsContent>
 
         <TabsContent value="lista">
           <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl overflow-hidden shadow-sm">
+            {/* Archived toggle */}
+            {archivedCount > 0 && filterEstagio === "todos" && (
+              <div className="flex items-center justify-between px-4 py-2 border-b border-slate-100 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/50">
+                <span className="text-xs text-slate-500">{archivedCount} lead{archivedCount !== 1 ? "s" : ""} arquivado{archivedCount !== 1 ? "s" : ""}</span>
+                <button
+                  onClick={() => setShowArchived((v) => !v)}
+                  className="text-xs text-slate-500 hover:text-slate-700 dark:hover:text-slate-300 flex items-center gap-1 transition-colors"
+                >
+                  <Archive className="w-3 h-3" />
+                  {showArchived ? "Ocultar arquivados" : "Mostrar arquivados"}
+                </button>
+              </div>
+            )}
             {isLoading ? (
               <div className="flex items-center justify-center py-16 text-slate-400 gap-2">
                 <RefreshCw className="w-5 h-5 animate-spin" />
@@ -518,7 +908,7 @@ export default function Clientes() {
                 <p className="text-sm font-medium">Erro ao carregar leads.</p>
                 <Button variant="outline" size="sm" className="mt-3" onClick={() => refetch()}>Tentar novamente</Button>
               </div>
-            ) : filteredLeads.length === 0 ? (
+            ) : listaLeads.length === 0 ? (
               <div className="text-center py-16 text-slate-400 dark:text-slate-500">
                 {leads.length === 0 ? (
                   <>
@@ -531,7 +921,14 @@ export default function Clientes() {
                 )}
               </div>
             ) : (
-              filteredLeads.map((lead) => <LeadRow key={lead.id} lead={lead} />)
+              listaLeads.map((lead) => (
+                <LeadRow
+                  key={lead.id}
+                  lead={lead}
+                  onEdit={setEditLead}
+                  onCancel={setCancelLead}
+                />
+              ))
             )}
           </div>
         </TabsContent>
@@ -542,6 +939,14 @@ export default function Clientes() {
       </Tabs>
 
       <NovoLeadModal open={novoModal} onClose={() => setNovoModal(false)} />
+      {editLead && <EditarLeadModal lead={editLead} onClose={() => setEditLead(null)} />}
+      {cancelLead && <CancelarLeadModal lead={cancelLead} onClose={() => setCancelLead(null)} />}
+      {showResetModal && (
+        <ResetarCRMModal
+          activeCount={activeLeadsCount}
+          onClose={() => setShowResetModal(false)}
+        />
+      )}
     </div>
   );
 }
