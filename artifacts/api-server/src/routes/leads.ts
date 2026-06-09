@@ -183,7 +183,11 @@ router.post("/leads/reset", requireAuth, async (req: AuthRequest, res) => {
       return;
     }
     const lojaId = session.lojaId;
-    const ESTAGIOS_ATIVOS = ["novo", "contato", "proposta", "negociacao"];
+    // tudo=true: inclui ganho e perdido (limpeza de dados de teste)
+    const tudo = req.body?.tudo === true;
+    const ESTAGIOS_ATIVOS = tudo
+      ? ["novo", "contato", "proposta", "negociacao", "ganho", "perdido"]
+      : ["novo", "contato", "proposta", "negociacao"];
 
     const arquivados = await db
       .update(leadsTable)
@@ -200,7 +204,9 @@ router.post("/leads/reset", requireAuth, async (req: AuthRequest, res) => {
           leadId: id,
           lojaId,
           tipo: "nota" as const,
-          conteudo: `Lead arquivado no reset do CRM por ${session.nome}`,
+          conteudo: tudo
+            ? `Lead arquivado na limpeza total do CRM por ${session.nome}`
+            : `Lead arquivado no reset do CRM por ${session.nome}`,
           autorNome: session.nome,
           autorId: String(session.userId),
         }))
@@ -210,9 +216,9 @@ router.post("/leads/reset", requireAuth, async (req: AuthRequest, res) => {
     logEvent({
       lojaId,
       entidade: "lead",
-      acao: "crm.reset",
+      acao: tudo ? "crm.limpeza_total" : "crm.reset",
       atorTipo: "usuario",
-      payload: { arquivados: arquivados.length, por: session.nome },
+      payload: { arquivados: arquivados.length, por: session.nome, tudo },
     });
 
     res.json({ arquivados: arquivados.length });
@@ -255,6 +261,33 @@ router.patch("/leads/:id", requireAuth, async (req: AuthRequest, res) => {
     const updates: Record<string, unknown> = { atualizadoEm: new Date() };
     for (const key of allowed) {
       if (key in req.body) updates[key] = req.body[key];
+    }
+
+    // Registrar campos editados como interação de auditoria
+    const FIELD_LABELS: Partial<Record<typeof allowed[number], string>> = {
+      nome: "Nome", whatsapp: "WhatsApp", email: "E-mail",
+      origem: "Origem", tags: "Tags", observacoes: "Observações",
+      vendedorAtribuido: "Vendedor", perfilBiomecanico: "Perfil biomecanico",
+    };
+    const editedFields: string[] = [];
+    for (const key of allowed) {
+      if (key === "estagio") continue;
+      if (key in req.body && JSON.stringify(req.body[key]) !== JSON.stringify(existing[key])) {
+        editedFields.push(FIELD_LABELS[key] ?? key);
+      }
+    }
+    if (editedFields.length > 0) {
+      await db.insert(leadInteracoesTable).values({
+        leadId: id,
+        lojaId,
+        tipo: "nota",
+        conteudo: `Lead editado por ${req.session!.nome}: ${editedFields.join(", ")} alterado${editedFields.length > 1 ? "s" : ""}`,
+        autorNome: req.session!.nome,
+        autorId: String(req.session!.userId),
+      });
+      logEvent({ lojaId, entidade: "lead", entidadeId: String(id),
+                 acao: "lead.edited", atorTipo: "usuario",
+                 payload: { campos: editedFields } });
     }
 
     // Registrar mudança de estágio como interação

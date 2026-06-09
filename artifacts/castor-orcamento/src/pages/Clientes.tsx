@@ -538,19 +538,26 @@ function CancelarLeadModal({ lead, onClose }: { lead: Lead; onClose: () => void 
 
 function ResetarCRMModal({
   activeCount,
+  totalResettableCount,
   onClose,
 }: {
   activeCount: number;
+  totalResettableCount: number;
   onClose: () => void;
 }) {
   const qc = useQueryClient();
   const [confirm, setConfirm] = useState("");
+  const [tudo, setTudo] = useState(false);
+
+  const count = tudo ? totalResettableCount : activeCount;
+  const PALAVRA = tudo ? "LIMPAR TUDO" : "RESETAR";
 
   const resetar = useMutation({
     mutationFn: async () => {
       const res = await fetch(`${API_URL}/api/leads/reset`, {
         method: "POST",
         headers: { "Content-Type": "application/json", ...getAuthHeaders() },
+        body: JSON.stringify({ tudo }),
       });
       if (!res.ok) {
         const err = await res.json().catch(() => ({}));
@@ -564,7 +571,7 @@ function ResetarCRMModal({
     },
   });
 
-  const confirmado = confirm.trim().toUpperCase() === "RESETAR";
+  const confirmado = confirm.trim().toUpperCase() === PALAVRA;
 
   return (
     <Dialog open onOpenChange={(v) => !v && onClose()}>
@@ -572,29 +579,52 @@ function ResetarCRMModal({
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2 text-amber-600">
             <AlertTriangle className="w-5 h-5" />
-            Resetar CRM
+            {tudo ? "Limpar CRM" : "Resetar CRM"}
           </DialogTitle>
         </DialogHeader>
         <div className="py-2 space-y-4">
-          <p className="text-sm text-slate-600 dark:text-slate-400">
-            Isso irá arquivar <strong>{activeCount} lead{activeCount !== 1 ? "s" : ""}</strong> em estágio ativo
-            (Novo, Contato, Proposta, Negociação). Os leads ficam no histórico com status "Arquivado" — nenhum dado é apagado.
-          </p>
-          <div className="rounded-lg bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-700 px-3 py-2">
-            <p className="text-xs text-amber-700 dark:text-amber-400 flex items-start gap-1.5">
-              <Archive className="w-3.5 h-3.5 mt-0.5 shrink-0" />
-              Leads ganhos e perdidos não são afetados.
+          {!tudo ? (
+            <p className="text-sm text-slate-600 dark:text-slate-400">
+              Arquiva <strong>{activeCount} lead{activeCount !== 1 ? "s" : ""}</strong> em estágio ativo
+              (Novo, Contato, Proposta, Negociação). Os leads ficam no histórico — nenhum dado é apagado.
             </p>
-          </div>
+          ) : (
+            <p className="text-sm text-slate-600 dark:text-slate-400">
+              Arquiva <strong>todos os {totalResettableCount} leads</strong> incluindo ganhos e perdidos. Use para limpar dados de teste antes de começar de verdade.
+            </p>
+          )}
+
+          {/* Toggle: incluir ganhos/perdidos */}
+          <button
+            type="button"
+            onClick={() => { setTudo((v) => !v); setConfirm(""); }}
+            className={cn(
+              "w-full flex items-center gap-3 px-3 py-2.5 rounded-lg border text-sm transition-colors text-left",
+              tudo
+                ? "border-red-300 bg-red-50 dark:bg-red-900/20 dark:border-red-700 text-red-700 dark:text-red-400"
+                : "border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800 text-slate-600 dark:text-slate-400"
+            )}
+          >
+            <Archive className="w-4 h-4 shrink-0" />
+            <span>
+              {tudo
+                ? "✓ Limpar tudo (incluindo ganhos e perdidos)"
+                : "Incluir ganhos e perdidos — limpar tudo"}
+            </span>
+          </button>
+
           <div className="space-y-1.5">
             <Label className="text-xs text-slate-500">
-              Digite <span className="font-mono font-bold text-slate-700 dark:text-slate-300">RESETAR</span> para confirmar
+              Digite{" "}
+              <span className="font-mono font-bold text-slate-700 dark:text-slate-300">{PALAVRA}</span>{" "}
+              para confirmar
             </Label>
             <Input
               value={confirm}
               onChange={(e) => setConfirm(e.target.value)}
-              placeholder="RESETAR"
+              placeholder={PALAVRA}
               className="font-mono"
+              autoFocus
             />
           </div>
           {resetar.isError && (
@@ -605,10 +635,12 @@ function ResetarCRMModal({
           <Button variant="outline" onClick={onClose}>Cancelar</Button>
           <Button
             variant="destructive"
-            disabled={!confirmado || resetar.isPending || activeCount === 0}
+            disabled={!confirmado || resetar.isPending || count === 0}
             onClick={() => resetar.mutate()}
           >
-            {resetar.isPending ? "Arquivando..." : `Arquivar ${activeCount} lead${activeCount !== 1 ? "s" : ""}`}
+            {resetar.isPending
+              ? "Arquivando..."
+              : `Arquivar ${count} lead${count !== 1 ? "s" : ""}`}
           </Button>
         </DialogFooter>
       </DialogContent>
@@ -754,6 +786,11 @@ export default function Clientes() {
 
   const archivedCount = leads.filter(
     (l) => l.estagio === "arquivado" || l.estagio === "cancelado"
+  ).length;
+
+  // Todos que podem ser arquivados (excluindo os que já estão)
+  const totalResettableCount = leads.filter(
+    (l) => l.estagio !== "arquivado" && l.estagio !== "cancelado"
   ).length;
 
   // Lista tab: excludes archived/cancelled unless showArchived is on or a specific stage filter is set
@@ -944,6 +981,7 @@ export default function Clientes() {
       {showResetModal && (
         <ResetarCRMModal
           activeCount={activeLeadsCount}
+          totalResettableCount={totalResettableCount}
           onClose={() => setShowResetModal(false)}
         />
       )}
