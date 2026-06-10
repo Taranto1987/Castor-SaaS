@@ -5,9 +5,10 @@ import {
   streamCastorEvents,
 } from "../lib/castor-agent";
 import { db, conversasWhatsappTable, mensagensWhatsappTable, lojasTable } from "@workspace/db";
-import { eq, and, sql } from "drizzle-orm";
+import { eq, and, sql, isNull } from "drizzle-orm";
 import { broadcastToLoja } from "./inbox";
 import { logEvent } from "../lib/log-event";
+import { resolveOrCreateCustomerByPhone } from "../services/memory/identity";
 
 const router = Router();
 
@@ -159,7 +160,24 @@ router.post("/webhook/waha", async (req: Request, res: Response) => {
     const lojaId = await resolveLojaByWahaPhone(payload.to as string | undefined);
 
     // ── Persiste mensagem inbound ────────────────────────────────────────────
-    await persistirMensagem(lojaId, numero, texto.trim(), "inbound", undefined, wahaMessageId);
+    const { conversa: conversaInbound } = await persistirMensagem(lojaId, numero, texto.trim(), "inbound", undefined, wahaMessageId);
+
+    // ── Resolução de identidade — liga conversa ao customer_profile ──────────
+    if (conversaInbound && !conversaInbound.customerId) {
+      try {
+        const customerId = await resolveOrCreateCustomerByPhone(numero, null, lojaId);
+        if (customerId) {
+          await db.update(conversasWhatsappTable)
+            .set({ customerId })
+            .where(and(
+              eq(conversasWhatsappTable.id, conversaInbound.id),
+              isNull(conversasWhatsappTable.customerId),
+            ));
+        }
+      } catch (idErr) {
+        console.error("[waha] identity resolution failed:", idErr);
+      }
+    }
 
     logEvent({
       lojaId,

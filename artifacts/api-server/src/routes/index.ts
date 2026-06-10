@@ -52,7 +52,7 @@ router.use(scoringRouter);
 router.use(catalogRouter);
 router.use(mcpRouter);
 router.use("/whatsapp", whatsappRouter);
-router.use("/leads", leadsRouter);
+router.use(leadsRouter);
 router.use(inboxRouter);
 router.use(operacoesRouter);
 

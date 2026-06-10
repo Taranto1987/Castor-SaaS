@@ -1,6 +1,6 @@
 import { Router } from "express";
-import { db, leadsTable, leadInteracoesTable, leadTarefasTable, leadScoresTable, relationalCapsulesTable, diagnosticosTable, salesOpportunitiesTable } from "@workspace/db";
-import { eq, and, desc, sql, ne, inArray, isNotNull } from "drizzle-orm";
+import { db, leadsTable, leadInteracoesTable, leadTarefasTable, leadScoresTable, relationalCapsulesTable, diagnosticosTable, salesOpportunitiesTable, orcamentosTable } from "@workspace/db";
+import { eq, and, desc, sql, ne, inArray, isNotNull, or } from "drizzle-orm";
 import { requireAuth, type AuthRequest } from "../middlewares/auth";
 import { logEvent } from "../lib/log-event";
 import { isDono } from "../lib/sessions";
@@ -68,10 +68,11 @@ router.get("/leads", requireAuth, async (req: AuthRequest, res) => {
       };
     });
 
+    res.set("Cache-Control", "no-store, no-cache, must-revalidate");
     res.json({ leads: enriched });
   } catch (err) {
     console.error("[Leads] GET /leads error:", err);
-    res.status(500).json({ error: "Erro ao carregar leads" });
+    res.status(500).set("Cache-Control", "no-store").json({ error: "Erro ao carregar leads" });
   }
 });
 
@@ -129,6 +130,26 @@ router.get("/leads/:id", requireAuth, async (req: AuthRequest, res) => {
         .orderBy(leadTarefasTable.prazo),
     ]);
 
+    // Orçamentos linked to this lead (by leadId or customerProfileId)
+    const orcConds = lead.customerProfileId
+      ? or(eq(orcamentosTable.leadId, id), eq(orcamentosTable.customerId, lead.customerProfileId))
+      : eq(orcamentosTable.leadId, id);
+    const orcamentos = await db
+      .select({
+        id: orcamentosTable.id,
+        cliente: orcamentosTable.cliente,
+        status: orcamentosTable.status,
+        totalPix: orcamentosTable.totalPix,
+        totalPrazo: orcamentosTable.totalPrazo,
+        vendedor: orcamentosTable.vendedor,
+        criadoEm: orcamentosTable.criadoEm,
+        vendidoEm: orcamentosTable.vendidoEm,
+      })
+      .from(orcamentosTable)
+      .where(and(eq(orcamentosTable.lojaId, lojaId), orcConds))
+      .orderBy(desc(orcamentosTable.criadoEm))
+      .limit(20);
+
     let score = null;
     let capsule = null;
     let diagnostico = null;
@@ -156,7 +177,7 @@ router.get("/leads/:id", requireAuth, async (req: AuthRequest, res) => {
       diagnostico = diagRow ?? null;
     }
 
-    res.json({ lead, interacoes, tarefas, score, capsule, diagnostico });
+    res.json({ lead, interacoes, tarefas, score, capsule, diagnostico, orcamentos });
   } catch (err) {
     console.error("[Leads] GET /:id error:", err);
     res.status(500).json({ error: "Erro ao carregar lead" });
@@ -292,6 +313,7 @@ router.patch("/leads/:id", requireAuth, async (req: AuthRequest, res) => {
     const allowed = [
       "nome", "whatsapp", "email", "estagio", "origem", "tags",
       "observacoes", "vendedorAtribuido", "perfilBiomecanico",
+      "motivoPerda", "motivoGanho",
     ] as const;
 
     const updates: Record<string, unknown> = { atualizadoEm: new Date() };
@@ -304,6 +326,7 @@ router.patch("/leads/:id", requireAuth, async (req: AuthRequest, res) => {
       nome: "Nome", whatsapp: "WhatsApp", email: "E-mail",
       origem: "Origem", tags: "Tags", observacoes: "Observações",
       vendedorAtribuido: "Vendedor", perfilBiomecanico: "Perfil biomecanico",
+      motivoPerda: "Motivo perda", motivoGanho: "Motivo ganho",
     };
     const editedFields: string[] = [];
     for (const key of allowed) {

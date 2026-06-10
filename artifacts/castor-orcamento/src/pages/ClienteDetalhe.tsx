@@ -6,7 +6,7 @@ import {
   ArrowLeft, Phone, Mail, User, Clock, MessageSquare, FileText,
   Plus, Flame, Thermometer, Snowflake, CheckCircle2, Circle,
   Brain, Stethoscope, ChevronDown, ChevronUp, Edit2, Check, X,
-  Moon, Sparkles, Target, Activity,
+  Moon, Sparkles, Target, Activity, ShoppingCart,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -56,6 +56,15 @@ function formatDate(iso?: string | null) {
   return new Date(iso).toLocaleString("pt-BR", { day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" });
 }
 
+function origemLabel(o: string): string {
+  const map: Record<string, string> = {
+    loja: "Loja", chat: "Chat", indicacao: "Indicação",
+    instagram: "Instagram", google: "Google", whatsapp_direto: "WhatsApp",
+    mapa_sono: "Mapa do Sono", orcamento: "Orçamento", diagnostico: "Diagnóstico",
+  };
+  return map[o] ?? o;
+}
+
 function tipoIcon(tipo: string) {
   const icons: Record<string, string> = {
     nota: "📝", ligacao: "📞", mensagem_wa: "💬", orcamento: "📋",
@@ -85,6 +94,7 @@ export default function ClienteDetalhe() {
         score: any;
         capsule: any;
         diagnostico: any;
+        orcamentos: any[];
       }>;
     },
   });
@@ -139,7 +149,7 @@ export default function ClienteDetalhe() {
     );
   }
 
-  const { lead, interacoes, tarefas, score, capsule, diagnostico } = data;
+  const { lead, interacoes, tarefas, score, capsule, diagnostico, orcamentos } = data;
   const estagio = ESTAGIOS.find((e) => e.key === lead.estagio) ?? ESTAGIOS[0];
   const scoreMeta = scoreLabel(score?.score ?? 0);
   const ScoreIcon = scoreMeta.icon;
@@ -242,7 +252,7 @@ export default function ClienteDetalhe() {
           {lead.origem && (
             <div>
               <p className="text-xs font-semibold text-slate-400 dark:text-slate-500 uppercase tracking-wide mb-1">Origem</p>
-              <span className="text-sm text-slate-600 dark:text-slate-400 capitalize">{lead.origem.replace("_", " ")}</span>
+              <span className="text-sm text-slate-600 dark:text-slate-400">{origemLabel(lead.origem)}</span>
             </div>
           )}
         </div>
@@ -382,6 +392,45 @@ export default function ClienteDetalhe() {
                   <p className={cn("text-sm", t.concluso ? "line-through text-slate-400" : "text-slate-700 dark:text-slate-300")}>{t.descricao}</p>
                   {t.prazo && <p className="text-xs text-slate-400 dark:text-slate-500">{formatDate(t.prazo)}</p>}
                 </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Orçamentos vinculados */}
+      {orcamentos && orcamentos.length > 0 && (
+        <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl overflow-hidden shadow-sm">
+          <div className="px-4 py-3 border-b border-slate-100 dark:border-slate-700 flex items-center gap-2">
+            <ShoppingCart className="w-4 h-4 text-slate-500" />
+            <h3 className="font-semibold text-slate-800 dark:text-slate-200 text-sm flex-1">Orçamentos</h3>
+            <span className="text-xs text-slate-400 dark:text-slate-500">{orcamentos.length}</span>
+          </div>
+          <div className="divide-y divide-slate-100 dark:divide-slate-700">
+            {orcamentos.map((o: any) => (
+              <div key={o.id} className="flex items-center gap-3 px-4 py-3">
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className="text-sm font-semibold text-slate-800 dark:text-slate-200">#{o.id}</span>
+                    <span className={cn(
+                      "text-[10px] font-semibold rounded-full px-1.5 py-0.5 border",
+                      o.status === "vendido"
+                        ? "bg-emerald-100 text-emerald-700 border-emerald-200"
+                        : "bg-slate-100 text-slate-600 border-slate-200",
+                    )}>
+                      {o.status === "vendido" ? "Vendido" : "Pendente"}
+                    </span>
+                  </div>
+                  <p className="text-xs text-slate-400 dark:text-slate-500 mt-0.5">
+                    {o.vendedor && <span>{o.vendedor} · </span>}
+                    {formatDate(o.criadoEm)}
+                  </p>
+                </div>
+                {(o.totalPix || o.totalPrazo) && (
+                  <span className="text-sm font-bold text-emerald-700 shrink-0">
+                    {o.totalPix ?? o.totalPrazo}
+                  </span>
+                )}
               </div>
             ))}
           </div>

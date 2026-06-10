@@ -7,6 +7,7 @@ export const conversasWhatsappTable = pgTable("conversas_whatsapp", {
   phone: text("phone").notNull(),
   nome: text("nome"),
   leadId: integer("lead_id"),
+  customerId: integer("customer_id"),
 
   status: text("status").notNull().default("bot"),
   // valores: bot | aguardando_humano | humano | resolvido

@@ -2,7 +2,9 @@ import { Router, type IRouter, type Request, type Response } from "express";
 import { processarDiagnostico, selecionarProduto, gerarSaida } from "../lib/motor";
 import { db } from "@workspace/db";
 import { diagnosticosTable } from "@workspace/db/schema";
+import { eq } from "drizzle-orm";
 import { resolveOrCreateCustomerByPhone } from "../services/memory/identity";
+import { ensureLeadForCustomer } from "../services/operacoes/repository";
 
 const router: IRouter = Router();
 
@@ -15,17 +17,18 @@ router.post("/diagnostico", async (req: Request, res: Response) => {
   // Resolve customer identity and persist — non-blocking
   (async () => {
     try {
+      const lojaId = data.lojaId ?? 1;
       let customerId: number | null = null;
       if (data.whatsapp) {
         customerId = await resolveOrCreateCustomerByPhone(
           data.whatsapp,
           data.nome ?? null,
-          data.lojaId ?? 1,
+          lojaId,
         );
       }
 
-      await db.insert(diagnosticosTable).values({
-        lojaId:               data.lojaId ?? 1,
+      const [inserted] = await db.insert(diagnosticosTable).values({
+        lojaId,
         customerId:           customerId ?? undefined,
         nome:                 data.nome ?? null,
         whatsapp:             data.whatsapp ?? null,
@@ -41,7 +44,25 @@ router.post("/diagnostico", async (req: Request, res: Response) => {
           texto_calibracao: analise.texto_calibracao,
         },
         perfil_comportamental: data.perfil_comportamental ?? {},
-      });
+      }).returning({ id: diagnosticosTable.id });
+
+      // Create (or advance) a CRM lead for every Mapa do Sono respondent with a phone number
+      if (customerId && inserted?.id) {
+        const leadId = await ensureLeadForCustomer({
+          lojaId,
+          customerId,
+          nome: data.nome ?? "Visitante",
+          whatsapp: data.whatsapp,
+          origem: "mapa_sono",
+          estagioMinimo: "novo",
+        });
+
+        if (leadId) {
+          await db.update(diagnosticosTable)
+            .set({ leadId })
+            .where(eq(diagnosticosTable.id, inserted.id));
+        }
+      }
     } catch (err) {
       console.error("[diagnostico] persist error:", err);
     }
