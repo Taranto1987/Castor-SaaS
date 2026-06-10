@@ -7,14 +7,15 @@ export const CASTOR_READ_TOOLS: Anthropic.Messages.Tool[] = [
   {
     name: "search_products",
     description:
-      "Busca produtos do catálogo Castor por texto livre e/ou categoria. " +
-      "Use quando o cliente perguntar sobre um modelo específico, tecnologia ou tamanho.",
+      "Busca produtos do catálogo Castor por tecnologia, nome de modelo ou tamanho. " +
+      "Use termos de tecnologia (pocket, bonnel, ensacadas, espuma, látex, gel) — o catálogo NÃO contém termos como 'médio', 'firme' ou 'macio'. " +
+      "Se retornar lista vazia: chame imediatamente get_catalog com category='colchoes' como fallback.",
     input_schema: {
       type: "object" as const,
       properties: {
         query: {
           type: "string",
-          description: "Texto de busca — nome do modelo, tecnologia (pocket, espuma, gel), tamanho, etc.",
+          description: "Termo de tecnologia (pocket, bonnel, látex, gel, espuma) ou nome do modelo. Tamanhos como 'solteiro', 'casal', 'queen', 'king' também são válidos.",
         },
         category: {
           type: "string",

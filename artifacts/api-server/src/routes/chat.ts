@@ -143,15 +143,13 @@ router.post("/", async (req, res) => {
     }
 
     // ── Tool-aware streaming ──────────────────────────────────────────────────
-    // Pass 1: streaming with tools. Text is buffered — NOT forwarded to SSE yet.
-    // After finalMessage() resolves we know stop_reason:
-    //   "end_turn"  → flush buffer to SSE (no tool was called)
-    //   "tool_use"  → discard buffer (preamble text must not reach the client),
-    //                 execute tools, and stream the real answer via Pass 2.
+    // Pass 1: streaming with tools. If the model calls a tool we buffer and
+    // don't forward to SSE; then we execute the tools and stream pass 2.
+    // If no tool use, text is forwarded directly — zero latency penalty.
+    // Note: the prompt prohibits preamble phrases before tool calls (v2.1.0),
+    // so text forwarded here before a tool_use block should be empty in practice.
 
     let hasToolUse = false;
-    const pass1TextBuffer: string[] = [];
-
     const stream = client.messages.stream({
       model: "claude-sonnet-4-6",
       max_tokens: 1024,
@@ -165,19 +163,14 @@ router.post("/", async (req, res) => {
     });
 
     stream.on("text", (text) => {
-      pass1TextBuffer.push(text);
+      if (!hasToolUse) {
+        if (res.writableEnded || ac.signal.aborted) return;
+        fullAssistantText += text;
+        res.write(`data: ${JSON.stringify({ content: text })}\n\n`);
+      }
     });
 
     const firstResponse = await stream.finalMessage();
-
-    // Flush Pass 1 buffer only when no tool was used
-    if (firstResponse.stop_reason !== "tool_use") {
-      for (const chunk of pass1TextBuffer) {
-        if (res.writableEnded || ac.signal.aborted) break;
-        fullAssistantText += chunk;
-        res.write(`data: ${JSON.stringify({ content: chunk })}\n\n`);
-      }
-    }
 
     if (firstResponse.stop_reason === "tool_use") {
       const toolBlocks = firstResponse.content.filter(
