@@ -16,7 +16,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Skeleton } from "@/components/ui/skeleton";
 import { Link } from "wouter";
 
-const API_URL = import.meta.env.VITE_API_URL ?? "";
+// Sempre relativo: /api/* é roteado pelo rewrite do Vercel ao backend canônico.
+const API_URL = "";
 
 function getAuthHeaders(): Record<string, string> {
   const raw = sessionStorage.getItem("castor_auth_user");
