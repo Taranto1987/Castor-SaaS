@@ -1,6 +1,6 @@
 import { Router } from "express";
 import { db, leadsTable, leadInteracoesTable, leadTarefasTable, leadScoresTable, relationalCapsulesTable, diagnosticosTable, salesOpportunitiesTable } from "@workspace/db";
-import { eq, and, desc, sql, ne, inArray } from "drizzle-orm";
+import { eq, and, desc, sql, ne, inArray, isNotNull } from "drizzle-orm";
 import { requireAuth, type AuthRequest } from "../middlewares/auth";
 import { logEvent } from "../lib/log-event";
 import { isDono } from "../lib/sessions";
@@ -32,7 +32,43 @@ router.get("/leads", requireAuth, async (req: AuthRequest, res) => {
       );
     }
 
-    res.json({ leads: rows });
+    // Enrich with opportunity data (latest opp per lead)
+    const opps = await db
+      .select({
+        leadId: salesOpportunitiesTable.leadId,
+        valorNumerico: salesOpportunitiesTable.valorNumerico,
+        valorBrl: salesOpportunitiesTable.valorBrl,
+        closingProbability: salesOpportunitiesTable.closingProbability,
+        proximaAcao: salesOpportunitiesTable.proximaAcao,
+        diasSemResposta: salesOpportunitiesTable.diasSemResposta,
+      })
+      .from(salesOpportunitiesTable)
+      .where(and(
+        eq(salesOpportunitiesTable.lojaId, lojaId),
+        isNotNull(salesOpportunitiesTable.leadId),
+      ))
+      .orderBy(desc(salesOpportunitiesTable.criadoEm));
+
+    const oppMap = new Map<number, typeof opps[0]>();
+    for (const opp of opps) {
+      if (opp.leadId !== null && !oppMap.has(opp.leadId)) {
+        oppMap.set(opp.leadId, opp);
+      }
+    }
+
+    const enriched = rows.map((r) => {
+      const opp = oppMap.get(r.id);
+      return {
+        ...r,
+        valorNumerico: opp?.valorNumerico ?? 0,
+        valorBrl: opp?.valorBrl ?? null,
+        closingProbability: opp?.closingProbability ?? 0,
+        proximaAcao: opp?.proximaAcao ?? null,
+        oppDiasSemResposta: opp?.diasSemResposta ?? null,
+      };
+    });
+
+    res.json({ leads: enriched });
   } catch (err) {
     console.error("[Leads] GET /leads error:", err);
     res.status(500).json({ error: "Erro ao carregar leads" });
