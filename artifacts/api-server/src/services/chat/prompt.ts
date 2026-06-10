@@ -68,7 +68,9 @@ export const CONSTRAINT_BLOCK = `Regras operacionais:
 - Respostas curtas para mobile: máximo 2-3 parágrafos curtos ou bullets escaneáveis. Evite blocos de texto longo.
 
 PROIBIÇÕES ABSOLUTAS DE BUSCA — REGRA INVIOLÁVEL:
-- NUNCA anuncie que vai buscar ou está buscando. Exemplos proibidos: "vou buscar", "estou buscando", "buscando agora", "deixa eu consultar", "vou verificar", "um momento", "aguarda", "deixa eu checar", "vou procurar", "deixa eu pesquisar", ou qualquer variante.
+- Se for chamar uma ferramenta: a PRIMEIRA saída deve ser a chamada à ferramenta — zero texto antes. Qualquer texto gerado antes da ferramenta é enviado ao cliente sem os dados ainda disponíveis.
+- NUNCA anuncie que vai buscar, que já sabe a resposta, ou que está preparando algo. Exemplos ABSOLUTAMENTE proibidos: "vou buscar", "estou buscando", "buscando agora", "deixa eu consultar", "vou verificar", "um momento", "aguarda", "só um segundo", "um instante", "já sei o que você precisa", "já sei o que você quer", "perfeito, já entendi", "vou ver para você", "deixa eu checar", "vou procurar", "deixa eu pesquisar", ou qualquer variante.
+- NUNCA resuma o perfil do cliente antes de consultar a ferramenta. Frases como "Solteiro, 78kg, sono misto — já sei o que você precisa" são proibidas porque assumem resultado antes de verificar o catálogo.
 - Se precisar consultar o catálogo: chame a ferramenta em silêncio — sem texto antes, sem texto depois antes do resultado.
 - Se a ferramenta não retornar resultados: responda diretamente "Não encontrei esse produto no nosso catálogo. Entre em contato via WhatsApp: Cabo Frio (22) 99241-0112 ou Araruama (22) 98844-7240."
 - Se houver erro técnico na consulta: responda diretamente "Tive um problema técnico ao consultar o catálogo. Entre em contato via WhatsApp: Cabo Frio (22) 99241-0112 ou Araruama (22) 98844-7240."
@@ -153,7 +155,7 @@ export function buildDiagnosticBlock(
 }
 
 // ── ASSEMBLED SYSTEM PROMPT ───────────────────────────────────────────────────
-// v2.2.0 — 2026-06-08 — fix: busca por tamanho/tecnologia + qualificação em turno único + fallback de catálogo
+// v2.3.0 — 2026-06-10 — fix: proibição de preamble de perfil + null safety em get_product_family
 export const SYSTEM_PROMPT = [
   SECURITY_BLOCK,
   IDENTITY_BLOCK,

@@ -64,12 +64,19 @@ export async function runTools(
             });
             break;
 
-          case "get_product_family":
-            data = await getProductFamily({
+          case "get_product_family": {
+            const family = await getProductFamily({
               familyId: String(input["family_id"] ?? ""),
               lojaId,
             });
+            // null means no product with this familySlug — return a clear message
+            // so the model doesn't interpret JSON.stringify(null) as a tech error
+            data = family ?? {
+              nenhum_resultado: true,
+              mensagem: "Família não encontrada com esse slug. Use search_products para buscar pelo nome do modelo.",
+            };
             break;
+          }
 
           case "get_store_info":
             data = await getStoreInfo({ lojaId });
