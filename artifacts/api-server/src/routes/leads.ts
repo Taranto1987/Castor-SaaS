@@ -68,10 +68,11 @@ router.get("/leads", requireAuth, async (req: AuthRequest, res) => {
       };
     });
 
+    res.set("Cache-Control", "no-store, no-cache, must-revalidate");
     res.json({ leads: enriched });
   } catch (err) {
     console.error("[Leads] GET /leads error:", err);
-    res.status(500).json({ error: "Erro ao carregar leads" });
+    res.status(500).set("Cache-Control", "no-store").json({ error: "Erro ao carregar leads" });
   }
 });
 

@@ -912,7 +912,7 @@ export default function Clientes() {
   const { data, isLoading, isError, refetch } = useQuery<{ leads: Lead[] }>({
     queryKey: ["leads", user?.sessionToken],
     queryFn: async () => {
-      const res = await fetch(`${API_URL}/api/leads`, { headers: getAuthHeaders() });
+      const res = await fetch(`${API_URL}/api/leads`, { headers: getAuthHeaders(), cache: "no-store" });
       if (!res.ok) throw new Error(`${res.status}`);
       return res.json();
     },
