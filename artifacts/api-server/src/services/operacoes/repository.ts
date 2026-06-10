@@ -6,6 +6,7 @@ import {
   entregasTable,
   produtosTable,
   followUpsTable,
+  orcamentosTable,
 } from "@workspace/db/schema";
 import { and, eq, desc, ne, sql, lte } from "drizzle-orm";
 import { resolveOrCreateCustomerByPhone } from "../memory/identity";
@@ -197,6 +198,16 @@ export async function ensureOpportunityForOrcamento(orc: OrcamentoForOpportunity
         },
       });
 
+    // Write-back: link orcamento → customer + lead (enables ClienteDetalhe to list orçamentos)
+    if (customerId || leadId) {
+      await db.update(orcamentosTable)
+        .set({
+          ...(customerId != null ? { customerId } : {}),
+          ...(leadId != null ? { leadId } : {}),
+        })
+        .where(and(eq(orcamentosTable.id, orc.id), eq(orcamentosTable.lojaId, lojaId)));
+    }
+
     await logEvent({
       lojaId,
       entidade: "orcamento",
@@ -217,7 +228,7 @@ export async function markOpportunityWon(orcamentoId: number, lojaId: number): P
       .update(salesOpportunitiesTable)
       .set({ status: "GANHO", proximaAcao: "Concluído", atualizadoEm: now })
       .where(and(eq(salesOpportunitiesTable.orcamentoId, orcamentoId), eq(salesOpportunitiesTable.lojaId, lojaId)))
-      .returning({ leadId: salesOpportunitiesTable.leadId });
+      .returning({ leadId: salesOpportunitiesTable.leadId, customerId: salesOpportunitiesTable.customerId });
 
     // Sincroniza o CRM: lead vinculado também vai para "ganho"
     if (opp?.leadId) {
@@ -225,6 +236,13 @@ export async function markOpportunityWon(orcamentoId: number, lojaId: number): P
         .update(leadsTable)
         .set({ estagio: "ganho", ultimoContato: now, atualizadoEm: now })
         .where(and(eq(leadsTable.id, opp.leadId), eq(leadsTable.lojaId, lojaId)));
+    }
+
+    // Propaga customerId para a entrega criada nesta venda
+    if (opp?.customerId) {
+      await db.update(entregasTable)
+        .set({ customerId: opp.customerId })
+        .where(and(eq(entregasTable.orcamentoId, orcamentoId), eq(entregasTable.lojaId, lojaId)));
     }
 
     await logEvent({

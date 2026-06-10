@@ -599,3 +599,17 @@ CREATE UNIQUE INDEX "uq_waha_msg" ON "mensagens_whatsapp" USING btree ("loja_id"
 CREATE UNIQUE INDEX "sales_opp_loja_orcamento_uq" ON "sales_opportunities" USING btree ("loja_id","orcamento_id");--> statement-breakpoint
 ALTER TABLE "orcamentos" ADD COLUMN IF NOT EXISTS "vendido_em" timestamp;
 CREATE INDEX "sales_opp_loja_status_score_idx" ON "sales_opportunities" USING btree ("loja_id","status","score");
+--> statement-breakpoint
+ALTER TABLE "orcamentos" ADD COLUMN IF NOT EXISTS "customer_id" integer;
+--> statement-breakpoint
+ALTER TABLE "orcamentos" ADD COLUMN IF NOT EXISTS "lead_id" integer;
+--> statement-breakpoint
+ALTER TABLE "diagnosticos" ADD COLUMN IF NOT EXISTS "lead_id" integer;
+--> statement-breakpoint
+ALTER TABLE "leads" ADD COLUMN IF NOT EXISTS "motivo_perda" text;
+--> statement-breakpoint
+ALTER TABLE "leads" ADD COLUMN IF NOT EXISTS "motivo_ganho" text;
+--> statement-breakpoint
+ALTER TABLE "conversas_whatsapp" ADD COLUMN IF NOT EXISTS "customer_id" integer;
+--> statement-breakpoint
+ALTER TABLE "entregas" ADD COLUMN IF NOT EXISTS "customer_id" integer;

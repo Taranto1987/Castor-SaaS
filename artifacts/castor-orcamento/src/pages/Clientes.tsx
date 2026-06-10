@@ -130,6 +130,7 @@ function origemLabel(o: string): string {
   const map: Record<string, string> = {
     loja: "Loja", chat: "Chat", indicacao: "Indicação",
     instagram: "Instagram", google: "Google", whatsapp_direto: "WhatsApp",
+    mapa_sono: "Mapa do Sono", orcamento: "Orçamento", diagnostico: "Diagnóstico",
   };
   return map[o] ?? o;
 }
@@ -498,14 +499,19 @@ function EditarLeadModal({ lead, onClose }: { lead: Lead; onClose: () => void })
   const [estagio, setEstagio] = useState(lead.estagio);
   const [observacoes, setObservacoes] = useState(lead.observacoes ?? "");
   const [tagsRaw, setTagsRaw] = useState((lead.tags as string[]).join(", "));
+  const [motivoGanho, setMotivoGanho] = useState("");
+  const [motivoPerda, setMotivoPerda] = useState("");
 
   const salvar = useMutation({
     mutationFn: async () => {
       const tags = tagsRaw.split(",").map((t) => t.trim()).filter(Boolean);
+      const extra: Record<string, unknown> = {};
+      if (estagio === "ganho" && motivoGanho.trim()) extra.motivoGanho = motivoGanho.trim();
+      if (estagio === "perdido" && motivoPerda.trim()) extra.motivoPerda = motivoPerda.trim();
       const res = await fetch(`${API_URL}/api/leads/${lead.id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json", ...getAuthHeaders() },
-        body: JSON.stringify({ nome: nome.trim(), whatsapp: whatsapp.trim() || null, origem, estagio, observacoes: observacoes.trim() || null, tags }),
+        body: JSON.stringify({ nome: nome.trim(), whatsapp: whatsapp.trim() || null, origem, estagio, observacoes: observacoes.trim() || null, tags, ...extra }),
       });
       if (!res.ok) {
         const err = await res.json().catch(() => ({}));
@@ -577,6 +583,30 @@ function EditarLeadModal({ lead, onClose }: { lead: Lead; onClose: () => void })
               rows={3}
             />
           </div>
+          {estagio === "ganho" && (
+            <div className="space-y-1.5">
+              <Label>Motivo do ganho <span className="text-slate-400 text-xs">(opcional)</span></Label>
+              <textarea
+                className="flex min-h-[60px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 resize-none"
+                value={motivoGanho}
+                onChange={(e) => setMotivoGanho(e.target.value)}
+                placeholder="Ex: produto ideal, preço competitivo, urgência..."
+                rows={2}
+              />
+            </div>
+          )}
+          {estagio === "perdido" && (
+            <div className="space-y-1.5">
+              <Label>Motivo da perda <span className="text-slate-400 text-xs">(opcional)</span></Label>
+              <textarea
+                className="flex min-h-[60px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 resize-none"
+                value={motivoPerda}
+                onChange={(e) => setMotivoPerda(e.target.value)}
+                placeholder="Ex: comprou de concorrente, sem orçamento, desistiu..."
+                rows={2}
+              />
+            </div>
+          )}
           {salvar.isError && (
             <p className="text-xs text-red-500">{(salvar.error as Error).message}</p>
           )}

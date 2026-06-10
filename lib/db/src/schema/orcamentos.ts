@@ -21,6 +21,8 @@ export const orcamentosTable = pgTable("orcamentos", {
   // atribuição correta no Financeiro — sem isso, vendas fechadas num mês posterior
   // ao da criação do orçamento não aparecem no relatório do mês de fechamento.
   vendidoEm: timestamp("vendido_em"),
+  customerId: integer("customer_id"),
+  leadId: integer("lead_id"),
 }, (t) => [
   index("orcamentos_loja_status_criado_idx").on(t.lojaId, t.status, t.criadoEm),
 ]);

@@ -25,6 +25,9 @@ export const leadsTable = pgTable("leads", {
 
   pontuacao: real("pontuacao").default(0),
 
+  motivoPerda: text("motivo_perda"),
+  motivoGanho: text("motivo_ganho"),
+
   ultimoContato: timestamp("ultimo_contato"),
   criadoEm: timestamp("criado_em").defaultNow(),
   atualizadoEm: timestamp("atualizado_em").defaultNow(),

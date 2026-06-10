@@ -5,6 +5,7 @@ export const diagnosticosTable = pgTable("diagnosticos", {
   lojaId:              integer("loja_id").default(1),
   // FK para customer_profiles — resolvido por telefone/WhatsApp na criação
   customerId:          integer("customer_id"),
+  leadId:              integer("lead_id"),
   nome:                text("nome"),
   whatsapp:            text("whatsapp"),
   produto_recomendado: text("produto_recomendado"),

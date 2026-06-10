@@ -4,6 +4,7 @@ export const entregasTable = pgTable("entregas", {
   id: serial("id").primaryKey(),
   lojaId: integer("loja_id").default(1),
   orcamentoId: integer("orcamento_id"),
+  customerId: integer("customer_id"),
   cliente: text("cliente").notNull(),
   whatsapp: text("whatsapp"),
   endereco: text("endereco"),
