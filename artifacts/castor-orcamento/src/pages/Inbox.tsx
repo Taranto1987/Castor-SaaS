@@ -11,7 +11,8 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 
-const API_URL = import.meta.env.VITE_API_URL ?? "";
+// Sempre relativo: /api/* é roteado pelo rewrite do Vercel ao backend canônico.
+const API_URL = "";
 
 function getAuthHeaders(): Record<string, string> {
   const raw = sessionStorage.getItem("castor_auth_user");

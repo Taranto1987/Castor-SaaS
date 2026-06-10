@@ -19,7 +19,11 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import type { AuthUser } from "@/contexts/AuthContext";
 
-const API_URL = import.meta.env.VITE_API_URL ?? "";
+// Sempre relativo: /api/* é roteado pelo rewrite do Vercel (vercel.json) para o
+// backend canônico (evolution-api-405f). Não usar VITE_API_URL — quando apontado
+// a um backend duplicado, o CRM quebrava ("Erro ao carregar leads") enquanto as
+// demais páginas (que já usam paths relativos) funcionavam.
+const API_URL = "";
 
 function getAuthHeaders(): Record<string, string> {
   const raw = sessionStorage.getItem("castor_auth_user");
