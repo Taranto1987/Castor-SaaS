@@ -16,7 +16,6 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Skeleton } from "@/components/ui/skeleton";
 import { Link } from "wouter";
 
-// Sempre relativo: /api/* é roteado pelo rewrite do Vercel ao backend canônico.
 const API_URL = "";
 
 function getAuthHeaders(): Record<string, string> {
@@ -166,6 +165,12 @@ export default function ClienteDetalhe() {
     if (isNaN(c)) return null;
     return Math.round(c <= 1 ? c * 100 : c);
   })();
+  // Frontend-computed compatibility score (sent in POST body after fetchRecomendacoes)
+  const compatibilidadePct = (() => {
+    const c = Number(respostas["compatibilidade"]);
+    if (isNaN(c)) return null;
+    return Math.round(c <= 1 ? c * 100 : c);
+  })();
   const chanceFechamento = score?.closingProbability != null
     ? Math.round((score.closingProbability <= 1 ? score.closingProbability * 100 : score.closingProbability))
     : null;
@@ -275,8 +280,23 @@ export default function ClienteDetalhe() {
                   <Sparkles className="w-3 h-3" /> Produto Recomendado
                 </p>
                 <p className="text-sm font-bold text-slate-800 dark:text-slate-100">{diagnostico.produto_recomendado ?? "—"}</p>
-                {confiancaPct != null && (
-                  <p className="text-xs text-indigo-600 dark:text-indigo-400 mt-0.5">Confiança: {confiancaPct}%</p>
+                {(compatibilidadePct != null || confiancaPct != null) && (
+                  <div className="mt-1 space-y-0.5">
+                    {compatibilidadePct != null ? (
+                      <p className="text-xs text-indigo-600 dark:text-indigo-400">
+                        Compat. biomecânica: {compatibilidadePct}%
+                      </p>
+                    ) : (
+                      <p className="text-xs text-indigo-600 dark:text-indigo-400">
+                        Confiança: {confiancaPct}%
+                      </p>
+                    )}
+                    {compatibilidadePct != null && confiancaPct != null && (
+                      <p className="text-xs text-slate-400 dark:text-slate-500">
+                        Confiança do algoritmo: {confiancaPct}%
+                      </p>
+                    )}
+                  </div>
                 )}
               </div>
               <div className="bg-slate-50 dark:bg-slate-700/50 rounded-xl p-3">
@@ -292,15 +312,18 @@ export default function ClienteDetalhe() {
             {/* Perfil biomecânico + respostas-chave */}
             <div className="grid grid-cols-2 md:grid-cols-3 gap-2.5">
               {[
-                { label: "Suporte",      value: bio["suporte"] },
-                { label: "Firmeza",      value: bio["firmeza_final"] ?? bio["firmeza"] },
-                { label: "Tecnologia",   value: bio["tecnologia"] },
-                { label: "Principal Dor", value: respostas["dor"] },
-                { label: "Perfil Térmico", value: respostas["calor"] },
-                { label: "Posição",      value: respostas["posicao"] },
-                { label: "Usuário",      value: respostas["usuario_tipo"] },
-                { label: "Tamanho",      value: respostas["tamanho"] },
-              ].map((f) => (
+                { label: "Suporte",        value: bio["suporte"] },
+                { label: "Firmeza",        value: bio["firmeza_final"] ?? bio["firmeza"] },
+                { label: "Tecnologia",     value: bio["tecnologia"] },
+                { label: "Posição",        value: respostas["posicao"] },
+                { label: "Tipo de Uso",    value: respostas["casal"] === "casal" ? "Casal" : respostas["casal"] === "hospede" ? "Hóspede" : respostas["casal"] === "sozinho" ? "Individual" : respostas["casal"] },
+                { label: "Perfil Térmico", value: respostas["temperatura"] === "sim" ? "Sente calor" : respostas["temperatura"] === "nao" ? "Não sente calor" : respostas["temperatura"] },
+                { label: "Dores",          value: Array.isArray(respostas["dores"]) ? ((respostas["dores"] as string[]).filter(d => d !== "nenhuma").join(", ") || "Nenhuma") : respostas["dores"] },
+                { label: "Tamanho",        value: respostas["tamanho"] },
+                { label: "Prioridade",     value: respostas["prioridade"] },
+                { label: "Altura",         value: respostas["altura"] != null ? `${respostas["altura"]} cm` : null },
+                { label: "Peso",           value: respostas["peso"] != null ? `${respostas["peso"]} kg` : null },
+              ].filter(f => f.value != null && f.value !== "").map((f) => (
                 <div key={f.label} className="bg-slate-50 dark:bg-slate-700/50 rounded-xl p-2.5">
                   <p className="text-[10px] font-semibold text-slate-400 dark:text-slate-500 uppercase tracking-wide mb-0.5">{f.label}</p>
                   <p className="text-sm font-semibold text-slate-700 dark:text-slate-200">{humanize(f.value)}</p>
@@ -331,12 +354,14 @@ export default function ClienteDetalhe() {
             </p>
           ) : (
             <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
-              {Object.entries(perfil).map(([k, v]) => (
-                <div key={k} className="bg-slate-50 dark:bg-slate-700/50 rounded-xl p-2.5">
-                  <p className="text-[10px] font-semibold text-slate-400 dark:text-slate-500 uppercase tracking-wide mb-0.5">{k.replace(/([A-Z])/g, " $1").trim()}</p>
-                  <p className="text-sm font-semibold text-slate-700 dark:text-slate-200">{Array.isArray(v) ? (v as string[]).join(", ") : String(v)}</p>
-                </div>
-              ))}
+              {Object.entries(perfil)
+                .filter(([, v]) => v != null && v !== "" && !(Array.isArray(v) && (v as unknown[]).length === 0))
+                .map(([k, v]) => (
+                  <div key={k} className="bg-slate-50 dark:bg-slate-700/50 rounded-xl p-2.5">
+                    <p className="text-[10px] font-semibold text-slate-400 dark:text-slate-500 uppercase tracking-wide mb-0.5">{k.replace(/_/g, " ").replace(/([A-Z])/g, " $1").trim()}</p>
+                    <p className="text-sm font-semibold text-slate-700 dark:text-slate-200">{Array.isArray(v) ? (v as string[]).filter(s => s !== "nenhuma").join(", ") || "Nenhuma" : humanize(v)}</p>
+                  </div>
+                ))}
             </div>
           )}
         </div>

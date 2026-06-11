@@ -150,11 +150,11 @@ const ALL_STEPS: QStep[] = [
     id: "dores", StepIcon: Activity, type: "multi",
     question: "Você sente alguma dor com frequência?",
     options: [
-      { value: "lombar",  label: "Lombar",  Icon: Zap      },
-      { value: "coluna",  label: "Coluna",  Icon: Activity },
-      { value: "ombro",   label: "Ombro",   Icon: User     },
-      { value: "quadril", label: "Quadril", Icon: Heart    },
-      { value: "nenhuma", label: "Nenhuma", Icon: Check    },
+      { value: "cervical", label: "Cervical / Pescoço", Icon: Activity },
+      { value: "ombro",    label: "Ombro",              Icon: User     },
+      { value: "lombar",   label: "Lombar",             Icon: Zap      },
+      { value: "quadril",  label: "Quadril",            Icon: Heart    },
+      { value: "nenhuma",  label: "Nenhuma",            Icon: Check    },
     ],
   },
   {
@@ -342,7 +342,7 @@ function calcFirmezaAlvo(a: Answers): FirmezaResult {
   );
 
   let r1 = f1;
-  if ((a.dores ?? []).some(d => ["lombar", "coluna", "quadril"].includes(d)) && r1 === "macio") {
+  if ((a.dores ?? []).some(d => ["lombar", "cervical", "quadril"].includes(d)) && r1 === "macio") {
     r1 = "intermediario";
   }
 
@@ -401,7 +401,7 @@ function scoreAndTag(
   }
 
   // Dores
-  const hasPain = (a.dores ?? []).some(d => ["lombar", "coluna", "ombro", "quadril"].includes(d));
+  const hasPain = (a.dores ?? []).some(d => ["lombar", "cervical", "ombro", "quadril"].includes(d));
   if (hasPain && dens && dens >= 45) score += 2;
   if (hasPain && (txt.includes("ortoped") || txt.includes("anatomic"))) score += 3;
 
@@ -1253,26 +1253,43 @@ export default function MapaSono({ embedded = false }: MapaSonoProps) {
     setProdutosLoading(true);
 
     const totalMs = Date.now() - quizStartedAt.current;
+    const perfilComportamental = {
+      quiz_duration_ms: totalMs,
+      step_timestamps:  stepTimestamps.current,
+      total_steps:      getActiveSteps(answers).length,
+    };
 
-    // Fire-and-forget: persist diagnosis + resolve Digital Twin
-    fetch("/api/diagnostico", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        ...answers,
-        nome,
-        whatsapp: zap,
-        perfil_comportamental: {
-          quiz_duration_ms:  totalMs,
-          step_timestamps:   stepTimestamps.current,
-          total_steps:       getActiveSteps(answers).length,
-        },
-      }),
-    }).catch(() => { /* non-critical */ });
-
+    // Fire-and-forget: persist diagnosis after recommendations load so we can
+    // include the frontend-computed compatibility score in the same POST.
     fetchRecomendacoes(answers)
-      .then(r => { setRecomendacoes(r); setProdutosLoading(false); })
-      .catch(() => { setProdutosLoading(false); });
+      .then(r => {
+        setRecomendacoes(r);
+        setProdutosLoading(false);
+        fetch("/api/diagnostico", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            ...answers,
+            nome,
+            whatsapp: zap,
+            compatibilidade: r[0]?.confianca ?? null,
+            perfil_comportamental: perfilComportamental,
+          }),
+        }).catch(() => {});
+      })
+      .catch(() => {
+        setProdutosLoading(false);
+        fetch("/api/diagnostico", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            ...answers,
+            nome,
+            whatsapp: zap,
+            perfil_comportamental: perfilComportamental,
+          }),
+        }).catch(() => {});
+      });
 
     analyzingTimer.current = window.setTimeout(() => {
       analyzingTimer.current = null;

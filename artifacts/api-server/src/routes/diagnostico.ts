@@ -1,8 +1,8 @@
 import { Router, type IRouter, type Request, type Response } from "express";
 import { processarDiagnostico, selecionarProduto, gerarSaida } from "../lib/motor";
 import { db } from "@workspace/db";
-import { diagnosticosTable } from "@workspace/db/schema";
-import { eq } from "drizzle-orm";
+import { diagnosticosTable, leadInteracoesTable, leadsTable } from "@workspace/db/schema";
+import { eq, and } from "drizzle-orm";
 import { resolveOrCreateCustomerByPhone } from "../services/memory/identity";
 import { ensureLeadForCustomer } from "../services/operacoes/repository";
 
@@ -27,7 +27,7 @@ router.post("/diagnostico", async (req: Request, res: Response) => {
         );
       }
 
-      const [inserted] = await db.insert(diagnosticosTable).values({
+      await db.insert(diagnosticosTable).values({
         lojaId,
         customerId:           customerId ?? undefined,
         nome:                 data.nome ?? null,
@@ -44,24 +44,86 @@ router.post("/diagnostico", async (req: Request, res: Response) => {
           texto_calibracao: analise.texto_calibracao,
         },
         perfil_comportamental: data.perfil_comportamental ?? {},
-      }).returning({ id: diagnosticosTable.id });
+      });
 
-      // Create (or advance) a CRM lead for every Mapa do Sono respondent with a phone number
-      if (customerId && inserted?.id) {
-        const leadId = await ensureLeadForCustomer({
-          lojaId,
-          customerId,
-          nome: data.nome ?? "Visitante",
-          whatsapp: data.whatsapp,
-          origem: "mapa_sono",
-          estagioMinimo: "novo",
-        });
+      // Ensure CRM lead exists and persist biomechanical profile
+      const leadId = await ensureLeadForCustomer({
+        lojaId,
+        customerId,
+        nome: data.nome ?? "Visitante",
+        whatsapp: data.whatsapp ?? null,
+        origem: "mapa_sono",
+        estagioMinimo: "contato",
+      });
 
-        if (leadId) {
-          await db.update(diagnosticosTable)
-            .set({ leadId })
-            .where(eq(diagnosticosTable.id, inserted.id));
+      if (leadId) {
+        const dores: string[] = Array.isArray(data.dores) ? data.dores : [];
+
+        // Populate lead's perfilBiomecanico from questionnaire answers + analysis output
+        await db
+          .update(leadsTable)
+          .set({
+            perfilBiomecanico: {
+              suporte:             analise.suporte,
+              firmeza:             analise.firmeza_final,
+              tecnologia:          analise.tecnologia,
+              altura:              data.altura ?? null,
+              peso:                data.peso ?? null,
+              posicao:             data.posicao ?? null,
+              temperatura:         data.temperatura ?? null,
+              dores,
+              casal:               data.casal ?? null,
+              prioridade:          data.prioridade ?? null,
+              tamanho:             data.tamanho ?? null,
+              produto_recomendado: resultado.produto,
+              compatibilidade:     data.compatibilidade ?? resultado.confianca,
+            },
+            ultimoContato: new Date(),
+            atualizadoEm:  new Date(),
+          })
+          .where(and(eq(leadsTable.id, leadId), eq(leadsTable.lojaId, lojaId)));
+
+        // Auto-create handoff timeline entry for the vendor
+        const compatPct  = Math.round(
+          (data.compatibilidade ?? resultado.confianca) <= 1
+            ? (data.compatibilidade ?? resultado.confianca) * 100
+            : (data.compatibilidade ?? resultado.confianca),
+        );
+        const doresStr = dores.filter((d: string) => d !== "nenhuma").join(", ") || "nenhuma";
+        const tipoUso  =
+          data.casal === "casal"    ? "Casal"      :
+          data.casal === "hospede"  ? "Hóspede"    : "Individual";
+
+        const linhas = [
+          `🌙 Diagnóstico Mapa do Sono concluído`,
+          ``,
+          `Produto recomendado: ${resultado.produto}`,
+          `Compatibilidade biomecânica: ${compatPct}%`,
+          ``,
+          `Perfil do cliente:`,
+          `• Posição ao dormir: ${data.posicao ?? "—"}`,
+          `• Perfil térmico: ${data.temperatura === "sim" ? "Sente calor" : "Não sente calor"}`,
+          `• Tipo de uso: ${tipoUso}`,
+          `• Tamanho desejado: ${data.tamanho ?? "—"}`,
+          `• Dores relatadas: ${doresStr}`,
+          `• Suporte biomecânico: ${analise.suporte}`,
+          `• Tecnologia indicada: ${analise.tecnologia}`,
+        ];
+
+        if (analise.flag_calibracao) {
+          linhas.push(`• Período de adaptação: ${analise.flag_calibracao.replace(/_/g, " ")}`);
         }
+
+        if (data.altura) linhas.push(`• Altura: ${data.altura} cm`);
+        if (data.peso)   linhas.push(`• Peso: ${data.peso} kg`);
+
+        await db.insert(leadInteracoesTable).values({
+          leadId,
+          lojaId,
+          tipo:      "handoff",
+          autorNome: "Mapa do Sono IA",
+          conteudo:  linhas.join("\n"),
+        });
       }
     } catch (err) {
       console.error("[diagnostico] persist error:", err);
