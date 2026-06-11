@@ -31,10 +31,11 @@ interface Answers {
   dores?: string[];
   temperatura?: string;
   tamanho?: string;
-  substituicao?: string;
+  motivoTroca?: string;
   tipo_colchao_atual?: string;
   tempo_uso_colchao?: string;
   prioridade?: string;
+  prazoCompra?: string;
   // Dados do parceiro — coletados só quando casal === "casal"
   altura2?: number;
   peso2?: number;
@@ -176,11 +177,16 @@ const ALL_STEPS: QStep[] = [
     ],
   },
   {
-    id: "substituicao", StepIcon: RefreshCw, type: "single",
-    question: "Você está substituindo seu colchão atual?",
+    id: "motivoTroca", StepIcon: RefreshCw, type: "single",
+    question: "Por que você está buscando um colchão novo?",
+    subtitle: "Isso nos ajuda a entender sua urgência e prioridade.",
     options: [
-      { value: "sim", label: "Sim, vou substituir",    Icon: RefreshCw },
-      { value: "nao", label: "Não, é uma compra nova", Icon: Package   },
+      { value: "afundou",     label: "Meu colchão afundou",    Icon: RefreshCw },
+      { value: "dor_coluna",  label: "Estou com dores",        Icon: Activity  },
+      { value: "velho",       label: "Está velho, quero trocar", Icon: Clock   },
+      { value: "mudanca",     label: "Estou me mudando",       Icon: Home      },
+      { value: "presente",    label: "É para presente",        Icon: Heart     },
+      { value: "pesquisando", label: "Estou pesquisando",      Icon: Star      },
     ],
   },
   {
@@ -188,12 +194,12 @@ const ALL_STEPS: QStep[] = [
     question: "Qual o tipo do seu colchão atual?",
     subtitle: "Isso nos ajuda a calibrar a transição de conforto.",
     options: [
-      { value: "espuma",  label: "Espuma",          Icon: Layers    },
-      { value: "mola",    label: "Molas bonell",     Icon: Zap       },
-      { value: "pocket",  label: "Molas ensacadas",  Icon: Shield    },
-      { value: "madeira", label: "Madeira / tatame", Icon: Package   },
+      { value: "espuma",  label: "Espuma",          Icon: Layers  },
+      { value: "mola",    label: "Molas bonell",     Icon: Zap     },
+      { value: "pocket",  label: "Molas ensacadas",  Icon: Shield  },
+      { value: "madeira", label: "Madeira / tatame", Icon: Package },
     ],
-    showIf: (a: Answers) => a.substituicao === "sim",
+    showIf: (a: Answers) => ["afundou", "dor_coluna", "velho"].includes(a.motivoTroca ?? ""),
   },
   {
     id: "tempo_uso_colchao", StepIcon: Clock, type: "single",
@@ -205,7 +211,7 @@ const ALL_STEPS: QStep[] = [
       { value: "mais_5",  label: "Mais de 5 anos",  Icon: Star     },
       { value: "mais_10", label: "Mais de 10 anos", Icon: Shield   },
     ],
-    showIf: (a: Answers) => a.substituicao === "sim",
+    showIf: (a: Answers) => ["afundou", "dor_coluna", "velho"].includes(a.motivoTroca ?? ""),
   },
   {
     id: "prioridade", StepIcon: Star, type: "single",
@@ -215,6 +221,17 @@ const ALL_STEPS: QStep[] = [
       { value: "conforto",     label: "Conforto máximo", Icon: Heart  },
       { value: "durabilidade", label: "Durabilidade",    Icon: Shield },
       { value: "custo",        label: "Custo-benefício", Icon: Star   },
+    ],
+  },
+  {
+    id: "prazoCompra", StepIcon: Calendar, type: "single",
+    question: "Quando você pretende comprar?",
+    subtitle: "Vamos preparar a melhor proposta para você.",
+    options: [
+      { value: "hoje",        label: "Hoje mesmo",        Icon: Zap      },
+      { value: "essa_semana", label: "Essa semana",       Icon: Calendar },
+      { value: "esse_mes",    label: "Esse mês",          Icon: Clock    },
+      { value: "sem_pressa",  label: "Sem pressa ainda",  Icon: Star     },
     ],
   },
 ];
@@ -281,7 +298,8 @@ const HIST_TEMPO_MULT: Record<string, number> = {
 };
 
 function calcDrift(a: Answers, firmezaBio: Firmeza): FirmezaResult {
-  if (a.substituicao !== "sim" || !a.tipo_colchao_atual || !a.tempo_uso_colchao) {
+  const isReplacing = ["afundou", "dor_coluna", "velho"].includes(a.motivoTroca ?? "");
+  if (!isReplacing || !a.tipo_colchao_atual || !a.tempo_uso_colchao) {
     return { firmeza: firmezaBio, flag_calibracao: null, texto_calibracao: null };
   }
 
@@ -493,6 +511,19 @@ function buildWAMsg(a: Answers, capNome: string, produtoNome?: string, precoPix?
     `• Prioridade: ${a.prioridade ?? "-"}`,
   );
 
+  if (a.motivoTroca) {
+    const motivoLabel: Record<string, string> = {
+      afundou: "colchão afundou", dor_coluna: "dores", velho: "colchão velho",
+      mudanca: "mudança", presente: "presente", pesquisando: "pesquisando",
+    };
+    lines.push(`• Motivo: ${motivoLabel[a.motivoTroca] ?? a.motivoTroca}`);
+  }
+  if (a.prazoCompra) {
+    const prazoLabel: Record<string, string> = {
+      hoje: "hoje", essa_semana: "essa semana", esse_mes: "esse mês", sem_pressa: "sem pressa",
+    };
+    lines.push(`• Prazo de compra: ${prazoLabel[a.prazoCompra] ?? a.prazoCompra}`);
+  }
   if (a.tipo_colchao_atual) {
     lines.push(`• Colchão atual: ${a.tipo_colchao_atual}${a.tempo_uso_colchao ? ` (${a.tempo_uso_colchao.replace("_", " ")})` : ""}`);
   }

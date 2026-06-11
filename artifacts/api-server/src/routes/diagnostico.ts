@@ -5,6 +5,7 @@ import { diagnosticosTable, leadInteracoesTable, leadsTable } from "@workspace/d
 import { eq, and } from "drizzle-orm";
 import { resolveOrCreateCustomerByPhone } from "../services/memory/identity";
 import { ensureLeadForCustomer } from "../services/operacoes/repository";
+import { calcularScoreIntencao, classificarLead } from "../lib/intentScore";
 
 const router: IRouter = Router();
 
@@ -58,6 +59,11 @@ router.post("/diagnostico", async (req: Request, res: Response) => {
 
       if (leadId) {
         const dores: string[] = Array.isArray(data.dores) ? data.dores : [];
+        const scoreIntencao = calcularScoreIntencao({
+          motivoTroca: data.motivoTroca ?? undefined,
+          prazoCompra:  data.prazoCompra ?? undefined,
+        });
+        const classificacao = classificarLead(scoreIntencao);
 
         // Populate lead's perfilBiomecanico from questionnaire answers + analysis output
         await db
@@ -78,6 +84,10 @@ router.post("/diagnostico", async (req: Request, res: Response) => {
               produto_recomendado: data.produto_recomendado ?? resultado.produto,
               compatibilidade:     data.compatibilidade ?? resultado.confianca,
             },
+            motivoTroca:   data.motivoTroca  ?? null,
+            prazoCompra:   data.prazoCompra  ?? null,
+            scoreIntencao,
+            statusFunil:   "recomendacao_emitida",
             ultimoContato: new Date(),
             atualizadoEm:  new Date(),
           })
@@ -99,6 +109,7 @@ router.post("/diagnostico", async (req: Request, res: Response) => {
           ``,
           `Produto recomendado: ${data.produto_recomendado ?? resultado.produto}`,
           `Compatibilidade biomecânica: ${compatPct}%`,
+          `Score de intenção: ${scoreIntencao}/100 — ${classificacao.label}`,
           ``,
           `Perfil do cliente:`,
           `• Posição ao dormir: ${data.posicao ?? "—"}`,
