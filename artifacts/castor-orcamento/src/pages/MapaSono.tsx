@@ -448,11 +448,12 @@ function FaseA({
 }) {
   const { stepA, perfil } = state;
   const idx = ORDEM_A.indexOf(stepA);
-  const [doresSel, setDoresSel] = useState<Array<Dor | "nenhuma">>([]);
+  // Ao voltar para a etapa de dores, restaura a seleção anterior
+  const [doresSel, setDoresSel] = useState<Array<Dor | "nenhuma">>(perfil.dores);
   const [pesoA, setPesoA] = useState(perfil.pesoA);
   const [pesoB, setPesoB] = useState(perfil.pesoB);
 
-  useEffect(() => { setDoresSel([]); }, [stepA]);
+  useEffect(() => { setDoresSel(perfil.dores); }, [stepA]); // eslint-disable-line react-hooks/exhaustive-deps
 
   function toggleDor(val: Dor | "nenhuma") {
     if (val === "nenhuma") { setDoresSel(["nenhuma"]); return; }
@@ -656,6 +657,15 @@ function FaseB({
             </p>
           )}
         </div>
+
+        {/* Perfil de descanso — 1 linha, vinda do motor */}
+        {resultado && resultado.perfilResumo && (
+          <div className="rounded-xl px-4 py-3 mb-5 flex items-center gap-3"
+            style={{ background: "#0e0e0e", border: "1px solid #1e1e1e" }}>
+            <div className="w-2 h-2 rounded-full shrink-0" style={{ background: RED }} />
+            <p className="text-xs" style={{ color: "#888" }}>{resultado.perfilResumo}</p>
+          </div>
+        )}
 
         {resultadoCarregando && mostrarSkeleton && <SkeletonCard />}
 
