@@ -423,7 +423,16 @@ function scoreAndTag(
 }
 
 async function fetchRecomendacoes(a: Answers): Promise<ScoredProduto[]> {
-  const res = await fetch("/api/produtos?categoria=colchoes&limite=100");
+  // Timeout obrigatório: sem ele, uma conexão que nunca liquida (proxy/cold start)
+  // deixa o skeleton "Buscando produtos..." girando para sempre.
+  const ctrl = new AbortController();
+  const timeoutId = window.setTimeout(() => ctrl.abort(), 10_000);
+  let res: Response;
+  try {
+    res = await fetch("/api/produtos?categoria=colchoes&limite=100", { signal: ctrl.signal });
+  } finally {
+    window.clearTimeout(timeoutId);
+  }
   if (!res.ok) throw new Error("api_error");
   const all: ApiProduto[] = await res.json();
 
@@ -1178,6 +1187,9 @@ export default function MapaSono({ embedded = false }: MapaSonoProps) {
   const midTimer        = useRef<number | null>(null);
   const analyzingTimer  = useRef<number | null>(null);
   const autoTimer       = useRef<number | null>(null);
+  // Último clique vence o VALOR; primeiro clique vence o TIMER (first-click-wins).
+  // Sem isso, cliques repetidos <280ms resetavam o debounce e o avanço nunca disparava.
+  const pendingAnswer   = useRef<{ id: keyof Answers; next: Answers } | null>(null);
   const quizStartedAt   = useRef<number>(Date.now());
   const stepTimestamps  = useRef<Record<number, number>>({});
 
@@ -1222,8 +1234,15 @@ export default function MapaSono({ embedded = false }: MapaSonoProps) {
       next = { ...next, altura2: undefined, peso2: undefined, firmeza2: undefined };
     }
     setAnswers(next);
-    if (autoTimer.current !== null) window.clearTimeout(autoTimer.current);
-    autoTimer.current = window.setTimeout(() => { autoTimer.current = null; advance(id, next); }, 280);
+    pendingAnswer.current = { id, next };
+    if (autoTimer.current === null) {
+      autoTimer.current = window.setTimeout(() => {
+        autoTimer.current = null;
+        const p = pendingAnswer.current;
+        pendingAnswer.current = null;
+        if (p) advance(p.id, p.next);
+      }, 280);
+    }
   }
 
   function setMultiAnswer(id: keyof Answers, vals: string[]) {
@@ -1240,6 +1259,7 @@ export default function MapaSono({ embedded = false }: MapaSonoProps) {
 
   function goBack() {
     if (autoTimer.current !== null) { window.clearTimeout(autoTimer.current); autoTimer.current = null; }
+    pendingAnswer.current = null;
     if (phase === "capture") { setStep(TOTAL - 1); setPhase("quiz"); }
     else if (safeStep > 0) setStep(safeStep - 1);
     else if (!embedded) setPhase("welcome");
