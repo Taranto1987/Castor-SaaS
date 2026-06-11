@@ -8,6 +8,7 @@ import {
   type PerfilDiagnostico,
   type ProdutoCatalogoInput,
 } from "../lib/motor-v2";
+import { logEvent } from "../lib/log-event";
 
 const router: IRouter = Router();
 
@@ -70,6 +71,79 @@ router.post("/mapa-sono/compatibilidade", async (req: Request, res: Response) =>
     res.json({ success: true, data });
   } catch (err) {
     console.error("[MapaSono] POST /compatibilidade error:", err);
+    res.status(500).json({ success: false, error: "Erro interno" });
+  }
+});
+
+// ── Telemetria de funil ─────────────────────────────────────────────────────────
+// Persiste em eventos_operacionais (tabela existente, loja_id NOT NULL) via
+// logEvent — entidade "funil_mapa_sono", acao = evento. Aceita 1 evento ou batch.
+const EVENTOS_FUNIL = [
+  "step_view",
+  "step_complete",
+  "resultado_exibido",
+  "cta_configurar",
+  "lead_enviado",
+  "whatsapp_aberto",
+] as const;
+
+interface EventoFunilPayload {
+  evento: typeof EVENTOS_FUNIL[number];
+  lojaId: number;
+  sessionId: string;
+  ts: number;
+  payload: Record<string, unknown>;
+}
+
+function parseEventoFunil(raw: unknown): EventoFunilPayload | null {
+  if (typeof raw !== "object" || raw === null) return null;
+  const e = raw as Record<string, unknown>;
+  const lojaId = typeof e.lojaId === "number" ? e.lojaId : Number(e.lojaId);
+  if (e.lojaId === undefined || e.lojaId === null || !Number.isInteger(lojaId) || lojaId <= 0) return null;
+  if (typeof e.evento !== "string" || !(EVENTOS_FUNIL as readonly string[]).includes(e.evento)) return null;
+  if (typeof e.sessionId !== "string" || e.sessionId.length === 0 || e.sessionId.length > 128) return null;
+  return {
+    evento: e.evento as EventoFunilPayload["evento"],
+    lojaId,
+    sessionId: e.sessionId,
+    ts: typeof e.ts === "number" ? e.ts : Date.now(),
+    payload: (typeof e.payload === "object" && e.payload !== null) ? e.payload as Record<string, unknown> : {},
+  };
+}
+
+router.post("/telemetria/funil", async (req: Request, res: Response) => {
+  try {
+    const body: unknown = req.body;
+    const brutos = Array.isArray(body) ? body : [body];
+    if (brutos.length === 0 || brutos.length > 20) {
+      res.status(400).json({ success: false, error: "Batch deve ter 1–20 eventos" });
+      return;
+    }
+
+    const eventos: EventoFunilPayload[] = [];
+    for (const raw of brutos) {
+      const evento = parseEventoFunil(raw);
+      if (!evento) {
+        res.status(400).json({ success: false, error: "Evento inválido (lojaId, evento e sessionId são obrigatórios)" });
+        return;
+      }
+      eventos.push(evento);
+    }
+
+    await Promise.all(eventos.map((e) =>
+      logEvent({
+        lojaId: e.lojaId,
+        entidade: "funil_mapa_sono",
+        entidadeId: e.sessionId,
+        acao: e.evento,
+        atorTipo: "sistema",
+        payload: { sessionId: e.sessionId, ts: e.ts, ...e.payload },
+      })
+    ));
+
+    res.status(202).json({ success: true, data: { gravados: eventos.length } });
+  } catch (err) {
+    console.error("[MapaSono] POST /telemetria/funil error:", err);
     res.status(500).json({ success: false, error: "Erro interno" });
   }
 });

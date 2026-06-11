@@ -161,7 +161,7 @@ function reducer(state: State, acao: Acao): State {
   }
 }
 
-// ── Telemetria de funil (P5 liga a persistência backend; GTM desde já) ──────────
+// ── Telemetria de funil — GTM + persistência em eventos_operacionais (loja_id) ──
 type EventoFunil =
   | "step_view" | "step_complete" | "resultado_exibido"
   | "cta_configurar" | "lead_enviado" | "whatsapp_aberto";
@@ -173,9 +173,18 @@ function emitirEventoFunil(
   sessionId: string,
   payload?: Record<string, unknown>,
 ) {
+  const ts = Date.now();
   try {
     window.dataLayer = window.dataLayer || [];
-    window.dataLayer.push({ event: `mapa_sono_${evento}`, lojaId, sessionId, ts: Date.now(), ...payload });
+    window.dataLayer.push({ event: `mapa_sono_${evento}`, lojaId, sessionId, ts, ...payload });
+  } catch { /* telemetria nunca quebra o fluxo */ }
+  try {
+    fetch("/api/telemetria/funil", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      keepalive: true,
+      body: JSON.stringify({ evento, lojaId, sessionId, ts, payload: payload ?? {} }),
+    }).catch(() => { /* fire-and-forget */ });
   } catch { /* telemetria nunca quebra o fluxo */ }
 }
 
