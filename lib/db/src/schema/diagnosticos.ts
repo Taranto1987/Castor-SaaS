@@ -13,6 +13,8 @@ export const diagnosticosTable = pgTable("diagnosticos", {
   flag_calibracao:     text("flag_calibracao"),
   // Raw quiz answers from the frontend
   respostas:           jsonb("respostas").notNull().default({}),
+  // Mapa do Sono 2.0: ResultadoCompatibilidade completo (ranking Top 3 + firmeza + resumo)
+  resultado:           jsonb("resultado"),
   // Full biomechanical analysis output (suporte, firmeza, tecnologia, drift, etc.)
   perfil_biomecanico:  jsonb("perfil_biomecanico").notNull().default({}),
   // Behavioral signals: tempo por step, step de abandono, retornos

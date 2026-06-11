@@ -218,6 +218,30 @@ async function buscarCompatibilidade(
   };
 }
 
+// ── Lead — POST com retry em memória ────────────────────────────────────────────
+// REGRA DE RESILIÊNCIA: lead nunca é perdido por erro de rede; conversão nunca é
+// bloqueada por backend. Erros de rede e 5xx re-tentam (5s/15s/45s) enquanto a
+// página viver; 4xx (payload inválido) não re-tenta.
+const RETRY_ESPERAS_MS = [5_000, 15_000, 45_000];
+
+function postLeadComRetry(payload: Record<string, unknown>, tentativa = 0): void {
+  fetch("/api/leads/mapa-sono", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
+    keepalive: true,
+  })
+    .then(res => {
+      if (res.status >= 500) throw new Error("server_error");
+    })
+    .catch(() => {
+      const espera = RETRY_ESPERAS_MS[tentativa];
+      if (espera !== undefined) {
+        window.setTimeout(() => postLeadComRetry(payload, tentativa + 1), espera);
+      }
+    });
+}
+
 // ── Mensagem do WhatsApp ────────────────────────────────────────────────────────
 function buildWAUrl(resultado: ResultadoCompatibilidade | null): string {
   const top = resultado?.ranking[0];
@@ -940,7 +964,6 @@ export default function MapaSono({ embedded = false }: MapaSonoProps) {
   const { lojaId } = useLoja();
   const [mostrarWelcome, setMostrarWelcome] = useState(!embedded);
   const [state, dispatch] = useReducer(reducer, ESTADO_INICIAL);
-  const [leadDados, setLeadDados] = useState<{ nome: string; whatsapp: string } | null>(null);
 
   const sessionId = useRef<string>(
     typeof crypto !== "undefined" && "randomUUID" in crypto
@@ -1025,12 +1048,31 @@ export default function MapaSono({ embedded = false }: MapaSonoProps) {
   }
 
   function enviarLead(nome: string, whatsapp: string) {
-    setLeadDados({ nome, whatsapp });
     emitir("lead_enviado", { temRanking: (state.resultado?.ranking.length ?? 0) > 0 });
 
-    // REGRA DE RESILIÊNCIA: a abertura do WhatsApp acontece de forma síncrona no
-    // clique (preserva o gesto do usuário contra bloqueio de pop-up) e NUNCA
-    // espera o backend. A persistência do lead é assíncrona (P4).
+    // Salvar lead (assíncrono, com retry) — depois abrir o WhatsApp de forma
+    // síncrona no clique (preserva o gesto contra bloqueio de pop-up). A
+    // conversão NUNCA espera o backend.
+    postLeadComRetry({
+      lojaId,
+      nome,
+      whatsapp,
+      origem: "mapa_do_sono",
+      resultado: state.resultado ?? { ranking: [], firmezaIndicada: "", perfilResumo: "" },
+      tamanho: state.tamanho,
+      conjunto: state.conjunto,
+      perfil: {
+        incomodo: state.perfil.incomodo,
+        ocupacao: state.perfil.ocupacao,
+        pesoA: state.perfil.pesoA,
+        pesoB: state.perfil.ocupacao === "casal" ? state.perfil.pesoB : undefined,
+        posicao: state.perfil.posicao,
+        dores: state.perfil.dores,
+        calor: state.perfil.calor === true,
+      },
+      sessionId: sessionId.current,
+    });
+
     const waUrl = buildWAUrl(state.resultado);
     try { window.open(waUrl, "_blank", "noopener,noreferrer"); } catch { /* fallback no Finalizado */ }
     trackWhatsAppClick("mapa_sono_lead", "Cabo Frio");
@@ -1040,11 +1082,8 @@ export default function MapaSono({ embedded = false }: MapaSonoProps) {
   }
 
   function reiniciar() {
-    setLeadDados(null);
     dispatch({ type: "REINICIAR" });
   }
-
-  void leadDados; // persistido no P4 (POST /api/leads/mapa-sono + retry)
 
   const outerClass = embedded ? "flex flex-col min-h-full" : "flex flex-col min-h-screen";
   const chaveTela =
