@@ -1273,6 +1273,7 @@ export default function MapaSono({ embedded = false }: MapaSonoProps) {
             nome,
             whatsapp: zap,
             compatibilidade: r[0]?.confianca ?? null,
+            produto_recomendado: r[0]?.produto.familyName ?? r[0]?.produto.nome ?? null,
             perfil_comportamental: perfilComportamental,
           }),
         }).catch(() => {});
