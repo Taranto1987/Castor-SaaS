@@ -23,6 +23,18 @@ function parseLojaHeader(header: string | string[] | undefined): number | null {
   return null;
 }
 
+/**
+ * For public POST bodies (Mapa do Sono, telemetria): parses an EXPLICIT lojaId
+ * and valida contra a whitelist de lojas ativas. Sem default silencioso —
+ * retorna null para ausente/inválido/desconhecido e o caller responde 400.
+ */
+export function parseLojaIdPayload(raw: unknown): number | null {
+  if (raw === undefined || raw === null) return null;
+  const id = typeof raw === "number" ? raw : parseInt(String(raw), 10);
+  if (Number.isInteger(id) && id > 0 && VALID_LOJA_IDS.has(id)) return id;
+  return null;
+}
+
 /** For public routes: validates x-loja-id header against the active-loja whitelist. */
 export function resolvePublicLojaId(req: Request): number {
   return parseLojaHeader(req.headers["x-loja-id"]) ?? 1;

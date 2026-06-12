@@ -316,8 +316,11 @@ export function produtoToVector(p: ProdutoCatalogoInput): ScoreVector {
 }
 
 // ── Compatibilidade: cosseno ponderado, normalizado 0–100 ───────────────────────
-// Calibração: score = round((0.55 + 0.45 × cosseno) × 100), teto 97.
+// Calibração: score = round((BASE + GANHO × cosseno) × 100), com teto.
 // Para perfis típicos o 1º lugar cai em 88–97; 100 nunca é exibido.
+const CALIBRACAO_BASE = 0.55;  // piso da escala exibida (cosseno 0 → 55)
+const CALIBRACAO_GANHO = 0.45; // amplitude (cosseno 1 → 100, antes do teto)
+const SCORE_TETO = 97;         // nunca exibir 100 — zera credibilidade
 
 export function compatibilidade(perfil: ScoreVector, produto: ScoreVector): number {
   let dot = 0;
@@ -331,7 +334,7 @@ export function compatibilidade(perfil: ScoreVector, produto: ScoreVector): numb
   }
   if (normA === 0 || normB === 0) return 0;
   const cos = dot / (Math.sqrt(normA) * Math.sqrt(normB));
-  return Math.min(97, Math.round((0.55 + 0.45 * cos) * 100));
+  return Math.min(SCORE_TETO, Math.round((CALIBRACAO_BASE + CALIBRACAO_GANHO * cos) * 100));
 }
 
 // ── Classificação ───────────────────────────────────────────────────────────────

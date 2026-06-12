@@ -9,6 +9,7 @@ import {
   type ProdutoCatalogoInput,
 } from "../lib/motor-v2";
 import { logEvent } from "../lib/log-event";
+import { parseLojaIdPayload } from "../middlewares/auth";
 
 const router: IRouter = Router();
 
@@ -18,9 +19,8 @@ router.post("/mapa-sono/compatibilidade", async (req: Request, res: Response) =>
   try {
     const body = (req.body ?? {}) as Record<string, unknown>;
 
-    const lojaIdRaw = body.lojaId;
-    const lojaId = typeof lojaIdRaw === "number" ? lojaIdRaw : Number(lojaIdRaw);
-    if (lojaIdRaw === undefined || lojaIdRaw === null || !Number.isInteger(lojaId) || lojaId <= 0) {
+    const lojaId = parseLojaIdPayload(body.lojaId);
+    if (lojaId === null) {
       res.status(400).json({ success: false, error: "lojaId é obrigatório" });
       return;
     }
@@ -98,8 +98,8 @@ interface EventoFunilPayload {
 function parseEventoFunil(raw: unknown): EventoFunilPayload | null {
   if (typeof raw !== "object" || raw === null) return null;
   const e = raw as Record<string, unknown>;
-  const lojaId = typeof e.lojaId === "number" ? e.lojaId : Number(e.lojaId);
-  if (e.lojaId === undefined || e.lojaId === null || !Number.isInteger(lojaId) || lojaId <= 0) return null;
+  const lojaId = parseLojaIdPayload(e.lojaId);
+  if (lojaId === null) return null;
   if (typeof e.evento !== "string" || !(EVENTOS_FUNIL as readonly string[]).includes(e.evento)) return null;
   if (typeof e.sessionId !== "string" || e.sessionId.length === 0 || e.sessionId.length > 128) return null;
   return {

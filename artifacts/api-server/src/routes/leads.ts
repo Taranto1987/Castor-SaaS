@@ -1,7 +1,7 @@
 import { Router } from "express";
 import { db, leadsTable, leadInteracoesTable, leadTarefasTable, leadScoresTable, relationalCapsulesTable, diagnosticosTable, salesOpportunitiesTable, orcamentosTable } from "@workspace/db";
 import { eq, and, desc, sql, ne, inArray, isNotNull, or } from "drizzle-orm";
-import { requireAuth, type AuthRequest } from "../middlewares/auth";
+import { requireAuth, parseLojaIdPayload, type AuthRequest } from "../middlewares/auth";
 import { logEvent } from "../lib/log-event";
 import { isDono } from "../lib/sessions";
 import { resolveOrCreateCustomerByPhone } from "../services/memory/identity";
@@ -24,9 +24,8 @@ router.post("/leads/mapa-sono", async (req, res) => {
   try {
     const body = (req.body ?? {}) as Record<string, unknown>;
 
-    const lojaIdRaw = body.lojaId;
-    const lojaId = typeof lojaIdRaw === "number" ? lojaIdRaw : Number(lojaIdRaw);
-    if (lojaIdRaw === undefined || lojaIdRaw === null || !Number.isInteger(lojaId) || lojaId <= 0) {
+    const lojaId = parseLojaIdPayload(body.lojaId);
+    if (lojaId === null) {
       res.status(400).json({ success: false, error: "lojaId é obrigatório" });
       return;
     }
@@ -43,7 +42,9 @@ router.post("/leads/mapa-sono", async (req, res) => {
       return;
     }
 
-    if (body.origem !== "mapa_do_sono") {
+    // "mapa_sono" é o valor canônico já usado pelo CRM (Clientes.tsx) e pelo
+    // fluxo legado (/api/diagnostico); aceita o alias do blueprint por compat.
+    if (body.origem !== "mapa_sono" && body.origem !== "mapa_do_sono") {
       res.status(400).json({ success: false, error: "origem inválida" });
       return;
     }
@@ -76,7 +77,7 @@ router.post("/leads/mapa-sono", async (req, res) => {
       customerId,
       nome,
       whatsapp,
-      origem: "mapa_do_sono",
+      origem: "mapa_sono",
       estagioMinimo: "novo",
     });
 
@@ -88,7 +89,7 @@ router.post("/leads/mapa-sono", async (req, res) => {
       whatsapp,
       produto_recomendado: typeof top?.nome === "string" ? top.nome : null,
       confianca: typeof top?.score === "number" ? String(top.score / 100) : null,
-      respostas: { ...perfil, tamanho, conjunto, origem: "mapa_do_sono" },
+      respostas: { ...perfil, tamanho, conjunto, origem: "mapa_sono" },
       resultado,
       perfil_comportamental: (typeof body.telemetria === "object" && body.telemetria !== null)
         ? body.telemetria as Record<string, unknown>

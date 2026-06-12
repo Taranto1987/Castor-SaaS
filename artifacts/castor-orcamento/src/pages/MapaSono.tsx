@@ -17,7 +17,8 @@ const CARD   = "#140000";
 const BORDER = "#2a0808";
 const RED    = "#C41230";
 
-const WA_NUMERO = "5522992410112";
+// Fallback quando a loja não tem número próprio configurado (LojaContext)
+const WA_NUMERO_PADRAO = "5522992410112";
 
 // ── Domínio ─────────────────────────────────────────────────────────────────────
 type Incomodo = "dor" | "calor" | "afundando" | "sono_ruim" | "conforto";
@@ -252,12 +253,12 @@ function postLeadComRetry(payload: Record<string, unknown>, tentativa = 0): void
 }
 
 // ── Mensagem do WhatsApp ────────────────────────────────────────────────────────
-function buildWAUrl(resultado: ResultadoCompatibilidade | null): string {
+function buildWAUrl(resultado: ResultadoCompatibilidade | null, waNumero: string): string {
   const top = resultado?.ranking[0];
   const msg = top
     ? `Olá. Finalizei o Mapa do Sono e minha maior compatibilidade foi ${top.nome} (${top.score}%). Gostaria de falar com um especialista.`
     : "Olá. Finalizei o Mapa do Sono e gostaria de falar com um especialista.";
-  return `https://wa.me/${WA_NUMERO}?text=${encodeURIComponent(msg)}`;
+  return `https://wa.me/${waNumero}?text=${encodeURIComponent(msg)}`;
 }
 
 // ── Componentes visuais reutilizados (identidade intocada) ──────────────────────
@@ -827,7 +828,9 @@ function FaseC({
   const [nome, setNome] = useState("");
   const [zap, setZap] = useState("");
 
-  const leadValido = nome.trim().length > 0 && zap.replace(/\D/g, "").length >= 10;
+  // Mesma regra do backend (whatsappBRValido): DDD válido + 8/9 dígitos, 55 opcional.
+  // Evita lead silenciosamente rejeitado com 400 após o usuário ver a tela final.
+  const leadValido = nome.trim().length > 0 && /^(55)?[1-9][0-9]9?[0-9]{8}$/.test(zap.replace(/\D/g, ""));
 
   return (
     <div className="flex flex-col h-full" style={{ background: BG }}>
@@ -970,7 +973,9 @@ function WelcomeScreen({ onStart }: { onStart: () => void }) {
 
 // ── Main ────────────────────────────────────────────────────────────────────────
 export default function MapaSono({ embedded = false }: MapaSonoProps) {
-  const { lojaId } = useLoja();
+  const { lojaId, lojaInfo } = useLoja();
+  // Multi-tenant: número da loja ativa quando configurado; fallback padrão
+  const waNumero = lojaInfo?.whatsappNumero?.replace(/\D/g, "") || WA_NUMERO_PADRAO;
   const [mostrarWelcome, setMostrarWelcome] = useState(!embedded);
   const [state, dispatch] = useReducer(reducer, ESTADO_INICIAL);
 
@@ -1066,7 +1071,7 @@ export default function MapaSono({ embedded = false }: MapaSonoProps) {
       lojaId,
       nome,
       whatsapp,
-      origem: "mapa_do_sono",
+      origem: "mapa_sono",
       resultado: state.resultado ?? { ranking: [], firmezaIndicada: "", perfilResumo: "" },
       tamanho: state.tamanho,
       conjunto: state.conjunto,
@@ -1082,7 +1087,7 @@ export default function MapaSono({ embedded = false }: MapaSonoProps) {
       sessionId: sessionId.current,
     });
 
-    const waUrl = buildWAUrl(state.resultado);
+    const waUrl = buildWAUrl(state.resultado, waNumero);
     try { window.open(waUrl, "_blank", "noopener,noreferrer"); } catch { /* fallback no Finalizado */ }
     trackWhatsAppClick("mapa_sono_lead", "Cabo Frio");
     emitir("whatsapp_aberto", { url: waUrl });
@@ -1135,7 +1140,7 @@ export default function MapaSono({ embedded = false }: MapaSonoProps) {
             )}
             {state.fase === "finalizado" && (
               <Finalizado
-                waUrl={buildWAUrl(state.resultado)}
+                waUrl={buildWAUrl(state.resultado, waNumero)}
                 onReiniciar={reiniciar}
                 onReabrirWA={() => emitir("whatsapp_aberto", { reaberto: true })}
               />
