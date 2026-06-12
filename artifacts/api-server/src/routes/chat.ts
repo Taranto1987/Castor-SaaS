@@ -4,6 +4,7 @@ import Anthropic from "@anthropic-ai/sdk";
 import { getProductContextCompact } from "../services/chat/repository";
 import { processarLeadDaConversa } from "../services/chat/lead-extractor";
 import { SYSTEM_PROMPT, buildFallbackMessage, buildSessionIntentBlock, buildDiagnosticBlock } from "../services/chat/prompt";
+import { buildRecommendationFallback } from "../services/chat/fallback";
 import { db } from "@workspace/db";
 import { diagnosticosTable, sleepOutcomesTable } from "@workspace/db/schema";
 import { eq, and, desc } from "drizzle-orm";
@@ -152,7 +153,7 @@ router.post("/", async (req, res) => {
     let hasToolUse = false;
     const stream = client.messages.stream({
       model: "claude-sonnet-4-6",
-      max_tokens: 1024,
+      max_tokens: 1500,
       system: systemBlocks,
       messages: chatMessages,
       tools: CASTOR_READ_TOOLS,
@@ -182,37 +183,63 @@ router.post("/", async (req, res) => {
       });
 
       // Pass 2: stream final answer with tool results injected
-      const stream2 = client.messages.stream({
-        model: "claude-sonnet-4-6",
-        max_tokens: 1024,
-        system: systemBlocks,
-        messages: [
-          ...chatMessages,
-          { role: "assistant" as const, content: firstResponse.content },
-          { role: "user" as const, content: toolResults },
-        ],
-        // No tools on second call — prevents recursion
-      }, { signal: ac.signal });
+      let pass2Text = "";
+      try {
+        const stream2 = client.messages.stream({
+          model: "claude-sonnet-4-6",
+          max_tokens: 1500,
+          system: systemBlocks,
+          messages: [
+            ...chatMessages,
+            { role: "assistant" as const, content: firstResponse.content },
+            { role: "user" as const, content: toolResults },
+          ],
+          // No tools on second call — prevents recursion
+        }, { signal: ac.signal });
 
-      stream2.on("text", (text) => {
-        if (res.writableEnded || ac.signal.aborted) return;
-        fullAssistantText += text;
-        res.write(`data: ${JSON.stringify({ content: text })}\n\n`);
-      });
+        stream2.on("text", (text) => {
+          if (res.writableEnded || ac.signal.aborted) return;
+          pass2Text += text;
+          fullAssistantText += text;
+          res.write(`data: ${JSON.stringify({ content: text })}\n\n`);
+        });
 
-      const finalMsg2 = await stream2.finalMessage();
-      pass2InputTokens = finalMsg2.usage.input_tokens;
-      pass2OutputTokens = finalMsg2.usage.output_tokens;
-      pass2CacheRead = (finalMsg2.usage as unknown as Record<string, number>)["cache_read_input_tokens"] ?? 0;
-      pass2CacheWrite = (finalMsg2.usage as unknown as Record<string, number>)["cache_creation_input_tokens"] ?? 0;
-      log.info({
-        sessionId,
-        pass: 2,
-        inputTokens: pass2InputTokens,
-        outputTokens: pass2OutputTokens,
-        cacheReadTokens: pass2CacheRead,
-        cacheCreationTokens: pass2CacheWrite,
-      }, "chat token usage");
+        const finalMsg2 = await stream2.finalMessage();
+        pass2InputTokens = finalMsg2.usage.input_tokens;
+        pass2OutputTokens = finalMsg2.usage.output_tokens;
+        pass2CacheRead = (finalMsg2.usage as unknown as Record<string, number>)["cache_read_input_tokens"] ?? 0;
+        pass2CacheWrite = (finalMsg2.usage as unknown as Record<string, number>)["cache_creation_input_tokens"] ?? 0;
+        log.info({
+          sessionId,
+          pass: 2,
+          inputTokens: pass2InputTokens,
+          outputTokens: pass2OutputTokens,
+          cacheReadTokens: pass2CacheRead,
+          cacheCreationTokens: pass2CacheWrite,
+        }, "chat token usage");
+      } catch (err) {
+        log.error({ err, sessionId }, "pass2_stream_failed");
+      }
+
+      // Contingência: nenhum lead termina sem recomendação. Se o Pass 2 falhou
+      // ou veio vazio, entrega recomendação determinística com os dados reais
+      // já obtidos das ferramentas nesta rodada.
+      if (!pass2Text.trim() && !res.writableEnded && !ac.signal.aborted) {
+        const fallback = await buildRecommendationFallback(toolResults, lojaId);
+        fullAssistantText += fallback;
+        res.write(`data: ${JSON.stringify({ content: fallback })}\n\n`);
+        log.warn({ sessionId, event: "pass2_fallback_sent" }, "pass2 empty — deterministic fallback sent");
+      }
+    } else if (hasToolUse) {
+      // tool_use iniciado mas stop_reason !== "tool_use" (ex: max_tokens truncou
+      // o bloco da ferramenta). Nenhum texto foi enviado ao cliente — entrega
+      // fallback determinístico em vez de stream vazio.
+      const fallback = await buildRecommendationFallback([], lojaId);
+      fullAssistantText += fallback;
+      if (!res.writableEnded && !ac.signal.aborted) {
+        res.write(`data: ${JSON.stringify({ content: fallback })}\n\n`);
+      }
+      log.warn({ sessionId, stopReason: firstResponse.stop_reason, event: "pass1_truncated_fallback" }, "tool_use truncated — deterministic fallback sent");
     }
 
     if (!res.writableEnded && !ac.signal.aborted) {
