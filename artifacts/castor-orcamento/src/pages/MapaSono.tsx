@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
-  ShoppingCart, Users, Calendar, Ruler, Scale,
+  Users, Calendar, Ruler, Scale,
   Cloud, BedDouble, Activity, Thermometer, Maximize2,
   RefreshCw, Star, ChevronLeft, ChevronRight,
   MessageCircle, User, Home, Check, Zap, Heart,
@@ -21,9 +21,7 @@ const RED    = "#C41230";
 type Phase = "welcome" | "quiz" | "mid_loading" | "capture" | "analyzing" | "result";
 
 interface Answers {
-  finalidade?: string;
   casal?: string;
-  frequencia?: string;
   altura?: number;
   peso?: number;
   firmeza?: string;
@@ -61,31 +59,12 @@ const CASAL = (a: Answers) => a.casal === "casal";
 
 const ALL_STEPS: QStep[] = [
   {
-    id: "finalidade", StepIcon: ShoppingCart, type: "single",
-    question: "O que você está procurando?",
-    subtitle: "Isso nos ajuda a direcionar a recomendação certa para você.",
-    options: [
-      { value: "colchao",      label: "Colchão",             Icon: BedDouble     },
-      { value: "box",          label: "Cama box completa",   Icon: Package       },
-      { value: "recomendacao", label: "Quero recomendação",  Icon: MessageCircle },
-    ],
-  },
-  {
     id: "casal", StepIcon: Users, type: "single",
     question: "Para quem é o colchão?",
     options: [
       { value: "sozinho", label: "Só para mim",   Icon: User  },
       { value: "casal",   label: "Para um casal", Icon: Users },
       { value: "hospede", label: "Para hóspede",  Icon: Home  },
-    ],
-  },
-  {
-    id: "frequencia", StepIcon: Calendar, type: "single",
-    question: "Qual a frequência de uso?",
-    options: [
-      { value: "diario",     label: "Uso diário",              Icon: Zap      },
-      { value: "semanal",    label: "Algumas vezes na semana", Icon: Calendar },
-      { value: "esporadico", label: "Uso esporádico",          Icon: Clock    },
     ],
   },
   // ── Pessoa 1 ──
@@ -794,14 +773,11 @@ function QuizScreen({
             </div>
             <motion.button
               whileTap={{ scale: 0.97 }}
-              onClick={() => multiSel.length > 0 && onMultiConfirm(s.id, multiSel)}
+              onClick={() => onMultiConfirm(s.id, multiSel.length > 0 ? multiSel : ["nenhuma"])}
               className="w-full py-4 rounded-2xl font-extrabold text-white text-base"
-              style={{
-                background: multiSel.length > 0 ? RED : "#2a0808",
-                opacity: multiSel.length > 0 ? 1 : 0.5,
-              }}
+              style={{ background: RED }}
             >
-              Confirmar →
+              {multiSel.length > 0 ? "Confirmar →" : "Nenhuma dor →"}
             </motion.button>
           </>
         )}
@@ -1160,7 +1136,7 @@ function WelcomeScreen({ onStart }: { onStart: () => void }) {
   // Show base step count (solo, without partner steps)
   const baseTotal = getActiveSteps({}).length;
   return (
-    <div className="min-h-screen flex flex-col items-center justify-center px-6 py-12 text-center" style={{ background: BG }}>
+    <div className="flex-1 overflow-y-auto flex flex-col items-center justify-center px-6 py-12 text-center" style={{ background: BG }}>
       <div className="w-16 h-16 rounded-2xl flex items-center justify-center mb-6"
         style={{ background: RED, boxShadow: `0 4px 24px ${RED}55` }}>
         <BedDouble className="w-8 h-8 text-white" />
@@ -1339,7 +1315,7 @@ export default function MapaSono({ embedded = false }: MapaSonoProps) {
     setProdutosLoading(false);
   }
 
-  const outerClass = embedded ? "flex flex-col min-h-full" : "flex flex-col min-h-screen";
+  const outerClass = embedded ? "flex flex-col h-full overflow-hidden" : "flex flex-col h-screen overflow-hidden";
 
   return (
     <div className={outerClass} style={{ background: BG }}>
