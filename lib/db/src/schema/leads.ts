@@ -13,7 +13,7 @@ export const leadsTable = pgTable("leads", {
   // valores: novo | contato | proposta | negociacao | ganho | perdido
 
   origem: text("origem").notNull().default("loja"),
-  // valores: chat | indicacao | loja | instagram | google | whatsapp_direto
+  // valores: chat | indicacao | loja | instagram | google | whatsapp_direto | mapa_sono
 
   tags: jsonb("tags").notNull().default([]),
   observacoes: text("observacoes"),
@@ -27,6 +27,28 @@ export const leadsTable = pgTable("leads", {
 
   motivoPerda: text("motivo_perda"),
   motivoGanho: text("motivo_ganho"),
+
+  // ── Mapa do Sono — funil de conversão ──────────────────────────────────────
+  // Sinais de intenção declarados no questionário
+  motivoTroca: text("motivo_troca"),
+  // afundou | dor_coluna | velho | mudanca | presente | pesquisando
+
+  prazoCompra: text("prazo_compra"),
+  // hoje | essa_semana | esse_mes | sem_pressa
+
+  scoreIntencao: integer("score_intencao"),
+  // 0–100, calculado determinísticamente em /api/diagnostico
+
+  statusFunil: text("status_funil"),
+  // recomendacao_emitida | whatsapp_aberto | orcamento_enviado
+  // | negociacao | venda_realizada | perdido | adiado
+
+  // ── Dataset pós-venda (preenchidos pelo vendedor no CRM) ───────────────────
+  produtoFinalVendido: text("produto_final_vendido"),
+  motivoNaoVenda: text("motivo_nao_venda"),
+  // preco | concorrente | adiou | sem_necessidade | outro
+  satisfacaoPosVenda: integer("satisfacao_pos_venda"),
+  // 1–5, coletado D+30
 
   ultimoContato: timestamp("ultimo_contato"),
   criadoEm: timestamp("criado_em").defaultNow(),

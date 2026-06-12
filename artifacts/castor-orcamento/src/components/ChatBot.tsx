@@ -9,6 +9,10 @@ interface Message {
 
 const GREETING = "Olá! 👋 Sou o **ThallesZzz**, consultor especialista em colchões Castor. Estou aqui pra te ajudar a encontrar o colchão perfeito pro seu sono.\n\nMe conta: **como anda seu sono?** Tem sentido alguma dor ou desconforto?";
 
+// Bump this constant to invalidate all cached conversations across all users.
+// Required after prompt changes that produce incompatible conversation styles.
+const CHAT_CACHE_VERSION = "3";
+
 export default function ChatBot() {
   const [isOpen, setIsOpen] = useState(false);
   const [messages, setMessages] = useState<Message[]>(() => {
@@ -16,11 +20,18 @@ export default function ChatBot() {
       const anonId = localStorage.getItem("cid") ?? "anon";
       const stored = localStorage.getItem(`castor_chat_${anonId}`);
       if (stored) {
-        const { messages: m, lastActivity } = JSON.parse(stored) as {
+        const parsed = JSON.parse(stored) as {
           messages: Message[];
           lastActivity: number;
+          v?: string;
         };
-        if (Date.now() - lastActivity < 7 * 24 * 60 * 60 * 1000 && m.length > 0) return m;
+        if (
+          parsed.v === CHAT_CACHE_VERSION &&
+          Date.now() - parsed.lastActivity < 7 * 24 * 60 * 60 * 1000 &&
+          parsed.messages.length > 0
+        ) {
+          return parsed.messages;
+        }
       }
     } catch {}
     return [{ role: "assistant", content: GREETING }];
@@ -66,7 +77,7 @@ export default function ChatBot() {
     try {
       localStorage.setItem(
         `castor_chat_${anonymousId}`,
-        JSON.stringify({ messages, lastActivity: Date.now() })
+        JSON.stringify({ messages, lastActivity: Date.now(), v: CHAT_CACHE_VERSION })
       );
     } catch {}
   }, [messages, anonymousId]);
