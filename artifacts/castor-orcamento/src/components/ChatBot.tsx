@@ -117,6 +117,17 @@ export default function ChatBot() {
         body: JSON.stringify({ messages: apiMessages, anonymousId, sessionId }),
       });
 
+      if (response.status === 429) {
+        setMessages((prev) => {
+          const updated = [...prev];
+          updated[updated.length - 1] = {
+            role: "assistant",
+            content: "Opa, muitas mensagens em sequência! Me dá um minutinho e continua de onde paramos 😊",
+          };
+          return updated;
+        });
+        return;
+      }
       if (!response.ok) throw new Error(`Chat request failed: ${response.status}`);
 
       const reader = response.body?.getReader();
