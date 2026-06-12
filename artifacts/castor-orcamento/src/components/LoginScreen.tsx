@@ -1,4 +1,4 @@
-import { useState, useRef, KeyboardEvent } from "react";
+import { useState, useRef, KeyboardEvent, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Lock, Eye, EyeOff, LogIn, Mail, KeyRound } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
@@ -11,6 +11,12 @@ export default function LoginScreen() {
 
   // Email+senha
   const [email, setEmail] = useState("");
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const emailParam = params.get("email");
+    if (emailParam) setEmail(emailParam);
+  }, []);
   const [senha, setSenha] = useState("");
 
   // Código legado

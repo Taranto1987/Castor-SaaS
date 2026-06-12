@@ -3,7 +3,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
   Users, UserPlus, RefreshCw, ShieldOff, ShieldCheck,
-  X, Copy, CheckCircle2, AlertCircle, Clock, Link2, KeyRound,
+  X, Copy, CheckCircle2, AlertCircle, Clock, Link2, KeyRound, Mail,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/contexts/AuthContext";
@@ -262,6 +262,72 @@ function CreateUserModal({ onClose, token }: { onClose: () => void; token: strin
   );
 }
 
+// ─── Edit email modal ─────────────────────────────────────────────────────────
+
+function EmailModal({ usuario, onClose, token }: { usuario: Usuario; onClose: () => void; token: string }) {
+  const qc = useQueryClient();
+  const [novoEmail, setNovoEmail] = useState(usuario.email);
+  const [erro, setErro] = useState("");
+
+  const mutation = useMutation({
+    mutationFn: async () => {
+      const res = await fetch(`/api/usuarios/${usuario.id}/email`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json", "x-session-token": token },
+        body: JSON.stringify({ email: novoEmail }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Erro");
+      return data;
+    },
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ["usuarios"] }); onClose(); },
+    onError: (e: Error) => setErro(e.message),
+  });
+
+  return (
+    <ModalWrapper onClose={onClose}>
+      <div className="p-6 space-y-4">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl bg-blue-100 flex items-center justify-center">
+              <Mail className="w-5 h-5 text-blue-600" />
+            </div>
+            <div>
+              <h2 className="text-lg font-extrabold text-slate-900">Editar email</h2>
+              <p className="text-xs text-slate-400">{usuario.nome}</p>
+            </div>
+          </div>
+          <button onClick={onClose} className="w-8 h-8 rounded-lg bg-slate-100 hover:bg-slate-200 flex items-center justify-center">
+            <X className="w-4 h-4 text-slate-500" />
+          </button>
+        </div>
+        <div>
+          <label className="text-xs font-bold text-slate-600 block mb-1">Novo email de acesso</label>
+          <input
+            type="email"
+            className="w-full border border-slate-200 rounded-xl px-3 py-2.5 text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-blue-500/30"
+            value={novoEmail}
+            onChange={e => { setNovoEmail(e.target.value); setErro(""); }}
+            autoFocus
+          />
+          <p className="text-xs text-slate-400 mt-1">Este é o email que o funcionário usa para entrar no sistema.</p>
+        </div>
+        {erro && <p className="text-sm text-red-600 font-semibold bg-red-50 rounded-xl px-3 py-2">{erro}</p>}
+        <div className="flex gap-2">
+          <button onClick={onClose} className="flex-1 py-2.5 rounded-xl border border-slate-200 text-sm font-bold text-slate-500 hover:bg-slate-50">Cancelar</button>
+          <button
+            onClick={() => mutation.mutate()}
+            disabled={!novoEmail.trim() || novoEmail === usuario.email || mutation.isPending}
+            className="flex-1 py-2.5 rounded-xl bg-blue-600 text-white text-sm font-bold hover:bg-blue-700 disabled:opacity-50 transition-all"
+          >
+            {mutation.isPending ? "Salvando…" : "Salvar email"}
+          </button>
+        </div>
+      </div>
+    </ModalWrapper>
+  );
+}
+
 // ─── Change cargo modal ───────────────────────────────────────────────────────
 
 function CargoModal({ usuario, onClose, token }: { usuario: Usuario; onClose: () => void; token: string }) {
@@ -331,7 +397,8 @@ function CargoModal({ usuario, onClose, token }: { usuario: Usuario; onClose: ()
 function UserCard({
   u, token,
   onCargo,
-}: { u: Usuario; token: string; onCargo: (u: Usuario) => void }) {
+  onEmail,
+}: { u: Usuario; token: string; onCargo: (u: Usuario) => void; onEmail: (u: Usuario) => void }) {
   const qc = useQueryClient();
   const { copied, copy } = useCopy();
   const [confirmDesativar, setConfirmDesativar] = useState(false);
@@ -413,6 +480,13 @@ function UserCard({
         </div>
 
         <div className="flex items-center gap-1 shrink-0">
+          <button
+            onClick={() => onEmail(u)}
+            title="Editar email"
+            className="p-2 rounded-lg text-slate-400 hover:text-blue-600 hover:bg-blue-50 transition-all"
+          >
+            <Mail className="w-4 h-4" />
+          </button>
           <button
             onClick={() => onCargo(u)}
             title="Alterar cargo"
@@ -501,6 +575,7 @@ export default function Usuarios() {
 
   const [showCreate, setShowCreate] = useState(false);
   const [cargoModal, setCargoModal] = useState<Usuario | null>(null);
+  const [emailModal, setEmailModal] = useState<Usuario | null>(null);
 
   const { data: usuarios = [], isLoading } = useQuery<Usuario[]>({
     queryKey: ["usuarios"],
@@ -557,7 +632,7 @@ export default function Usuarios() {
               <h2 className="text-xs font-bold text-slate-400 uppercase tracking-wider px-1 flex items-center gap-2">
                 <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500" /> Ativos ({ativos.length})
               </h2>
-              {ativos.map(u => <UserCard key={u.id} u={u} token={token} onCargo={setCargoModal} />)}
+              {ativos.map(u => <UserCard key={u.id} u={u} token={token} onCargo={setCargoModal} onEmail={setEmailModal} />)}
             </div>
           )}
           {inativos.length > 0 && (
@@ -565,7 +640,7 @@ export default function Usuarios() {
               <h2 className="text-xs font-bold text-slate-400 uppercase tracking-wider px-1 flex items-center gap-2">
                 <ShieldOff className="w-3.5 h-3.5" /> Inativos ({inativos.length})
               </h2>
-              {inativos.map(u => <UserCard key={u.id} u={u} token={token} onCargo={setCargoModal} />)}
+              {inativos.map(u => <UserCard key={u.id} u={u} token={token} onCargo={setCargoModal} onEmail={setEmailModal} />)}
             </div>
           )}
           {usuarios.length === 0 && (
@@ -580,6 +655,7 @@ export default function Usuarios() {
       <AnimatePresence>
         {showCreate && <CreateUserModal onClose={() => setShowCreate(false)} token={token} />}
         {cargoModal && <CargoModal usuario={cargoModal} onClose={() => setCargoModal(null)} token={token} />}
+        {emailModal && <EmailModal usuario={emailModal} onClose={() => setEmailModal(null)} token={token} />}
       </AnimatePresence>
     </div>
   );

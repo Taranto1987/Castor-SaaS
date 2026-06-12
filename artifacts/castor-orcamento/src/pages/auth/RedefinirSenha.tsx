@@ -1,6 +1,6 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useLocation } from "wouter";
-import { KeyRound, Eye, EyeOff, CheckCircle2, AlertCircle, Loader2 } from "lucide-react";
+import { KeyRound, Eye, EyeOff, CheckCircle2, AlertCircle, Loader2, Mail } from "lucide-react";
 
 function parseToken(): string | null {
   if (typeof window === "undefined") return null;
@@ -16,6 +16,15 @@ export default function RedefinirSenha() {
   const [show, setShow] = useState(false);
   const [status, setStatus] = useState<"idle" | "loading" | "ok" | "error">("idle");
   const [mensagem, setMensagem] = useState("");
+  const [emailUsuario, setEmailUsuario] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!token) return;
+    fetch(`/api/auth/reset-info?token=${token}`)
+      .then(r => r.ok ? r.json() : null)
+      .then((data: { email: string } | null) => { if (data?.email) setEmailUsuario(data.email); })
+      .catch(() => {});
+  }, [token]);
 
   if (!token) {
     return (
@@ -44,9 +53,11 @@ export default function RedefinirSenha() {
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Erro ao redefinir senha");
+      if (data.email) setEmailUsuario(data.email);
       setStatus("ok");
       setMensagem(data.message ?? "Senha redefinida com sucesso!");
-      setTimeout(() => navigate("/login"), 2500);
+      const emailParam = data.email ? `?email=${encodeURIComponent(data.email)}` : "";
+      setTimeout(() => navigate(`/login${emailParam}`), 4000);
     } catch (err) {
       setStatus("error");
       setMensagem(err instanceof Error ? err.message : "Erro inesperado");
@@ -56,10 +67,19 @@ export default function RedefinirSenha() {
   if (status === "ok") {
     return (
       <div className="min-h-screen flex items-center justify-center bg-slate-50 p-4">
-        <div className="bg-white rounded-2xl shadow-lg p-8 max-w-sm w-full text-center space-y-3">
+        <div className="bg-white rounded-2xl shadow-lg p-8 max-w-sm w-full text-center space-y-4">
           <CheckCircle2 className="w-12 h-12 text-emerald-500 mx-auto" />
           <h1 className="text-xl font-extrabold text-slate-900">Senha redefinida!</h1>
-          <p className="text-slate-500 text-sm">{mensagem}</p>
+          {emailUsuario && (
+            <div className="bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-left space-y-1">
+              <p className="text-xs font-bold text-slate-500 uppercase tracking-wide">Seu email de acesso</p>
+              <div className="flex items-center gap-2">
+                <Mail className="w-4 h-4 text-slate-400 shrink-0" />
+                <p className="text-sm font-bold text-slate-800 break-all">{emailUsuario}</p>
+              </div>
+              <p className="text-xs text-slate-400">Use este email para entrar no sistema.</p>
+            </div>
+          )}
           <p className="text-xs text-slate-400">Redirecionando para o login…</p>
         </div>
       </div>
@@ -77,6 +97,16 @@ export default function RedefinirSenha() {
             <h1 className="text-2xl font-extrabold text-slate-900">Redefinir senha</h1>
             <p className="text-slate-500 text-sm">Escolha uma nova senha segura.</p>
           </div>
+
+          {emailUsuario && (
+            <div className="bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 flex items-center gap-2">
+              <Mail className="w-4 h-4 text-slate-400 shrink-0" />
+              <div className="min-w-0">
+                <p className="text-[11px] text-slate-400 font-semibold">Conta</p>
+                <p className="text-sm font-bold text-slate-700 truncate">{emailUsuario}</p>
+              </div>
+            </div>
+          )}
 
           <form onSubmit={handleSubmit} className="space-y-4">
             <div>

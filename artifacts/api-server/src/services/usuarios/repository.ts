@@ -60,6 +60,15 @@ export async function createUsuario(data: {
   return row;
 }
 
+export async function updateUsuarioEmail(id: number, email: string) {
+  const [row] = await db
+    .update(usuariosTable)
+    .set({ email: email.toLowerCase().trim() })
+    .where(eq(usuariosTable.id, id))
+    .returning({ id: usuariosTable.id, email: usuariosTable.email });
+  return row ?? null;
+}
+
 export async function updateUsuarioSenha(id: number, senhaHash: string) {
   const [row] = await db
     .update(usuariosTable)
