@@ -1,11 +1,190 @@
 import { Router } from "express";
 import { db, leadsTable, leadInteracoesTable, leadTarefasTable, leadScoresTable, relationalCapsulesTable, diagnosticosTable, salesOpportunitiesTable, orcamentosTable } from "@workspace/db";
 import { eq, and, desc, sql, ne, inArray, isNotNull, or } from "drizzle-orm";
-import { requireAuth, type AuthRequest } from "../middlewares/auth";
+import { requireAuth, parseLojaIdPayload, type AuthRequest } from "../middlewares/auth";
 import { logEvent } from "../lib/log-event";
 import { isDono } from "../lib/sessions";
+import { resolveOrCreateCustomerByPhone } from "../services/memory/identity";
+import { ensureLeadForCustomer } from "../services/operacoes/repository";
+import { calcularScoreIntencao, classificarLead } from "../lib/intentScore";
 
 const router = Router();
+
+// O fluxo novo não pergunta motivoTroca; o incomodo declarado carrega o mesmo
+// sinal de urgência quando há correspondência direta (demais → baseline).
+const INCOMODO_PARA_MOTIVO: Record<string, string> = {
+  dor: "dor_coluna",
+  afundando: "afundou",
+};
+
+const TAMANHOS_VALIDOS = ["solteiro", "casal", "queen", "king"] as const;
+const CONJUNTOS_VALIDOS = ["colchao", "box_colchao", "box_bau_colchao"] as const;
+
+// Telefone BR: DDD válido + 8/9 dígitos, com 55 opcional
+function whatsappBRValido(digits: string): boolean {
+  return /^(55)?[1-9][0-9]9?[0-9]{8}$/.test(digits);
+}
+
+// POST /leads/mapa-sono — PÚBLICO: lead do funil Mapa do Sono 2.0.
+// Contrato { success, data, error? }. lojaId obrigatório — sem default silencioso.
+// Não substitui o POST /leads autenticado do CRM interno.
+router.post("/leads/mapa-sono", async (req, res) => {
+  try {
+    const body = (req.body ?? {}) as Record<string, unknown>;
+
+    const lojaId = parseLojaIdPayload(body.lojaId);
+    if (lojaId === null) {
+      res.status(400).json({ success: false, error: "lojaId é obrigatório" });
+      return;
+    }
+
+    const nome = typeof body.nome === "string" ? body.nome.trim() : "";
+    if (!nome) {
+      res.status(400).json({ success: false, error: "Nome é obrigatório" });
+      return;
+    }
+
+    const whatsapp = typeof body.whatsapp === "string" ? body.whatsapp.replace(/\D/g, "") : "";
+    if (!whatsappBRValido(whatsapp)) {
+      res.status(400).json({ success: false, error: "WhatsApp inválido (formato BR com DDD)" });
+      return;
+    }
+
+    // "mapa_sono" é o valor canônico já usado pelo CRM (Clientes.tsx) e pelo
+    // fluxo legado (/api/diagnostico); aceita o alias do blueprint por compat.
+    if (body.origem !== "mapa_sono" && body.origem !== "mapa_do_sono") {
+      res.status(400).json({ success: false, error: "origem inválida" });
+      return;
+    }
+
+    const tamanho = typeof body.tamanho === "string" && (TAMANHOS_VALIDOS as readonly string[]).includes(body.tamanho)
+      ? body.tamanho : null;
+    const conjunto = typeof body.conjunto === "string" && (CONJUNTOS_VALIDOS as readonly string[]).includes(body.conjunto)
+      ? body.conjunto : null;
+    if (!tamanho || !conjunto) {
+      res.status(400).json({ success: false, error: "tamanho e conjunto são obrigatórios" });
+      return;
+    }
+
+    const resultado = (typeof body.resultado === "object" && body.resultado !== null)
+      ? body.resultado as Record<string, unknown>
+      : { ranking: [] };
+    const ranking = Array.isArray(resultado.ranking) ? resultado.ranking : [];
+    const top = (typeof ranking[0] === "object" && ranking[0] !== null)
+      ? ranking[0] as Record<string, unknown>
+      : null;
+
+    const perfil = (typeof body.perfil === "object" && body.perfil !== null)
+      ? body.perfil as Record<string, unknown>
+      : {};
+
+    // Identidade (Digital Twin) + lead CRM — mesmo caminho do /api/diagnostico
+    const customerId = await resolveOrCreateCustomerByPhone(whatsapp, nome, lojaId);
+    const leadId = await ensureLeadForCustomer({
+      lojaId,
+      customerId,
+      nome,
+      whatsapp,
+      origem: "mapa_sono",
+      estagioMinimo: "contato",
+    });
+
+    // Funil de conversão (paridade com /api/diagnostico): score de intenção,
+    // statusFunil, perfil biomecânico do lead e handoff no timeline do vendedor.
+    if (leadId) {
+      const incomodo = typeof perfil.incomodo === "string" ? perfil.incomodo : "";
+      const scoreIntencao = calcularScoreIntencao({
+        motivoTroca: INCOMODO_PARA_MOTIVO[incomodo],
+      });
+      const classificacao = classificarLead(scoreIntencao);
+      const dores = Array.isArray(perfil.dores) ? (perfil.dores as string[]) : [];
+      const firmezaIndicada = typeof resultado.firmezaIndicada === "string" ? resultado.firmezaIndicada : null;
+
+      await db
+        .update(leadsTable)
+        .set({
+          perfilBiomecanico: {
+            pesoA: typeof perfil.pesoA === "number" ? perfil.pesoA : null,
+            pesoB: typeof perfil.pesoB === "number" ? perfil.pesoB : null,
+            posicao: perfil.posicao ?? null,
+            temperatura: perfil.calor === true ? "sim" : "nao",
+            dores,
+            casal: perfil.ocupacao === "casal" ? "casal" : "sozinho",
+            incomodo: incomodo || null,
+            tamanho,
+            conjunto,
+            firmeza: firmezaIndicada,
+            produto_recomendado: typeof top?.nome === "string" ? top.nome : null,
+            compatibilidade: typeof top?.score === "number" ? top.score : null,
+          },
+          scoreIntencao,
+          // O lead nasce no clique que abre o WhatsApp — já entra como whatsapp_aberto
+          statusFunil: "whatsapp_aberto",
+          ultimoContato: new Date(),
+          atualizadoEm: new Date(),
+        })
+        .where(and(eq(leadsTable.id, leadId), eq(leadsTable.lojaId, lojaId)));
+
+      const linhas = [
+        `🌙 Mapa do Sono 2.0 — lead com WhatsApp aberto`,
+        ``,
+        typeof top?.nome === "string"
+          ? `Maior compatibilidade: ${top.nome} (${typeof top.score === "number" ? top.score : "—"}%)`
+          : `Sem produto elegível — atendimento de especialista`,
+        `Score de intenção: ${scoreIntencao}/100 — ${classificacao.label}`,
+        ``,
+        `Perfil: ${typeof resultado.perfilResumo === "string" && resultado.perfilResumo ? resultado.perfilResumo : "—"}`,
+        `Tamanho: ${tamanho} · Conjunto: ${conjunto.replace(/_/g, " + ")}`,
+      ];
+      if (ranking.length > 1) {
+        const outros = ranking.slice(1)
+          .map((r) => {
+            const item = r as Record<string, unknown>;
+            return `${item.nome} (${item.score}%)`;
+          })
+          .join(" · ");
+        linhas.push(`Alternativas: ${outros}`);
+      }
+
+      await db.insert(leadInteracoesTable).values({
+        leadId,
+        lojaId,
+        tipo: "handoff",
+        autorNome: "Mapa do Sono IA",
+        conteudo: linhas.join("\n"),
+      });
+    }
+
+    const [diag] = await db.insert(diagnosticosTable).values({
+      lojaId,
+      customerId: customerId ?? undefined,
+      leadId: leadId ?? undefined,
+      nome,
+      whatsapp,
+      produto_recomendado: typeof top?.nome === "string" ? top.nome : null,
+      confianca: typeof top?.score === "number" ? String(top.score / 100) : null,
+      respostas: { ...perfil, tamanho, conjunto, origem: "mapa_sono" },
+      resultado,
+      perfil_comportamental: (typeof body.telemetria === "object" && body.telemetria !== null)
+        ? body.telemetria as Record<string, unknown>
+        : {},
+    }).returning({ id: diagnosticosTable.id });
+
+    logEvent({
+      lojaId,
+      entidade: "lead",
+      entidadeId: leadId !== null ? String(leadId) : undefined,
+      acao: "lead.mapa_sono_criado",
+      atorTipo: "sistema",
+      payload: { diagnosticoId: diag?.id ?? null, top: top?.nome ?? null, tamanho, conjunto },
+    });
+
+    res.status(201).json({ success: true, data: { leadId, diagnosticoId: diag?.id ?? null } });
+  } catch (err) {
+    console.error("[Leads] POST /leads/mapa-sono error:", err);
+    res.status(500).json({ success: false, error: "Erro ao salvar lead" });
+  }
+});
 
 // GET /leads — lista com filtros opcionais
 router.get("/leads", requireAuth, async (req: AuthRequest, res) => {
