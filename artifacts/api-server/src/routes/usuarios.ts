@@ -13,6 +13,7 @@ import {
   findConviteValido,
   marcarConviteUsado,
   updateUsuarioSenha,
+  updateUsuarioEmail,
   createResetToken,
   registrarAudit,
 } from "../services/usuarios/repository";
@@ -120,6 +121,43 @@ router.post("/", requireAdmin, async (req, res) => {
     const msg = err instanceof Error ? err.message : "";
     if (msg.includes("unique") || msg.includes("duplicate")) {
       res.status(409).json({ error: "Email já cadastrado" });
+      return;
+    }
+    res.status(500).json({ error: "Erro interno" });
+  }
+});
+
+/** PATCH /api/usuarios/:id/email — altera email (admin) */
+router.patch("/:id/email", requireAdmin, async (req, res) => {
+  try {
+    const session = sessionFromReq(req);
+    if (!session) { res.status(401).json({ error: "Sessão inválida" }); return; }
+
+    const id = parseId(req.params.id as string);
+    if (isNaN(id)) { res.status(400).json({ error: "ID inválido" }); return; }
+
+    const { email } = req.body;
+    if (!email || typeof email !== "string" || !email.includes("@")) {
+      res.status(400).json({ error: "Email inválido" });
+      return;
+    }
+
+    const row = await updateUsuarioEmail(id, email);
+    if (!row) { res.status(404).json({ error: "Usuário não encontrado" }); return; }
+
+    await registrarAudit({
+      lojaId: session.lojaId,
+      usuarioId: session.userId > 0 ? session.userId : undefined,
+      acao: "CHANGE_EMAIL",
+      detalhes: { alvo: id, novoEmail: row.email },
+      ip: clientIp(req),
+    });
+
+    res.json(row);
+  } catch (err: unknown) {
+    const msg = err instanceof Error ? err.message : "";
+    if (msg.includes("unique") || msg.includes("duplicate")) {
+      res.status(409).json({ error: "Email já está em uso por outro usuário" });
       return;
     }
     res.status(500).json({ error: "Erro interno" });

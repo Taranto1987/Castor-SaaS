@@ -201,6 +201,24 @@ router.post("/alterar-senha", requireAuth, async (req, res) => {
 });
 
 /**
+ * GET /auth/reset-info?token=...
+ * Retorna o email associado ao token (para exibir na página de redefinição).
+ * Público — não exige autenticação.
+ */
+router.get("/reset-info", async (req, res) => {
+  const token = req.query.token as string;
+  if (!token) { res.status(400).json({ error: "Token obrigatório" }); return; }
+
+  const resetRec = await findResetTokenValido(token);
+  if (!resetRec) { res.status(400).json({ error: "Token inválido ou expirado" }); return; }
+
+  const usuario = await findUsuarioById(resetRec.usuarioId);
+  if (!usuario) { res.status(404).json({ error: "Usuário não encontrado" }); return; }
+
+  res.json({ email: usuario.email });
+});
+
+/**
  * POST /auth/esqueci-senha
  * Gera token de reset. Em produção, enviaria por email.
  * Body: { email }
@@ -270,7 +288,7 @@ router.post("/redefinir-senha", async (req, res) => {
     ip: clientIp(req),
   });
 
-  res.json({ ok: true, message: "Senha redefinida com sucesso. Faça login." });
+  res.json({ ok: true, message: "Senha redefinida com sucesso. Faça login.", email: usuario?.email ?? null });
 });
 
 export default router;
