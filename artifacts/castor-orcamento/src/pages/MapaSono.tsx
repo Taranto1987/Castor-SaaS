@@ -4,7 +4,7 @@ import {
   Users, Scale, BedDouble, Activity, Thermometer,
   RefreshCw, Star, ChevronLeft, ChevronRight,
   MessageCircle, User, Check, Zap, Heart,
-  Package, Layers, Phone, Moon,
+  Package, Layers, Phone, Moon, Home,
 } from "lucide-react";
 import { trackWhatsAppClick } from "@/lib/tracking";
 import { useLoja } from "@/contexts/LojaContext";
@@ -22,7 +22,7 @@ const WA_NUMERO_PADRAO = "5522992410112";
 
 // ── Domínio ─────────────────────────────────────────────────────────────────────
 type Incomodo = "dor" | "calor" | "afundando" | "sono_ruim" | "conforto";
-type Ocupacao = "sozinho" | "casal";
+type Ocupacao = "sozinho" | "casal" | "hospede";
 type Posicao  = "lado" | "costas" | "brucos" | "varia";
 type Dor      = "lombar" | "cervical" | "ombro" | "quadril";
 type Tamanho  = "solteiro" | "casal" | "queen" | "king";
@@ -60,10 +60,19 @@ interface ResultadoCompatibilidade {
 
 // ── State machine ───────────────────────────────────────────────────────────────
 type Fase  = "A_diagnostico" | "B_resultado" | "C_conversao" | "finalizado";
-type StepA = "incomodo" | "ocupacao" | "peso" | "posicao" | "dores" | "calor";
+type StepA = "ocupacao" | "incomodo" | "peso" | "posicao" | "dores" | "calor";
 type StepC = "tamanho" | "conjunto" | "lead";
 
-const ORDEM_A: StepA[] = ["incomodo", "ocupacao", "peso", "posicao", "dores", "calor"];
+// Árvore completa (sozinho/casal). Hóspede usa subconjunto via getStepsAtivos.
+const ORDEM_A: StepA[] = ["ocupacao", "incomodo", "peso", "posicao", "dores", "calor"];
+
+function getStepsAtivos(perfil: PerfilRespostas): StepA[] {
+  if (perfil.ocupacao === "hospede") {
+    // Hóspede: pula incomodo, posicao, dores, calor — métricas pessoais irrelevantes
+    return ["ocupacao", "peso"];
+  }
+  return ORDEM_A;
+}
 const ORDEM_C: StepC[] = ["tamanho", "conjunto", "lead"];
 
 interface State {
@@ -90,7 +99,7 @@ type Acao =
 
 const ESTADO_INICIAL: State = {
   fase: "A_diagnostico",
-  stepA: "incomodo",
+  stepA: "ocupacao",
   stepC: "tamanho",
   perfil: { pesoA: 75, pesoB: 65, dores: [] },
   resultado: null,
@@ -100,7 +109,7 @@ const ESTADO_INICIAL: State = {
 };
 
 // Transições válidas — ÚNICAS permitidas:
-// A: incomodo→ocupacao→peso→posicao→dores→calor→[gera resultado]→B
+// A: ocupacao→[(incomodo→peso→posicao→dores→calor) | peso(hospede)]→[gera resultado]→B
 // B: ranking → CTA "Configurar minha escolha" → C
 // C: tamanho→conjunto→lead→[POST lead]→[abre WhatsApp]→finalizado
 // Voltar: dentro de A e dentro de C; de C não volta para A.
@@ -108,20 +117,23 @@ function reducer(state: State, acao: Acao): State {
   switch (acao.type) {
     case "RESPONDER_A": {
       if (state.fase !== "A_diagnostico" || acao.step !== state.stepA) return state;
-      const idx = ORDEM_A.indexOf(state.stepA);
-      if (state.stepA === "calor") {
-        // Última etapa A → gera resultado SÍNCRONO do ponto de vista do usuário
-        return { ...state, perfil: acao.perfil, fase: "B_resultado", resultadoCarregando: true };
+      const novoPerfil = acao.perfil;
+      const stepsAtivos = getStepsAtivos(novoPerfil);
+      const idx = stepsAtivos.indexOf(acao.step);
+      if (idx >= stepsAtivos.length - 1) {
+        // Última etapa ativa → gera resultado
+        return { ...state, perfil: novoPerfil, fase: "B_resultado", resultadoCarregando: true };
       }
-      const proximo = ORDEM_A[idx + 1];
+      const proximo = stepsAtivos[idx + 1];
       if (!proximo) return state;
-      return { ...state, perfil: acao.perfil, stepA: proximo };
+      return { ...state, perfil: novoPerfil, stepA: proximo };
     }
     case "VOLTAR": {
       if (state.fase === "A_diagnostico") {
-        const idx = ORDEM_A.indexOf(state.stepA);
+        const stepsAtivos = getStepsAtivos(state.perfil);
+        const idx = stepsAtivos.indexOf(state.stepA);
         if (idx <= 0) return state;
-        const anterior = ORDEM_A[idx - 1];
+        const anterior = stepsAtivos[idx - 1];
         return anterior ? { ...state, stepA: anterior } : state;
       }
       if (state.fase === "C_conversao") {
@@ -449,8 +461,9 @@ const OPCOES_INCOMODO: Opt<Incomodo>[] = [
 ];
 
 const OPCOES_OCUPACAO: Opt<Ocupacao>[] = [
-  { value: "sozinho", label: "Só para mim",   Icon: User },
-  { value: "casal",   label: "Para um casal", Icon: Users },
+  { value: "sozinho", label: "Só para mim",      Icon: User  },
+  { value: "casal",   label: "Para um casal",    Icon: Users },
+  { value: "hospede", label: "Para hóspedes",    Icon: Home  },
 ];
 
 const OPCOES_POSICAO: Opt<Posicao>[] = [
@@ -481,7 +494,8 @@ function FaseA({
   onVoltar: () => void;
 }) {
   const { stepA, perfil } = state;
-  const idx = ORDEM_A.indexOf(stepA);
+  const stepsAtivos = getStepsAtivos(perfil);
+  const idx = stepsAtivos.indexOf(stepA);
   // Ao voltar para a etapa de dores, restaura a seleção anterior
   const [doresSel, setDoresSel] = useState<Array<Dor | "nenhuma">>(perfil.dores);
   const [pesoA, setPesoA] = useState(perfil.pesoA);
@@ -501,10 +515,21 @@ function FaseA({
 
   return (
     <div className="flex flex-col" style={{ background: BG }}>
-      <ProgressHeader step={idx} total={ORDEM_A.length} />
+      <ProgressHeader step={idx} total={stepsAtivos.length} />
 
       <div className="px-5 pb-6">
         {idx > 0 && <BotaoVoltar onClick={onVoltar} />}
+
+        {stepA === "ocupacao" && (
+          <>
+            <CabecalhoPergunta Icon={Users} titulo="Para quem é o colchão?" subtitulo="Isso define o caminho do diagnóstico." />
+            <OpcoesUnicas
+              opcoes={OPCOES_OCUPACAO}
+              selecionada={perfil.ocupacao}
+              onSelect={v => onResponder("ocupacao", { ...perfil, ocupacao: v })}
+            />
+          </>
+        )}
 
         {stepA === "incomodo" && (
           <>
@@ -517,23 +542,20 @@ function FaseA({
           </>
         )}
 
-        {stepA === "ocupacao" && (
-          <>
-            <CabecalhoPergunta Icon={Users} titulo="Para quem é o colchão?" />
-            <OpcoesUnicas
-              opcoes={OPCOES_OCUPACAO}
-              selecionada={perfil.ocupacao}
-              onSelect={v => onResponder("ocupacao", { ...perfil, ocupacao: v })}
-            />
-          </>
-        )}
-
         {stepA === "peso" && (
           <>
             <CabecalhoPergunta
               Icon={Scale}
-              titulo={perfil.ocupacao === "casal" ? "Qual o peso de vocês?" : "Qual o seu peso?"}
-              subtitulo={perfil.ocupacao === "casal" ? "Informe o peso das duas pessoas" : "Informe seu peso"}
+              titulo={
+                perfil.ocupacao === "casal"   ? "Qual o peso de vocês?" :
+                perfil.ocupacao === "hospede" ? "Peso médio dos hóspedes" :
+                "Qual o seu peso?"
+              }
+              subtitulo={
+                perfil.ocupacao === "casal"   ? "Informe o peso das duas pessoas" :
+                perfil.ocupacao === "hospede" ? "Usado para calibrar a firmeza ideal" :
+                "Informe seu peso"
+              }
             />
             {perfil.ocupacao === "casal" && (
               <p className="text-center text-xs font-bold uppercase tracking-wider mb-3" style={{ color: "#777" }}>
@@ -945,7 +967,7 @@ function WelcomeScreen({ onStart }: { onStart: () => void }) {
         <span style={{ color: "#aaa" }}>Castor</span>
       </h1>
       <p className="text-base mb-8 max-w-sm" style={{ color: "#888" }}>
-        Responda {ORDEM_A.length} perguntas rápidas e descubra os colchões com maior compatibilidade com o seu corpo.
+        Responda algumas perguntas rápidas e descubra os colchões com maior compatibilidade para o seu perfil.
       </p>
       <div className="flex flex-col gap-2 mb-10 w-full max-w-xs text-left">
         {["100% Online · Leva menos de 60 segundos", "Personalizado · Baseado no seu perfil de descanso", "Gratuito · Sem compromisso"].map(t => (
@@ -1019,8 +1041,11 @@ export default function MapaSono({ embedded = false }: MapaSonoProps) {
   function responderA(step: StepA, perfil: PerfilRespostas) {
     emitir("step_complete", { fase: "A", step });
 
-    if (step === "calor") {
-      // Geração dispara NO CLIQUE da etapa calor — sem tela intermediária
+    const stepsAtivos = getStepsAtivos(perfil);
+    const isUltimoStep = stepsAtivos[stepsAtivos.length - 1] === step;
+
+    if (isUltimoStep) {
+      // Última etapa ativa → dispara geração de resultado no clique
       if (autoTimer.current !== null) { window.clearTimeout(autoTimer.current); autoTimer.current = null; }
       pendingResposta.current = null;
       dispatch({ type: "RESPONDER_A", step, perfil });
