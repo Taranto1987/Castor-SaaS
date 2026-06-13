@@ -601,17 +601,13 @@ function FaseA({
             <motion.button
               whileTap={{ scale: 0.97 }}
               onClick={() => {
-                if (doresSel.length === 0) return;
                 const dores = doresSel.filter((d): d is Dor => d !== "nenhuma");
                 onResponder("dores", { ...perfil, dores });
               }}
               className="w-full py-4 rounded-2xl font-extrabold text-white text-base"
-              style={{
-                background: doresSel.length > 0 ? RED : "#2a0808",
-                opacity: doresSel.length > 0 ? 1 : 0.5,
-              }}
+              style={{ background: RED }}
             >
-              Confirmar →
+              {doresSel.length > 0 && !doresSel.includes("nenhuma") ? "Confirmar →" : "Nenhuma dor →"}
             </motion.button>
           </>
         )}
@@ -936,7 +932,7 @@ function Finalizado({ waUrl, onReiniciar, onReabrirWA }: {
 // ── Welcome (somente página, não embedded) ──────────────────────────────────────
 function WelcomeScreen({ onStart }: { onStart: () => void }) {
   return (
-    <div className="min-h-screen flex flex-col items-center justify-center px-6 py-12 text-center" style={{ background: BG }}>
+    <div className="flex-1 overflow-y-auto flex flex-col items-center justify-center px-6 py-12 text-center" style={{ background: BG }}>
       <div className="w-16 h-16 rounded-2xl flex items-center justify-center mb-6"
         style={{ background: RED, boxShadow: `0 4px 24px ${RED}55` }}>
         <BedDouble className="w-8 h-8 text-white" />
@@ -1099,7 +1095,7 @@ export default function MapaSono({ embedded = false }: MapaSonoProps) {
     dispatch({ type: "REINICIAR" });
   }
 
-  const outerClass = embedded ? "flex flex-col" : "flex flex-col min-h-screen";
+  const outerClass = embedded ? "flex flex-col h-full overflow-hidden" : "flex flex-col h-screen overflow-hidden";
   const chaveTela =
     state.fase === "A_diagnostico" ? `A-${state.stepA}` :
     state.fase === "C_conversao"   ? `C-${state.stepC}` :
