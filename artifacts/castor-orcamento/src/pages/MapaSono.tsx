@@ -500,10 +500,10 @@ function FaseA({
   const fmtPeso = (v: number) => `${v} kg`;
 
   return (
-    <div className="flex flex-col h-full" style={{ background: BG }}>
+    <div className="flex flex-col" style={{ background: BG }}>
       <ProgressHeader step={idx} total={ORDEM_A.length} />
 
-      <div className="flex-1 overflow-y-auto overscroll-contain px-5 pb-6">
+      <div className="px-5 pb-6">
         {idx > 0 && <BotaoVoltar onClick={onVoltar} />}
 
         {stepA === "incomodo" && (
@@ -678,8 +678,8 @@ function FaseB({
   const semProdutos = !resultadoCarregando && resultado !== null && ranking.length === 0;
 
   return (
-    <div className="flex flex-col h-full" style={{ background: BG }}>
-      <div className="flex-1 overflow-y-auto overscroll-contain px-6 pb-8">
+    <div className="flex flex-col" style={{ background: BG }}>
+      <div className="px-6 pb-8">
         <div className="text-center pt-8 mb-6">
           <p className="text-xs font-black tracking-widest uppercase mb-2" style={{ color: RED }}>
             Diagnóstico concluído
@@ -833,10 +833,10 @@ function FaseC({
   const leadValido = nome.trim().length > 0 && /^(55)?[1-9][0-9]9?[0-9]{8}$/.test(zap.replace(/\D/g, ""));
 
   return (
-    <div className="flex flex-col h-full" style={{ background: BG }}>
+    <div className="flex flex-col" style={{ background: BG }}>
       <ProgressHeader step={idx} total={ORDEM_C.length} />
 
-      <div className="flex-1 overflow-y-auto overscroll-contain px-5 pb-6">
+      <div className="px-5 pb-6">
         {idx > 0 && <BotaoVoltar onClick={onVoltar} />}
 
         {stepC === "tamanho" && (
@@ -1099,7 +1099,7 @@ export default function MapaSono({ embedded = false }: MapaSonoProps) {
     dispatch({ type: "REINICIAR" });
   }
 
-  const outerClass = embedded ? "flex flex-col min-h-full" : "flex flex-col min-h-screen";
+  const outerClass = embedded ? "flex flex-col" : "flex flex-col min-h-screen";
   const chaveTela =
     state.fase === "A_diagnostico" ? `A-${state.stepA}` :
     state.fase === "C_conversao"   ? `C-${state.stepC}` :
