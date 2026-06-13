@@ -194,23 +194,23 @@ function ItemCard({ item }: { item: HistoricoItem }) {
           vendido ? "border-emerald-200 bg-emerald-50/30" : atrasado ? "border-amber-200" : "border-slate-200"
         )}
       >
-        <div className="p-4 flex items-start justify-between gap-3">
+        <div className="p-4 flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-2 flex-wrap">
               <span className="font-bold text-slate-900">{item.cliente}</span>
               {vendido && (
-                <span className="text-xs bg-emerald-100 text-emerald-700 border border-emerald-200 px-2 py-0.5 rounded-full font-bold flex items-center gap-1">
+                <span className="text-xs bg-emerald-100 text-emerald-700 border border-emerald-200 px-2 py-0.5 rounded-full font-bold flex items-center gap-1 whitespace-nowrap">
                   <CheckCircle2 className="w-3 h-3" /> Vendido
                 </span>
               )}
               {atrasado && (
-                <span className="text-xs bg-amber-100 text-amber-700 border border-amber-200 px-2 py-0.5 rounded-full font-bold flex items-center gap-1">
+                <span className="text-xs bg-amber-100 text-amber-700 border border-amber-200 px-2 py-0.5 rounded-full font-bold flex items-center gap-1 whitespace-nowrap">
                   <AlertCircle className="w-3 h-3" />
                   {dias === 1 ? "1 dia" : `${dias} dias`} em aberto
                 </span>
               )}
               {item.whatsapp && (
-                <span className="text-xs text-green-600 font-medium flex items-center gap-1">
+                <span className="text-xs text-green-600 font-medium flex items-center gap-1 whitespace-nowrap">
                   <Phone className="w-3 h-3" />{formatarNumero(item.whatsapp)}
                 </span>
               )}
@@ -240,12 +240,12 @@ function ItemCard({ item }: { item: HistoricoItem }) {
             )}
           </div>
 
-          <div className="flex items-center gap-1.5 flex-shrink-0 flex-wrap justify-end">
+          <div className="flex flex-wrap items-center gap-1.5 sm:flex-shrink-0 sm:justify-end">
             {!vendido && (
               <button
                 onClick={() => setShowFechar(true)}
                 disabled={fechando}
-                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold bg-emerald-600 hover:bg-emerald-700 text-white transition-all disabled:opacity-50"
+                className="flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold bg-emerald-600 hover:bg-emerald-700 text-white transition-all disabled:opacity-50 w-full sm:w-auto"
               >
                 <ShoppingBag className="w-3.5 h-3.5" />
                 Fechar venda
@@ -256,7 +256,7 @@ function ItemCard({ item }: { item: HistoricoItem }) {
                 onClick={handleFollowUp}
                 title="Enviar follow-up no WhatsApp"
                 className={cn(
-                  "flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all",
+                  "flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all flex-1 justify-center sm:flex-none",
                   atrasado
                     ? "bg-amber-100 text-amber-700 hover:bg-amber-200 border border-amber-200"
                     : "bg-white text-slate-500 border border-slate-200 hover:bg-slate-50"
@@ -267,9 +267,16 @@ function ItemCard({ item }: { item: HistoricoItem }) {
               </button>
             )}
             <button
+              onClick={handleWhatsApp}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold bg-green-500 hover:bg-green-600 text-white transition-all flex-1 justify-center sm:flex-none"
+            >
+              <Phone className="w-3.5 h-3.5" />
+              WA
+            </button>
+            <button
               onClick={handleCopy}
               className={cn(
-                "flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all",
+                "flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all flex-1 justify-center sm:flex-none",
                 copied ? "bg-green-100 text-green-700" : "bg-white text-slate-600 border border-slate-200 hover:bg-slate-50"
               )}
             >
@@ -277,15 +284,8 @@ function ItemCard({ item }: { item: HistoricoItem }) {
               {copied ? "Copiado" : "Copiar"}
             </button>
             <button
-              onClick={handleWhatsApp}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold bg-green-500 hover:bg-green-600 text-white transition-all"
-            >
-              <Phone className="w-3.5 h-3.5" />
-              WA
-            </button>
-            <button
               onClick={() => setExpanded(!expanded)}
-              className="w-8 h-8 rounded-lg bg-slate-100 hover:bg-slate-200 flex items-center justify-center transition-colors text-slate-500"
+              className="w-8 h-8 rounded-lg bg-slate-100 hover:bg-slate-200 flex items-center justify-center transition-colors text-slate-500 shrink-0"
             >
               {expanded ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
             </button>
