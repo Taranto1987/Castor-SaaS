@@ -53,6 +53,7 @@ router.post("/mapa-sono/compatibilidade", async (req: Request, res: Response) =>
         precoPix: produtosTable.precoPix,
         custoBRL: produtosTable.custoBRL,
         imagem: produtosTable.imagem,
+        fichaTecnica: produtosTable.fichaTecnica,
       })
       .from(produtosTable)
       .where(and(

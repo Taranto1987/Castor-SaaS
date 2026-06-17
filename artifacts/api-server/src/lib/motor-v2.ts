@@ -62,6 +62,9 @@ export interface ProdutoCatalogoInput {
   precoPix: string | null;
   custoBRL: string | null;
   imagem: string | null;
+  // Ficha técnica real do fabricante (persistida pelo crawler). Quando presente, tem
+  // prioridade sobre a inferência por nome/familyName em extrairFeatures.
+  fichaTecnica?: Record<string, unknown> | null;
 }
 
 // ── ScoreVector ─────────────────────────────────────────────────────────────────
@@ -269,11 +272,40 @@ interface FeaturesProduto {
   fresh: boolean;
 }
 
+// Achata os valores string da ficha técnica num corpus de busca (ignora a chave `_raw`,
+// que guarda HTML bruto e poluiria o matching de keywords).
+function fichaCorpus(ficha: Record<string, unknown> | null | undefined): string {
+  if (!ficha) return "";
+  const partes: string[] = [];
+  for (const [chave, valor] of Object.entries(ficha)) {
+    if (chave === "_raw") continue;
+    if (typeof valor === "string") partes.push(valor);
+    else if (typeof valor === "number") partes.push(String(valor));
+  }
+  return partes.join(" ");
+}
+
 function extrairFeatures(p: ProdutoCatalogoInput): FeaturesProduto {
-  const txt = `${p.nome} ${p.familyName ?? ""}`.toLowerCase();
-  const densM = txt.match(/\bd(\d{2,3})\b/);
+  // Dado real do fabricante (quando o crawler o persistiu) entra no corpus junto com o nome.
+  // Mantém o comportamento legado intacto para produtos sem ficha técnica.
+  const corpusFicha = fichaCorpus(p.fichaTecnica).toLowerCase();
+  const txt = `${p.nome} ${p.familyName ?? ""} ${corpusFicha}`.toLowerCase();
+
+  // Densidade: prioriza a chave explícita da ficha ("densidade": "D33" | "33"), com
+  // fallback para o padrão "D33" no nome (comportamento original).
+  let dens: number | null = null;
+  const densField = p.fichaTecnica?.["densidade"];
+  if (typeof densField === "string" || typeof densField === "number") {
+    const dm = String(densField).match(/(\d{2,3})/);
+    if (dm) dens = parseInt(dm[1] ?? "", 10);
+  }
+  if (dens === null) {
+    const densM = txt.match(/\bd(\d{2,3})\b/);
+    dens = densM ? parseInt(densM[1] ?? "", 10) : null;
+  }
+
   return {
-    dens: densM ? parseInt(densM[1] ?? "", 10) : null,
+    dens,
     pillow: txt.includes("pillow"),
     spring: txt.includes("molas") || txt.includes("spring") || txt.includes("pocket") || txt.includes("ensacad"),
     pocket: txt.includes("pocket") || txt.includes("ensacad"),

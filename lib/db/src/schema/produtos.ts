@@ -1,4 +1,4 @@
-import { pgTable, serial, text, timestamp, boolean, integer, numeric, uniqueIndex, pgEnum } from "drizzle-orm/pg-core";
+import { pgTable, serial, text, timestamp, boolean, integer, numeric, jsonb, uniqueIndex, pgEnum } from "drizzle-orm/pg-core";
 import { sql } from "drizzle-orm";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod/v4";
@@ -40,6 +40,15 @@ export const produtosTable = pgTable("produtos", {
   familySlug: text("family_slug"),
   familyName: text("family_name"),
   size: text("size"),
+  // Descrição comercial completa do fabricante (HTML sanitizado, preservado p/ PDP/SEO/chat).
+  // Antes era buscada no GraphQL só para extrair medidas/altura e descartada.
+  descricao: text("descricao"),
+  // Ficha técnica normalizada: chave snake_case → valor. Origem: custom_attributes Magento
+  // + specs parseadas do HTML da descrição (densidade, altura, mola, biotipo, garantia,
+  // ventilação, conforto, ...). O payload Magento bruto fica sob a chave reservada `_raw`
+  // (lossless — permite reprocessar sem re-crawl). default {} → nunca null.
+  // Regra de promoção: uma chave só vira coluna tipada quando o motor-v2/filtros precisarem indexá-la.
+  fichaTecnica: jsonb("ficha_tecnica").$type<Record<string, unknown>>().default(sql`'{}'::jsonb`),
   // Commercial lifecycle: replaces the boolean disponivel/encomenda flags for UI/filtering.
   salesMode:        salesModeEnum("sales_mode").default("showroom"),
   deliveryStrategy: deliveryStrategyEnum("delivery_strategy").default("pronta_entrega"),
