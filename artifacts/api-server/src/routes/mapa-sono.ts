@@ -4,10 +4,10 @@ import { produtosTable } from "@workspace/db/schema";
 import { eq, and, or, isNull, gt } from "drizzle-orm";
 import {
   validarPerfil,
-  montarRanking,
   type PerfilDiagnostico,
   type ProdutoCatalogoInput,
 } from "../lib/motor-v2";
+import { montarRankingRegras, type PerfilRegras } from "../lib/motor-regras";
 import { logEvent } from "../lib/log-event";
 import { parseLojaIdPayload } from "../middlewares/auth";
 
@@ -31,7 +31,12 @@ router.post("/mapa-sono/compatibilidade", async (req: Request, res: Response) =>
       return;
     }
 
-    const perfil: PerfilDiagnostico = {
+    // Subconjunto consumido pelo motor v2 (validado) + sinais do fluxo 3.0 que
+    // direcionam as regras de card e os gates clínicos (opcionais, sanitizados).
+    const CONTEXTOS = ["constante", "praia", "hospede"];
+    const PATOLOGIAS = ["nenhuma", "reabilitacao", "pos_op", "outra"];
+    const TAMANHOS = ["solteiro", "casal", "queen", "king"];
+    const perfil: PerfilRegras = {
       incomodo: body.incomodo as PerfilDiagnostico["incomodo"],
       ocupacao: body.ocupacao as PerfilDiagnostico["ocupacao"],
       pesoA: body.pesoA as number,
@@ -40,6 +45,12 @@ router.post("/mapa-sono/compatibilidade", async (req: Request, res: Response) =>
       dores: body.dores as PerfilDiagnostico["dores"],
       calor: body.calor as boolean,
       lojaId,
+      contexto: CONTEXTOS.includes(body.contexto as string) ? (body.contexto as PerfilRegras["contexto"]) : undefined,
+      hospedePrioridade: body.hospedePrioridade === "custo" || body.hospedePrioridade === "performance" ? body.hospedePrioridade : undefined,
+      idosoSemMola: body.idosoSemMola === true,
+      gestante: body.gestante === true,
+      patologia: PATOLOGIAS.includes(body.patologia as string) ? (body.patologia as PerfilRegras["patologia"]) : undefined,
+      tamanho: TAMANHOS.includes(body.tamanho as string) ? (body.tamanho as PerfilRegras["tamanho"]) : undefined,
     };
 
     // Produtos elegíveis: SEMPRE do banco, por loja_id (mesmos filtros do catálogo público)
@@ -66,7 +77,7 @@ router.post("/mapa-sono/compatibilidade", async (req: Request, res: Response) =>
       .limit(500);
 
     const produtos: ProdutoCatalogoInput[] = rows;
-    const data = montarRanking(perfil, produtos);
+    const data = montarRankingRegras(perfil, produtos);
 
     // ranking vazio é resposta válida — o frontend mostra "fale com especialista"
     res.json({ success: true, data });

@@ -2,7 +2,7 @@
 // Caminha por FLUXO pulando os nós cuja `condicao` é falsa. Estado puro em memória;
 // nenhuma transição lê/escreve storage. O componente (MapaSono.tsx) só despacha ações.
 
-import { FLUXO } from "./flow";
+import { FLUXO, idosoSemMola } from "./flow";
 import type { QuestionNode, Respostas, ResultadoCompatibilidade, Opt } from "./types";
 
 export interface EngineState {
@@ -151,5 +151,19 @@ export function projetarPerfilMotor(r: Respostas): PerfilMotor {
     posicao: r.posicao ?? "varia",
     dores,
     calor: r.temperatura === "quente",
+  };
+}
+
+// Payload completo do POST /api/mapa-sono/compatibilidade: subconjunto do motor v2
+// + sinais do fluxo 3.0 que direcionam as regras de card e os gates clínicos.
+export function montarPayloadCompat(r: Respostas): Record<string, unknown> {
+  return {
+    ...projetarPerfilMotor(r),
+    contexto: r.contexto,
+    hospedePrioridade: r.hospedePrioridade,
+    idosoSemMola: idosoSemMola(r),
+    gestante: r.gestante === true,
+    patologia: r.patologia,
+    tamanho: r.tamanho,
   };
 }

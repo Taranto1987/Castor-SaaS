@@ -61,6 +61,8 @@ export interface RankingItem {
   precoPix: string | null;
   imagem: string | null;
   size: string | null;
+  avisos?: string[];
+  justificativa?: string;
 }
 
 export interface ResultadoCompatibilidade {

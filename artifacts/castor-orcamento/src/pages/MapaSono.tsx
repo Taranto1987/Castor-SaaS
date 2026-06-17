@@ -1,12 +1,12 @@
 import { useEffect, useReducer, useRef, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { ChevronLeft, ChevronRight, Check, MessageCircle, BedDouble } from "lucide-react";
+import { ChevronLeft, ChevronRight, Check, MessageCircle, BedDouble, AlertTriangle } from "lucide-react";
 import { trackWhatsAppClick } from "@/lib/tracking";
 import { useLoja } from "@/contexts/LojaContext";
 import {
   engineReducer, estadoInicial, noPorId, progresso, podeVoltar,
-  resolverTexto, resolverOpcoes, projetarPerfilMotor,
-  type EngineState, type PerfilMotor,
+  resolverTexto, resolverOpcoes, montarPayloadCompat,
+  type EngineState,
 } from "./mapa-sono/engine";
 import type {
   Respostas, ResultadoCompatibilidade, Categoria, Opt, QuestionNode, Dor,
@@ -52,9 +52,9 @@ function emitirEventoFunil(
   } catch { /* telemetria nunca quebra o fluxo */ }
 }
 
-// ── Motor v2 (backend) ──────────────────────────────────────────────────────────
+// ── Motor de resultado (backend) ────────────────────────────────────────────────
 async function buscarCompatibilidade(
-  perfil: PerfilMotor, lojaId: number,
+  payload: Record<string, unknown>, lojaId: number,
 ): Promise<ResultadoCompatibilidade> {
   const ctrl = new AbortController();
   const timeoutId = window.setTimeout(() => ctrl.abort(), 10_000);
@@ -64,7 +64,7 @@ async function buscarCompatibilidade(
       method: "POST",
       headers: { "Content-Type": "application/json" },
       signal: ctrl.signal,
-      body: JSON.stringify({ ...perfil, lojaId }),
+      body: JSON.stringify({ ...payload, lojaId }),
     });
   } finally {
     window.clearTimeout(timeoutId);
@@ -492,6 +492,9 @@ function FaseResultado({ state, waUrl, onWhatsApp, onVoltar }: {
                 <span className="text-xs font-semibold" style={{ color: "#777" }}>de compatibilidade</span>
               </div>
               {top.precoPix && <p className="text-lg font-extrabold mb-3" style={{ color: RED }}>{top.precoPix} no Pix</p>}
+              {top.justificativa && (
+                <p className="text-sm mb-3 leading-relaxed" style={{ color: "#999" }}>{top.justificativa}</p>
+              )}
               <div className="flex flex-col gap-2">
                 {top.motivos.map(m => (
                   <div key={m} className="flex items-center gap-2 text-sm" style={{ color: "#aaa" }}>
@@ -499,6 +502,17 @@ function FaseResultado({ state, waUrl, onWhatsApp, onVoltar }: {
                   </div>
                 ))}
               </div>
+              {top.avisos && top.avisos.length > 0 && (
+                <div className="mt-4 flex flex-col gap-2">
+                  {top.avisos.map(a => (
+                    <div key={a} className="flex items-start gap-2 rounded-lg px-3 py-2"
+                      style={{ background: "#1a1400", border: "1px solid #3a2e00" }}>
+                      <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5" style={{ color: "#d4a200" }} />
+                      <p className="text-xs leading-snug" style={{ color: "#caa84a" }}>{a}</p>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
           </div>
         )}
@@ -521,6 +535,12 @@ function FaseResultado({ state, waUrl, onWhatsApp, onVoltar }: {
                     </span>
                     <p className="text-white font-bold text-sm leading-tight truncate mt-1.5">{item.nome}</p>
                     {item.precoPix && <p className="text-sm font-extrabold mt-1" style={{ color: RED }}>{item.precoPix}</p>}
+                    {item.avisos && item.avisos.length > 0 && (
+                      <div className="flex items-center gap-1 mt-1">
+                        <AlertTriangle className="w-3 h-3 shrink-0" style={{ color: "#d4a200" }} />
+                        <p className="text-[10px] leading-tight" style={{ color: "#caa84a" }}>{item.avisos[0]}</p>
+                      </div>
+                    )}
                   </div>
                   <div className="shrink-0 text-right">
                     <p className="text-xl font-black text-white">{item.score}%</p>
@@ -644,7 +664,7 @@ export default function MapaSono({ embedded = false }: MapaSonoProps) {
 
   // Calcular resultado ao entrar na fase de resultado
   function gerarResultado(respostas: Respostas) {
-    buscarCompatibilidade(projetarPerfilMotor(respostas), lojaId)
+    buscarCompatibilidade(montarPayloadCompat(respostas), lojaId)
       .then(resultado => {
         dispatch({ type: "RESULTADO_OK", resultado });
         emitir("resultado_exibido", {

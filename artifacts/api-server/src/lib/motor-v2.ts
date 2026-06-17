@@ -401,7 +401,7 @@ function margemProduto(p: ProdutoCatalogoInput): number | null {
 
 // ── Motivos por TEMPLATE determinístico (proibido LLM neste fluxo) ──────────────
 
-function gerarMotivos(p: PerfilDiagnostico, v: ScoreVector, firmeza: FirmezaIndicada): string[] {
+export function gerarMotivos(p: PerfilDiagnostico, v: ScoreVector, firmeza: FirmezaIndicada): string[] {
   const motivos: string[] = [];
   const pesoBase = Math.max(p.pesoA, p.pesoB ?? 0);
 
@@ -450,7 +450,7 @@ const POSICAO_LABEL: Record<Posicao, string> = {
   varia: "variando de posição",
 };
 
-function gerarResumo(p: PerfilDiagnostico, firmeza: FirmezaIndicada): string {
+export function gerarResumo(p: PerfilDiagnostico, firmeza: FirmezaIndicada): string {
   const quem = p.ocupacao === "casal" ? `Casal (${p.pesoA}kg e ${p.pesoB}kg)` : `Individual (${p.pesoA}kg)`;
   const dores = p.dores.length > 0 ? `dores: ${p.dores.join(", ")}` : "sem dores";
   const calor = p.calor ? " · sente calor" : "";
