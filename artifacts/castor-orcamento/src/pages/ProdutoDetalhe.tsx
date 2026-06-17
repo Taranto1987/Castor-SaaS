@@ -21,6 +21,15 @@ interface Produto {
   prazoEncomenda: string | null;
   estoque: number | null;
   precoBase: number | null;
+  descricao?: string | null;
+}
+
+// Descrição comercial real → texto puro truncado para meta tags (fallback no chamador).
+function descricaoParaMeta(html: string | null | undefined): string | null {
+  if (!html) return null;
+  const texto = html.replace(/<[^>]+>/g, " ").replace(/&nbsp;/gi, " ").replace(/\s+/g, " ").trim();
+  if (!texto) return null;
+  return texto.length > 300 ? `${texto.slice(0, 297)}...` : texto;
 }
 
 const CATEGORY_LABELS: Record<string, string> = {
@@ -43,7 +52,8 @@ function useSEO(produto: Produto | null) {
 
     const catLabel = CATEGORY_LABELS[produto.categoria ?? ""] ?? produto.categoria ?? "Produto";
     const title = `${produto.nome} | Castor Cabo Frio`;
-    const description = `${catLabel} — ${produto.nome}. ${produto.medidas ? `Medidas: ${produto.medidas}. ` : ""}${produto.precoPix ? `No Pix: ${produto.precoPix}. ` : ""}${produto.parcelamento ? `Parcelado: ${produto.parcelamento}. ` : ""}Compre na Castor Cabo Frio com entrega garantida.`;
+    const description = descricaoParaMeta(produto.descricao)
+      ?? `${catLabel} — ${produto.nome}. ${produto.medidas ? `Medidas: ${produto.medidas}. ` : ""}${produto.precoPix ? `No Pix: ${produto.precoPix}. ` : ""}${produto.parcelamento ? `Parcelado: ${produto.parcelamento}. ` : ""}Compre na Castor Cabo Frio com entrega garantida.`;
     const image = produto.imagem ?? "";
     const canonicalSlug = (produto.slug ?? "").toLowerCase();
     const url = `${window.location.origin}/produto/${canonicalSlug}`;

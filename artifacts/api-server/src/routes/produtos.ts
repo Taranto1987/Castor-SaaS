@@ -47,6 +47,8 @@ function mapProduto(p: typeof produtosTable.$inferSelect) {
     familySlug: family.familySlug,
     familyName: family.familyName,
     size: family.size,
+    descricao: p.descricao,
+    fichaTecnica: p.fichaTecnica,
     criadoEm: p.criadoEm,
   };
 }
