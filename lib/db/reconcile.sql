@@ -614,4 +614,11 @@ ALTER TABLE "conversas_whatsapp" ADD COLUMN IF NOT EXISTS "customer_id" integer;
 --> statement-breakpoint
 ALTER TABLE "entregas" ADD COLUMN IF NOT EXISTS "customer_id" integer;--> statement-breakpoint
 ALTER TABLE "produtos" ADD COLUMN IF NOT EXISTS "descricao" text;--> statement-breakpoint
-ALTER TABLE "produtos" ADD COLUMN IF NOT EXISTS "ficha_tecnica" jsonb DEFAULT '{}'::jsonb;
+ALTER TABLE "produtos" ADD COLUMN IF NOT EXISTS "ficha_tecnica" jsonb DEFAULT '{}'::jsonb;--> statement-breakpoint
+ALTER TABLE "leads" ADD COLUMN IF NOT EXISTS "motivo_troca" text;--> statement-breakpoint
+ALTER TABLE "leads" ADD COLUMN IF NOT EXISTS "prazo_compra" text;--> statement-breakpoint
+ALTER TABLE "leads" ADD COLUMN IF NOT EXISTS "score_intencao" integer;--> statement-breakpoint
+ALTER TABLE "leads" ADD COLUMN IF NOT EXISTS "status_funil" text;--> statement-breakpoint
+ALTER TABLE "leads" ADD COLUMN IF NOT EXISTS "produto_final_vendido" text;--> statement-breakpoint
+ALTER TABLE "leads" ADD COLUMN IF NOT EXISTS "motivo_nao_venda" text;--> statement-breakpoint
+ALTER TABLE "leads" ADD COLUMN IF NOT EXISTS "satisfacao_pos_venda" integer;
