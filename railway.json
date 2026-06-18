@@ -12,7 +12,7 @@
     "builder": "DOCKERFILE"
   },
   "deploy": {
-    "releaseCommand": "pnpm --filter @workspace/db run push",
+    "releaseCommand": "pnpm --filter @workspace/db run push-force",
     "startCommand": "pnpm --filter @workspace/api-server start",
     "healthcheckPath": "/api/healthz",
     "healthcheckTimeout": 30,
