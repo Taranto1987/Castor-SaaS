@@ -6,11 +6,22 @@ import { eq, and } from "drizzle-orm";
 import { resolveOrCreateCustomerByPhone } from "../services/memory/identity";
 import { ensureLeadForCustomer } from "../services/operacoes/repository";
 import { calcularScoreIntencao, classificarLead } from "../lib/intentScore";
+import { parseLojaIdPayload } from "../middlewares/auth";
 
 const router: IRouter = Router();
 
 router.post("/diagnostico", async (req: Request, res: Response) => {
   const data      = req.body;
+
+  // Multi-tenant: lojaId é obrigatório — sem fallback silencioso para loja 1
+  // (antes `data.lojaId ?? 1` salvava diagnósticos na loja errada). Mesmo contrato
+  // de /leads/mapa-sono e /mapa-sono/compatibilidade.
+  const lojaId = parseLojaIdPayload(data?.lojaId);
+  if (lojaId === null) {
+    res.status(400).json({ error: "lojaId é obrigatório" });
+    return;
+  }
+
   const analise   = processarDiagnostico(data);
   const produto   = selecionarProduto(data, analise);
   const resultado = gerarSaida(data, analise, produto);
@@ -18,7 +29,6 @@ router.post("/diagnostico", async (req: Request, res: Response) => {
   // Resolve customer identity and persist — non-blocking
   (async () => {
     try {
-      const lojaId = data.lojaId ?? 1;
       let customerId: number | null = null;
       if (data.whatsapp) {
         customerId = await resolveOrCreateCustomerByPhone(

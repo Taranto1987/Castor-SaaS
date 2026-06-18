@@ -148,10 +148,16 @@ router.delete("/disconnect", async (req: Request, res: Response) => {
 });
 
 // POST /api/whatsapp/webhook — Evolution API webhooks (connection.update, qrcode.updated)
-// Auth: optional shared secret via EVOLUTION_WEBHOOK_TOKEN env var
+// Auth: shared secret OBRIGATÓRIO via EVOLUTION_WEBHOOK_TOKEN. Sem o token configurado
+// o endpoint NÃO aceita qualquer POST (antes: token vazio = aceitava tudo = spoofável).
 router.post("/webhook", async (req: Request, res: Response) => {
   const webhookToken = process.env.EVOLUTION_WEBHOOK_TOKEN ?? "";
-  if (webhookToken && req.headers["apikey"] !== webhookToken) {
+  if (!webhookToken) {
+    logger.warn("evolution webhook recebido mas EVOLUTION_WEBHOOK_TOKEN não configurado — rejeitando");
+    res.status(503).json({ error: "Webhook não configurado" });
+    return;
+  }
+  if (req.headers["apikey"] !== webhookToken) {
     res.status(401).json({ error: "Unauthorized" });
     return;
   }

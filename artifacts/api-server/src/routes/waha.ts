@@ -110,13 +110,17 @@ async function persistirMensagem(
 }
 
 router.post("/webhook/waha", async (req: Request, res: Response) => {
+  // Secret OBRIGATÓRIO — sem WAHA_WEBHOOK_SECRET configurado o endpoint não aceita
+  // qualquer POST (antes: secret ausente = aceitava tudo = spoofável).
   const secret = process.env.WAHA_WEBHOOK_SECRET;
-  if (secret) {
-    const provided = req.headers["x-waha-token"] ?? req.headers["x-webhook-secret"];
-    if (provided !== secret) {
-      res.sendStatus(401);
-      return;
-    }
+  if (!secret) {
+    res.status(503).json({ error: "Webhook não configurado" });
+    return;
+  }
+  const provided = req.headers["x-waha-token"] ?? req.headers["x-webhook-secret"];
+  if (provided !== secret) {
+    res.sendStatus(401);
+    return;
   }
 
   // Responde 200 imediatamente para o WAHA não retentar
