@@ -612,4 +612,6 @@ ALTER TABLE "leads" ADD COLUMN IF NOT EXISTS "motivo_ganho" text;
 --> statement-breakpoint
 ALTER TABLE "conversas_whatsapp" ADD COLUMN IF NOT EXISTS "customer_id" integer;
 --> statement-breakpoint
-ALTER TABLE "entregas" ADD COLUMN IF NOT EXISTS "customer_id" integer;
+ALTER TABLE "entregas" ADD COLUMN IF NOT EXISTS "customer_id" integer;--> statement-breakpoint
+ALTER TABLE "produtos" ADD COLUMN IF NOT EXISTS "descricao" text;--> statement-breakpoint
+ALTER TABLE "produtos" ADD COLUMN IF NOT EXISTS "ficha_tecnica" jsonb DEFAULT '{}'::jsonb;

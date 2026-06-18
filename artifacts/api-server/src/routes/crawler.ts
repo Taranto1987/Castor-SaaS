@@ -361,13 +361,26 @@ async function executarCrawler() {
 
     // Soft-delete products not seen in this sync cycle (supplier removed them).
     // Never hard-deletes — history and outlet items are preserved.
-    const softDeleted = await db
-      .update(produtosTable)
-      .set({ disponivel: false })
-      .where(lt(produtosTable.sincronizadoEm, syncStart) as ReturnType<typeof lt>)
-      .returning({ id: produtosTable.id });
+    //
+    // GUARD: só roda se ao menos 1 produto foi salvo com sucesso. Numa falha sistêmica
+    // (ex.: coluna ausente, GraphQL fora do ar) todos os inserts falham e produtosColetados=0;
+    // sem este guard, o soft-delete marcaria TODO o catálogo como indisponível.
+    if (produtosColetados > 0) {
+      const softDeleted = await db
+        .update(produtosTable)
+        .set({ disponivel: false })
+        .where(lt(produtosTable.sincronizadoEm, syncStart) as ReturnType<typeof lt>)
+        .returning({ id: produtosTable.id });
+      console.log(`[Crawler] Soft-deleted ${softDeleted.length} products not seen in this sync.`);
+    } else {
+      console.error(`[Crawler] Nenhum produto salvo (erros=${erros}) — soft-delete PULADO para não zerar o catálogo.`);
+    }
 
-    console.log(`[Crawler] Soft-deleted ${softDeleted.length} products not seen in this sync.`);
+    if (produtosColetados === 0) {
+      await atualizarStatus("error", `Falha: 0 produtos salvos, ${erros} erros. Catálogo preservado.`, produtosColetados, erros, 0, true);
+      console.log(`[Crawler] Finalizado COM FALHA: 0 produtos, ${erros} erros`);
+      return;
+    }
 
     await atualizarStatus("completed", `✅ Coleta finalizada! ${produtosColetados} produtos salvos.`, produtosColetados, erros, produtosColetados, true);
     console.log(`[Crawler] Finalizado: ${produtosColetados} produtos, ${erros} erros`);
