@@ -300,8 +300,17 @@ function QuadrantMatrix({ r }: { r: Respostas }) {
   ];
   return (
     <svg viewBox="0 0 200 188" className="w-full h-auto" aria-hidden>
+      <defs>
+        <radialGradient id="qm-glow" cx="50%" cy="50%" r="50%">
+          <stop offset="0" stopColor={BLUE} stopOpacity="0.55" />
+          <stop offset="0.55" stopColor={BLUE} stopOpacity="0.14" />
+          <stop offset="1" stopColor={BLUE} stopOpacity="0" />
+        </radialGradient>
+      </defs>
       {/* moldura */}
       <rect x="18" y="14" width="164" height="150" rx="8" fill="rgba(0,145,255,0.04)" stroke={GLASS_BD} />
+      {/* zona ativa (glow que segue o perfil) */}
+      <circle cx={px} cy={py} r="44" fill="url(#qm-glow)" />
       {/* linhas internas do quadrante */}
       <line x1="100" y1="14" x2="100" y2="164" stroke="rgba(255,255,255,0.10)" strokeWidth="1" />
       <line x1="18" y1="89" x2="182" y2="89" stroke="rgba(255,255,255,0.10)" strokeWidth="1" />
@@ -599,7 +608,66 @@ function BotaoPrincipal({ onClick, ativo = true, children }: {
   );
 }
 
-// ── Biometria — idade / peso / altura (1 pessoa) + boneco biomecânico ───────────
+// ── Cabeçalho de painel (título técnico + badge de delta) ───────────────────────
+function PanelHead({ children, badge, badgeColor = BLUE }: {
+  children: React.ReactNode; badge?: string; badgeColor?: string;
+}) {
+  return (
+    <div className="flex items-center justify-between mb-3">
+      <span className="text-[10px] font-bold uppercase tracking-[0.18em]" style={{ color: "rgba(255,255,255,0.55)" }}>{children}</span>
+      {badge && (
+        <span className="text-[10px] font-bold tabular-nums px-2 py-0.5 rounded-md"
+          style={{ color: badgeColor, background: `${badgeColor}1f`, border: `1px solid ${badgeColor}3a` }}>{badge}</span>
+      )}
+    </div>
+  );
+}
+
+// Painel "Análise de conflitos biomecânicos" (matriz 2×2 com zona ativa).
+function ConflitoPanel({ r }: { r: Respostas }) {
+  const top = prioridades(r).slice().sort((a, b) => b.pct - a.pct)[0];
+  return (
+    <GlassCard className="px-5 pt-4 pb-3 mb-4" accent="blue">
+      <PanelHead badge={top ? `+${top.pct}%` : undefined}>Análise de conflitos</PanelHead>
+      <QuadrantMatrix r={r} />
+    </GlassCard>
+  );
+}
+
+// Painel "Mapa de prioridades ortopédicas" (radar + lista de índices).
+function PrioridadesPanel({ r }: { r: Respostas }) {
+  const dados = prioridades(r).slice().sort((a, b) => b.pct - a.pct);
+  return (
+    <GlassCard className="px-5 pt-4 pb-4 mb-4" accent="blue">
+      <PanelHead badge="ao vivo">Mapa de prioridades</PanelHead>
+      <div className="flex items-center gap-3">
+        <div className="w-[46%] shrink-0"><RadarChart r={r} /></div>
+        <ul className="flex-1 flex flex-col gap-2">
+          {dados.map((d) => (
+            <li key={d.label} className="flex items-center gap-2">
+              <span className="w-1.5 h-1.5 rounded-full shrink-0" style={{ background: BLUE, boxShadow: `0 0 5px ${BLUE}` }} />
+              <span className="text-[11px] flex-1 leading-tight" style={{ color: "rgba(255,255,255,0.7)" }}>{d.label}</span>
+              <span className="text-[11px] font-bold tabular-nums" style={{ color: "#fff" }}>{d.pct}%</span>
+            </li>
+          ))}
+        </ul>
+      </div>
+    </GlassCard>
+  );
+}
+
+// Painel "Diagnóstico preliminar" (texto técnico por IMC).
+function DiagnosticoPanel({ r }: { r: Respostas }) {
+  return (
+    <GlassCard className="px-5 py-4 mb-4">
+      <PanelHead>Diagnóstico preliminar</PanelHead>
+      <p className="text-xs leading-relaxed" style={{ color: "rgba(255,255,255,0.72)" }}>{diagnosticoPreliminar(r)}</p>
+    </GlassCard>
+  );
+}
+
+// ── Biometria — DASHBOARD analítico (mockup: análise + prioridades + sliders) ───
+// Os painéis recalculam ao vivo conforme os sliders mudam (merge respostas + estado local).
 function Biometria({ pessoa, respostas, onContinuar }: {
   pessoa: "A" | "B"; respostas: Respostas; onContinuar: (patch: Partial<Respostas>) => void;
 }) {
@@ -608,20 +676,36 @@ function Biometria({ pessoa, respostas, onContinuar }: {
   const [altura, setAltura] = useState(pessoa === "A" ? respostas.alturaA : respostas.alturaB);
   const imcVal = peso / Math.pow((altura || 170) / 100, 2);
 
+  // Perfil "ao vivo" para os gráficos refletirem o que está sendo arrastado agora.
+  const liveR: Respostas = pessoa === "A"
+    ? { ...respostas, idadeA: idade, pesoA: peso, alturaA: altura }
+    : { ...respostas, idadeB: idade, pesoB: peso, alturaB: altura };
+
   return (
     <>
-      <GlassCard className="px-5 py-4 mb-5" accent="blue">
+      {/* boneco biomecânico + leitura de IMC */}
+      <GlassCard className="px-5 py-4 mb-4" accent="blue">
         <div className="flex items-center justify-between mb-1">
-          <span className="text-[11px] font-bold uppercase tracking-widest" style={{ color: MUTED }}>Mapa biomecânico</span>
-          <span className="text-[11px] font-bold tabular-nums" style={{ color: BLUE }}>IMC {imcVal.toFixed(1)}</span>
+          <span className="text-[10px] font-bold uppercase tracking-[0.18em]" style={{ color: "rgba(255,255,255,0.55)" }}>Mapa biomecânico</span>
+          <span className="text-[10px] font-bold tabular-nums px-2 py-0.5 rounded-md"
+            style={{ color: BLUE, background: `${BLUE}1f`, border: `1px solid ${BLUE}3a` }}>IMC {imcVal.toFixed(1)}</span>
         </div>
         <BiomechanicalFigure />
       </GlassCard>
-      <GlassCard className="px-5 py-5">
+
+      {/* painéis analíticos ao vivo */}
+      <ConflitoPanel r={liveR} />
+      <PrioridadesPanel r={liveR} />
+      <DiagnosticoPanel r={liveR} />
+
+      {/* inputs biométricos */}
+      <GlassCard className="px-5 py-5 mb-1">
+        <PanelHead>Biometria</PanelHead>
         <NumberPicker label="Idade"  value={idade}  min={15}  max={90}  format={v => `${v} anos`} onChange={setIdade} />
         <NumberPicker label="Peso"   value={peso}   min={40}  max={180} format={v => `${v} kg`}   onChange={setPeso} />
         <NumberPicker label="Altura" value={altura} min={140} max={210} format={v => `${v} cm`}   onChange={setAltura} />
       </GlassCard>
+
       <BotaoPrincipal onClick={() =>
         onContinuar(pessoa === "A"
           ? { idadeA: idade, pesoA: peso, alturaA: altura }
@@ -799,20 +883,13 @@ function FaseResultado({ state, waUrl, onWhatsApp, onVoltar }: {
           )}
         </div>
 
-        {/* Mapa de prioridades ortopédicas (radar) + diagnóstico preliminar */}
+        {/* Dashboard analítico — mesmos painéis do diagnóstico, consolidados */}
         {!resultadoCarregando && (
-          <GlassCard className="px-5 py-5 mb-5" accent="blue">
-            <span className="text-[11px] font-bold uppercase tracking-widest block mb-2" style={{ color: MUTED }}>
-              Mapa de prioridades ortopédicas
-            </span>
-            <RadarChart r={respostas} />
-            <div className="mt-3 pt-3" style={{ borderTop: `1px solid ${GLASS_BD}` }}>
-              <span className="text-[11px] font-bold uppercase tracking-widest block mb-1" style={{ color: BLUE }}>
-                Diagnóstico preliminar
-              </span>
-              <p className="text-xs leading-relaxed" style={{ color: "rgba(255,255,255,0.7)" }}>{diagnosticoPreliminar(respostas)}</p>
-            </div>
-          </GlassCard>
+          <>
+            <ConflitoPanel r={respostas} />
+            <PrioridadesPanel r={respostas} />
+            <DiagnosticoPanel r={respostas} />
+          </>
         )}
 
         {/* Bloco de concordância (SIM, SIM, SIM) */}
@@ -878,6 +955,21 @@ function FaseResultado({ state, waUrl, onWhatsApp, onVoltar }: {
                   <span className="text-xs font-semibold" style={{ color: MUTED }}>de compatibilidade</span>
                 </div>
                 {top.precoPix && <p className="text-lg font-bold mb-3" style={{ color: RED }}>{top.precoPix} no Pix</p>}
+                {/* grade de specs de engenharia */}
+                <div className="grid grid-cols-2 gap-2 mb-3">
+                  {[
+                    ["Firmeza", resultado?.firmezaIndicada || "—"],
+                    ["Compatib.", `${top.score}%`],
+                    ["Medida", respostas.tamanho ? respostas.tamanho[0].toUpperCase() + respostas.tamanho.slice(1) : (top.size || "—")],
+                    ["Perfil", `${respostas.pesoA}kg · ${respostas.alturaA}cm`],
+                  ].map(([k, v]) => (
+                    <div key={k} className="rounded-lg px-3 py-2"
+                      style={{ background: "rgba(255,255,255,0.03)", border: `1px solid ${GLASS_BD}` }}>
+                      <p className="text-[9px] font-bold uppercase tracking-widest" style={{ color: MUTED }}>{k}</p>
+                      <p className="text-xs font-bold text-white truncate tracking-tight">{v}</p>
+                    </div>
+                  ))}
+                </div>
                 {top.justificativa && (
                   <p className="text-sm mb-3 leading-relaxed" style={{ color: "rgba(255,255,255,0.7)" }}>{top.justificativa}</p>
                 )}
