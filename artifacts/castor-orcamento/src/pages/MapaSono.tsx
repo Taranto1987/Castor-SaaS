@@ -1,6 +1,9 @@
 import { useEffect, useReducer, useRef, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { ChevronLeft, ChevronRight, Check, MessageCircle, BedDouble, AlertTriangle } from "lucide-react";
+import {
+  ChevronLeft, Plus, Minus, Check, MessageCircle, BedDouble, AlertTriangle,
+  Activity, ArrowRight, ShieldCheck, Wind,
+} from "lucide-react";
 import { trackWhatsAppClick } from "@/lib/tracking";
 import { useLoja } from "@/contexts/LojaContext";
 import {
@@ -14,11 +17,15 @@ import type {
 
 export interface MapaSonoProps { embedded?: boolean; }
 
-// ── Design tokens (identidade visual intocada) ─────────────────────────────────
-const BG     = "#0c0c0c";
-const CARD   = "#140000";
-const BORDER = "#2a0808";
-const RED    = "#C41230";
+// ── Design system — Ciência do Sono (Dark Premium / Glassmorphism) ──────────────
+// Vermelho Castor = CTAs e linhas de ação. Azul Dinâmico = dados analíticos/gráficos.
+const BG     = "#0d0d0d";
+const RED     = "#e63329"; // CTA / linha de ação
+const BLUE    = "#0091ff"; // dado analítico / gráfico
+const MUTED   = "#86868b"; // texto secundário
+const GLASS    = "rgba(22, 22, 26, 0.7)";
+const GLASS_BD = "rgba(255, 255, 255, 0.08)";
+const GLASS_SHADOW = "0 24px 60px rgba(0,0,0,0.6)";
 
 const WA_NUMERO_PADRAO = "5522992410112";
 
@@ -124,7 +131,7 @@ function travesseiroSugerido(r: Respostas): { nome: string; url: string } | null
 
 // ── Mensagem do WhatsApp — perfil completo + recomendação ───────────────────────
 function buildWAUrl(r: Respostas, resultado: ResultadoCompatibilidade | null, waNumero: string): string {
-  const L: string[] = ["Olá! Fiz o Mapa do Sono e gostaria de saber mais.", "", "📋 MEU PERFIL:"];
+  const L: string[] = ["Olá! Fiz o diagnóstico Ciência do Sono e gostaria de saber mais.", "", "📋 MEU PERFIL:"];
   L.push(`• Contexto: ${CTX_LABEL[r.contexto ?? "constante"]}`);
   if (r.contexto !== "hospede") {
     L.push(`• Pessoas: ${r.quantidade ?? 1}`);
@@ -145,17 +152,308 @@ function buildWAUrl(r: Respostas, resultado: ResultadoCompatibilidade | null, wa
   return `https://wa.me/${waNumero}?text=${encodeURIComponent(L.join("\n"))}`;
 }
 
-// ── Componentes visuais (identidade intocada) ───────────────────────────────────
+// ════════════════════════════════════════════════════════════════════════════════
+// ANALÍTICA DERIVADA — tudo a partir das respostas reais (IMC, prioridades, eixos)
+// ════════════════════════════════════════════════════════════════════════════════
+const clamp = (v: number, lo: number, hi: number) => Math.max(lo, Math.min(hi, v));
+
+function imc(r: Respostas): number {
+  const h = (r.alturaA || 170) / 100;
+  return r.pesoA / (h * h);
+}
+
+// 5 eixos → pentágono do radar. Derivado de dores/posição/temperatura/IMC.
+function prioridades(r: Respostas): { label: string; pct: number }[] {
+  const pesado = imc(r) >= 27 || r.pesoA >= 90;
+  const temLombar = r.dores.includes("lombar") || r.dores.includes("quadril");
+  const temCervical = r.dores.includes("cervical") || r.dores.includes("ombro");
+  const calor = r.temperatura === "quente";
+  const lado = r.posicao === "lado";
+
+  const lombar   = 24 + (temLombar ? 18 : 0) + (pesado ? 8 : 0) + (r.posicao === "costas" ? 4 : 0);
+  const cervical = 16 + (temCervical ? 16 : 0) + (lado ? 7 : 0);
+  const respira  = 16 + (calor ? 18 : 0);
+  const alivio   = 16 + (lado ? 11 : 0) + (r.dores.length ? 8 : 0);
+  const durab    = 14 + (pesado ? 11 : 0) + (r.contexto === "constante" ? 4 : 0);
+
+  const arr: [string, number][] = [
+    ["Suporte Lombar", lombar],
+    ["Suporte Cervical", cervical],
+    ["Respirabilidade", respira],
+    ["Alívio de Pressão", alivio],
+    ["Durabilidade", durab],
+  ];
+  const total = arr.reduce((s, [, v]) => s + v, 0) || 1;
+  return arr.map(([label, v]) => ({ label, pct: Math.round((v / total) * 100) }));
+}
+
+// Ponto da matriz 2×2. x: 0 (suporte) → 1 (durabilidade); y: 0 (sustentação) → 1 (alívio).
+function pontoMatriz(r: Respostas): { x: number; y: number } {
+  const pesado = imc(r) >= 27;
+  const x = clamp(
+    0.5 + (pesado ? 0.18 : -0.08) + (r.contexto === "constante" ? 0.12 : -0.06),
+    0.18, 0.82,
+  );
+  const y = clamp(
+    0.5 - (r.dores.length ? 0.2 : 0) + (pesado ? 0.14 : 0) - (r.posicao === "lado" ? 0.12 : 0),
+    0.18, 0.82,
+  );
+  return { x, y };
+}
+
+function diagnosticoPreliminar(r: Respostas): string {
+  const i = imc(r);
+  const faixa = i < 18.5 ? "leve" : i < 25 ? "equilibrado" : i < 30 ? "elevado" : "alto";
+  const carga = i >= 27
+    ? "exige maior sustentação na zona lombar para evitar afundamento do quadril"
+    : "permite equilíbrio entre alívio de pressão e suporte ortopédico";
+  const dor = r.dores.length
+    ? `Com queixa ${r.dores.map(d => DOR_LABEL[d]).join(", ")}, priorizamos alívio de pressão direcionado.`
+    : "Sem queixas álgicas relevantes, o foco é o alinhamento neutro da coluna.";
+  return `IMC ${i.toFixed(1)} (${faixa}) — seu biotipo ${carga}. ${dor}`;
+}
+
+// ════════════════════════════════════════════════════════════════════════════════
+// SVG NATIVO — gráficos técnicos (sem placeholders, sem ícones infantis)
+// ════════════════════════════════════════════════════════════════════════════════
+
+// Logo-wordmark "Ciência do Sono" (lua + pulso + onda) — vetor próprio.
+function Wordmark({ compact = false }: { compact?: boolean }) {
+  return (
+    <div className="flex items-center gap-3 select-none">
+      <svg viewBox="0 0 64 64" className={compact ? "w-9 h-9" : "w-11 h-11"} aria-hidden>
+        <defs>
+          <linearGradient id="ws-g" x1="0" y1="0" x2="1" y2="1">
+            <stop offset="0" stopColor="#33b0ff" />
+            <stop offset="1" stopColor={BLUE} />
+          </linearGradient>
+        </defs>
+        {/* anel-lua aberto */}
+        <path d="M50 14 A24 24 0 1 0 50 50" fill="none" stroke="url(#ws-g)" strokeWidth="4" strokeLinecap="round" />
+        {/* arco pontilhado */}
+        <path d="M50 14 A24 24 0 0 1 56 30" fill="none" stroke="url(#ws-g)" strokeWidth="3" strokeLinecap="round" strokeDasharray="0.5 5" />
+        {/* pulso ECG */}
+        <path d="M16 33 H26 L30 24 L35 42 L39 33 H48" fill="none" stroke="#fff" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" />
+        {/* onda inferior */}
+        <path d="M16 44 C24 40 30 48 40 44 C46 41 50 44 52 43" fill="none" stroke="url(#ws-g)" strokeWidth="2.4" strokeLinecap="round" />
+      </svg>
+      {!compact && (
+        <div className="leading-none">
+          <div className="font-bold text-white text-lg tracking-tight" style={{ letterSpacing: "-0.02em" }}>CIÊNCIA</div>
+          <div className="font-bold text-lg tracking-tight" style={{ color: BLUE, letterSpacing: "-0.02em" }}>DO SONO</div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// Boneco biomecânico — silhueta reclinada, coluna em vermelho, pontos de pressão azuis.
+function BiomechanicalFigure() {
+  return (
+    <svg viewBox="0 0 220 90" className="w-full h-auto" aria-hidden>
+      <defs>
+        <linearGradient id="bf-spine" x1="0" y1="0" x2="1" y2="0">
+          <stop offset="0" stopColor={RED} stopOpacity="0.4" />
+          <stop offset="0.5" stopColor={RED} />
+          <stop offset="1" stopColor={RED} stopOpacity="0.4" />
+        </linearGradient>
+      </defs>
+      {/* linha de base / colchão */}
+      <line x1="6" y1="78" x2="214" y2="78" stroke="rgba(255,255,255,0.10)" strokeWidth="1.5" />
+      {/* silhueta reclinada (cabeça → tronco → pernas) */}
+      <path
+        d="M22 58 a9 9 0 1 1 0.1 0 M31 62 C46 56 62 60 86 58 C104 56 120 60 142 60 C168 60 188 64 204 70"
+        fill="none" stroke="rgba(255,255,255,0.85)" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"
+      />
+      {/* contorno inferior do corpo */}
+      <path
+        d="M31 70 C52 70 70 70 92 70 C116 70 138 70 160 72 C178 73 192 74 204 76"
+        fill="none" stroke="rgba(255,255,255,0.30)" strokeWidth="1.6" strokeLinecap="round"
+      />
+      {/* coluna destacada */}
+      <path
+        d="M34 60 C58 53 80 56 104 55 C128 54 150 57 172 62"
+        fill="none" stroke="url(#bf-spine)" strokeWidth="3.4" strokeLinecap="round"
+        style={{ filter: `drop-shadow(0 0 5px ${RED}aa)` }}
+      />
+      {/* pontos de pressão (ombro / quadril) */}
+      {[[60, 56], [120, 55]].map(([cx, cy], i) => (
+        <g key={i}>
+          <circle cx={cx} cy={cy} r="6" fill="none" stroke={BLUE} strokeWidth="1.4" opacity="0.5" />
+          <circle cx={cx} cy={cy} r="2.6" fill={BLUE} style={{ filter: `drop-shadow(0 0 4px ${BLUE})` }} />
+        </g>
+      ))}
+    </svg>
+  );
+}
+
+// Matriz 2×2 de conflitos biomecânicos com mira-laser azul posicionada pelo perfil.
+function QuadrantMatrix({ r }: { r: Respostas }) {
+  const { x, y } = pontoMatriz(r);
+  const px = 18 + x * 164;   // viewBox 0..200 com margem
+  const py = 14 + y * 150;
+  const zonas: { tx: number; ty: number; t: string }[] = [
+    { tx: 58, ty: 50, t: "INER D45" },
+    { tx: 150, ty: 50, t: "MOLAS POCKET" },
+    { tx: 58, ty: 140, t: "VISCO GEL" },
+    { tx: 150, ty: 140, t: "LÁTEX NATURAL" },
+  ];
+  return (
+    <svg viewBox="0 0 200 188" className="w-full h-auto" aria-hidden>
+      {/* moldura */}
+      <rect x="18" y="14" width="164" height="150" rx="8" fill="rgba(0,145,255,0.04)" stroke={GLASS_BD} />
+      {/* linhas internas do quadrante */}
+      <line x1="100" y1="14" x2="100" y2="164" stroke="rgba(255,255,255,0.10)" strokeWidth="1" />
+      <line x1="18" y1="89" x2="182" y2="89" stroke="rgba(255,255,255,0.10)" strokeWidth="1" />
+      {/* zonas de tecnologia */}
+      {zonas.map((z) => (
+        <text key={z.t} x={z.tx} y={z.ty} textAnchor="middle" fontSize="8" fontWeight="700"
+          fill="rgba(255,255,255,0.55)" letterSpacing="0.5">{z.t}</text>
+      ))}
+      {/* eixos */}
+      <text x="100" y="9" textAnchor="middle" fontSize="8" fontWeight="700" fill={MUTED}>SUSTENTAÇÃO</text>
+      <text x="100" y="178" textAnchor="middle" fontSize="8" fontWeight="700" fill={MUTED}>ALÍVIO DE PRESSÃO</text>
+      <text x="14" y="92" textAnchor="middle" fontSize="8" fontWeight="700" fill={MUTED} transform="rotate(-90 14 92)">SUPORTE</text>
+      <text x="190" y="92" textAnchor="middle" fontSize="8" fontWeight="700" fill={MUTED} transform="rotate(90 190 92)">DURABILIDADE</text>
+      {/* mira-laser */}
+      <line x1={px} y1="14" x2={px} y2="164" stroke={BLUE} strokeWidth="0.6" opacity="0.4" />
+      <line x1="18" y1={py} x2="182" y2={py} stroke={BLUE} strokeWidth="0.6" opacity="0.4" />
+      <circle cx={px} cy={py} r="9" fill="none" stroke={BLUE} strokeWidth="1.2" opacity="0.6" />
+      <circle cx={px} cy={py} r="3.4" fill={BLUE} style={{ filter: `drop-shadow(0 0 6px ${BLUE})` }} />
+    </svg>
+  );
+}
+
+// Radar / pentágono com a área de prioridades do usuário preenchida em azul.
+function RadarChart({ r }: { r: Respostas }) {
+  const dados = prioridades(r);
+  const cx = 110, cy = 104, R = 78;
+  const N = dados.length;
+  const ang = (i: number) => (Math.PI * 2 * i) / N - Math.PI / 2;
+  const ponto = (i: number, rad: number) => [cx + Math.cos(ang(i)) * rad, cy + Math.sin(ang(i)) * rad] as const;
+  const maxPct = Math.max(...dados.map(d => d.pct), 1);
+
+  const anel = (frac: number) =>
+    dados.map((_, i) => ponto(i, R * frac).join(",")).join(" ");
+  const area = dados.map((d, i) => ponto(i, R * (d.pct / maxPct)).join(",")).join(" ");
+
+  return (
+    <svg viewBox="0 0 220 208" className="w-full h-auto" aria-hidden>
+      {/* anéis concêntricos */}
+      {[0.25, 0.5, 0.75, 1].map((f) => (
+        <polygon key={f} points={anel(f)} fill="none" stroke="rgba(255,255,255,0.08)" strokeWidth="1" />
+      ))}
+      {/* raios */}
+      {dados.map((_, i) => {
+        const [ex, ey] = ponto(i, R);
+        return <line key={i} x1={cx} y1={cy} x2={ex} y2={ey} stroke="rgba(255,255,255,0.06)" strokeWidth="1" />;
+      })}
+      {/* área do usuário */}
+      <polygon points={area} fill="rgba(0,145,255,0.20)" stroke={BLUE} strokeWidth="2"
+        style={{ filter: `drop-shadow(0 0 6px ${BLUE}55)` }} />
+      {dados.map((d, i) => {
+        const [vx, vy] = ponto(i, R * (d.pct / maxPct));
+        return <circle key={d.label} cx={vx} cy={vy} r="2.6" fill={BLUE} />;
+      })}
+      {/* rótulos */}
+      {dados.map((d, i) => {
+        const [lx, ly] = ponto(i, R + 16);
+        const anchor = Math.abs(Math.cos(ang(i))) < 0.3 ? "middle" : Math.cos(ang(i)) > 0 ? "start" : "end";
+        return (
+          <text key={d.label} x={lx} y={ly} textAnchor={anchor} fontSize="7.5" fontWeight="700"
+            fill="rgba(255,255,255,0.55)" dominantBaseline="middle">{d.label}</text>
+        );
+      })}
+    </svg>
+  );
+}
+
+const PRESSURE_PATHS: Record<string, string> = {
+  lado:   "M2,30 C12,30 14,9 24,9 C34,9 34,30 44,30 C54,30 54,11 64,11 C74,11 76,30 98,28",
+  costas: "M2,26 C20,22 32,18 50,18 C68,18 80,22 98,26",
+  brucos: "M2,30 C20,30 30,7 50,7 C70,7 80,30 98,30",
+  varia:  "M2,28 C14,17 22,26 34,13 C46,24 54,11 66,22 C78,13 88,26 98,18",
+};
+
+// Mini-spline de distribuição de pressão por postura.
+function PressureLine({ variant, active }: { variant: string; active: boolean }) {
+  const d = PRESSURE_PATHS[variant] ?? PRESSURE_PATHS.varia;
+  const cor = active ? BLUE : "rgba(255,255,255,0.35)";
+  return (
+    <svg viewBox="0 0 100 40" className="w-16 h-7 shrink-0" preserveAspectRatio="none" aria-hidden>
+      <line x1="2" y1="34" x2="98" y2="34" stroke="rgba(255,255,255,0.08)" strokeWidth="1" />
+      <path d={d} fill="none" stroke={cor} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"
+        style={active ? { filter: `drop-shadow(0 0 4px ${BLUE}88)` } : undefined} />
+    </svg>
+  );
+}
+
+// Anel de progresso (validação final).
+function CircularProgress({ value, label, color }: { value: number; label: string; color: string }) {
+  const R = 32, C = 2 * Math.PI * R;
+  const v = clamp(value, 0, 100);
+  return (
+    <div className="flex flex-col items-center gap-2.5">
+      <div className="relative w-[88px] h-[88px]">
+        <svg viewBox="0 0 80 80" className="w-[88px] h-[88px] -rotate-90">
+          <circle cx="40" cy="40" r={R} fill="none" stroke="rgba(255,255,255,0.08)" strokeWidth="6" />
+          <motion.circle cx="40" cy="40" r={R} fill="none" stroke={color} strokeWidth="6" strokeLinecap="round"
+            strokeDasharray={C} initial={{ strokeDashoffset: C }} animate={{ strokeDashoffset: C * (1 - v / 100) }}
+            transition={{ type: "spring", stiffness: 60, damping: 18 }}
+            style={{ filter: `drop-shadow(0 0 5px ${color}88)` }} />
+        </svg>
+        <div className="absolute inset-0 flex items-center justify-center">
+          <span className="text-xl font-bold text-white tracking-tight">{Math.round(v)}%</span>
+        </div>
+      </div>
+      <span className="text-[11px] text-center leading-tight max-w-[96px]" style={{ color: MUTED }}>{label}</span>
+    </div>
+  );
+}
+
+// ── Primitivos de UI (glassmorphism) ────────────────────────────────────────────
+function GlassCard({ children, className = "", accent }: {
+  children: React.ReactNode; className?: string; accent?: "red" | "blue" | "amber";
+}) {
+  const borda = accent === "red" ? RED : accent === "blue" ? BLUE : GLASS_BD;
+  const glow = accent === "red" ? `, 0 0 0 1px ${RED}55, 0 8px 30px ${RED}22`
+    : accent === "blue" ? `, 0 0 0 1px ${BLUE}44, 0 8px 30px ${BLUE}1a` : "";
+  return (
+    <div className={`rounded-2xl ${className}`}
+      style={{
+        background: GLASS, backdropFilter: "blur(24px)", WebkitBackdropFilter: "blur(24px)",
+        border: `1px solid ${borda}`, boxShadow: `${GLASS_SHADOW}${glow}`,
+      }}>
+      {children}
+    </div>
+  );
+}
+
+function EyebrowChip({ Icon, children, color = BLUE }: {
+  Icon: React.ElementType; children: React.ReactNode; color?: string;
+}) {
+  return (
+    <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full"
+      style={{ background: "rgba(255,255,255,0.04)", border: `1px solid ${GLASS_BD}` }}>
+      <Icon className="w-3.5 h-3.5" style={{ color }} />
+      <span className="text-[11px] font-bold uppercase tracking-widest" style={{ color: "rgba(255,255,255,0.7)" }}>{children}</span>
+    </div>
+  );
+}
+
 function ProgressHeader({ step, total }: { step: number; total: number }) {
   const pct = Math.round(((step + 1) / total) * 100);
   return (
-    <div className="px-5 pt-5 pb-3 shrink-0">
-      <div className="flex items-center justify-between mb-2">
-        <span className="text-xs font-semibold" style={{ color: "#777" }}>{step + 1} / {total}</span>
-        <span className="text-xs font-semibold" style={{ color: "#777" }}>{pct}%</span>
+    <div className="px-5 pt-5 pb-4 shrink-0">
+      <div className="flex items-center justify-between mb-3">
+        <Wordmark compact />
+        <span className="text-xs font-bold tabular-nums" style={{ color: MUTED }}>
+          <span className="text-white">{String(step + 1).padStart(2, "0")}</span> / {String(total).padStart(2, "0")}
+        </span>
       </div>
-      <div className="h-1 rounded-full" style={{ background: "#1e0000" }}>
-        <motion.div className="h-1 rounded-full" style={{ background: RED }}
+      <div className="h-1 rounded-full overflow-hidden" style={{ background: "rgba(255,255,255,0.07)" }}>
+        <motion.div className="h-1 rounded-full"
+          style={{ background: `linear-gradient(90deg, ${RED}, #ff5a4d)`, boxShadow: `0 0 10px ${RED}88` }}
           initial={false} animate={{ width: `${pct}%` }}
           transition={{ type: "spring", stiffness: 280, damping: 28 }} />
       </div>
@@ -163,51 +461,40 @@ function ProgressHeader({ step, total }: { step: number; total: number }) {
   );
 }
 
+// Slider premium: linha fina, progresso vermelho, botões circulares −/+ com borda.
 function NumberPicker({
-  value, min, max, format, onChange,
+  label, value, min, max, format, onChange,
 }: {
-  value: number; min: number; max: number;
+  label: string; value: number; min: number; max: number;
   format: (v: number) => string; onChange: (v: number) => void;
 }) {
   const pct = ((value - min) / (max - min)) * 100;
-  const ticks = Array.from({ length: 11 }, (_, i) => ({
-    i, left: i * 10, major: i % 2 === 0, v: Math.round(min + (i / 10) * (max - min)),
-  }));
+  const btn = "w-9 h-9 rounded-full flex items-center justify-center text-white shrink-0 transition-transform active:scale-90 disabled:opacity-30";
+  const btnStyle = { background: "rgba(255,255,255,0.04)", border: `1px solid ${GLASS_BD}` };
   return (
-    <div className="px-6">
-      <div className="flex items-center justify-center gap-6 mb-6">
-        <motion.button whileTap={{ scale: 0.88 }} onClick={() => onChange(Math.max(min, value - 1))}
-          disabled={value <= min} className="w-12 h-12 rounded-full flex items-center justify-center text-white"
-          style={{ background: CARD, border: `1.5px solid ${BORDER}` }}>
-          <ChevronLeft className="w-6 h-6" />
-        </motion.button>
-        <AnimatePresence mode="wait">
-          <motion.div key={value} initial={{ opacity: 0, y: -6 }} animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: 6 }} transition={{ duration: 0.12 }}
-            className="text-5xl font-black text-white tracking-tight min-w-[170px] text-center">
-            {format(value)}
-          </motion.div>
-        </AnimatePresence>
-        <motion.button whileTap={{ scale: 0.88 }} onClick={() => onChange(Math.min(max, value + 1))}
-          disabled={value >= max} className="w-12 h-12 rounded-full flex items-center justify-center text-white"
-          style={{ background: CARD, border: `1.5px solid ${BORDER}` }}>
-          <ChevronRight className="w-6 h-6" />
-        </motion.button>
+    <div className="mb-5">
+      <div className="flex items-baseline justify-between mb-2.5">
+        <span className="text-sm font-bold text-white tracking-tight">{label}</span>
+        <span className="text-sm font-bold tabular-nums" style={{ color: BLUE }}>{format(value)}</span>
       </div>
-      <div className="relative h-9">
-        <div className="absolute top-0 inset-x-0 h-px" style={{ background: "#2a2a2a" }} />
-        <motion.div className="absolute top-0 left-0 h-px" style={{ background: RED }}
-          animate={{ width: `${pct}%` }} transition={{ type: "spring", stiffness: 300, damping: 30 }} />
-        <motion.div className="absolute -top-1.5" animate={{ left: `${pct}%` }}
-          transition={{ type: "spring", stiffness: 300, damping: 30 }} style={{ transform: "translateX(-50%)" }}>
-          <div className="w-3.5 h-3.5 rounded-full" style={{ background: RED, boxShadow: `0 0 10px ${RED}99` }} />
-        </motion.div>
-        {ticks.map(({ left, major, v, i }) => (
-          <div key={i} className="absolute flex flex-col items-center" style={{ left: `${left}%`, transform: "translateX(-50%)" }}>
-            <div style={{ width: 1, height: major ? 14 : 7, background: left <= pct ? RED : "#3a3a3a" }} />
-            {major && <span className="text-[9px] mt-0.5 whitespace-nowrap" style={{ color: "#555" }}>{v}</span>}
-          </div>
-        ))}
+      <div className="flex items-center gap-3">
+        <button onClick={() => onChange(Math.max(min, value - 1))} disabled={value <= min} className={btn} style={btnStyle}>
+          <Minus className="w-4 h-4" />
+        </button>
+        <div className="relative flex-1 h-5 flex items-center">
+          <div className="absolute inset-x-0 h-[3px] rounded-full" style={{ background: "rgba(255,255,255,0.10)" }} />
+          <motion.div className="absolute left-0 h-[3px] rounded-full"
+            style={{ background: RED, boxShadow: `0 0 8px ${RED}99` }}
+            animate={{ width: `${pct}%` }} transition={{ type: "spring", stiffness: 300, damping: 30 }} />
+          <motion.div className="absolute" animate={{ left: `${pct}%` }}
+            transition={{ type: "spring", stiffness: 300, damping: 30 }} style={{ transform: "translateX(-50%)" }}>
+            <div className="w-4 h-4 rounded-full border-2"
+              style={{ background: "#fff", borderColor: RED, boxShadow: `0 0 10px ${RED}aa` }} />
+          </motion.div>
+        </div>
+        <button onClick={() => onChange(Math.min(max, value + 1))} disabled={value >= max} className={btn} style={btnStyle}>
+          <Plus className="w-4 h-4" />
+        </button>
       </div>
     </div>
   );
@@ -220,23 +507,56 @@ function OpcoesUnicas({
 }) {
   return (
     <div className={grid2 ? "grid grid-cols-2 gap-3" : "flex flex-col gap-3"}>
-      {opcoes.map(opt => (
-        <motion.button key={opt.value} whileTap={{ scale: 0.97 }} onClick={() => onSelect(opt.value)}
-          className="flex items-center gap-3 p-4 rounded-xl border text-left transition-all"
-          style={{
-            background: selecionada === opt.value ? "#1e0000" : CARD,
-            borderColor: selecionada === opt.value ? RED : BORDER,
-          }}>
-          <div className="w-9 h-9 rounded-lg flex items-center justify-center shrink-0"
-            style={{ background: "#0a0000", border: `1px solid ${BORDER}` }}>
-            <opt.Icon className="w-4 h-4" style={{ color: RED }} />
-          </div>
-          <div className="min-w-0">
-            <span className="text-white font-semibold text-sm leading-tight block">{opt.label}</span>
-            {opt.subtitulo && <span className="text-xs leading-tight block mt-0.5" style={{ color: "#777" }}>{opt.subtitulo}</span>}
-          </div>
-        </motion.button>
-      ))}
+      {opcoes.map(opt => {
+        const ativo = selecionada === opt.value;
+        return (
+          <motion.button key={opt.value} whileTap={{ scale: 0.97 }} onClick={() => onSelect(opt.value)}
+            className="flex items-center gap-3.5 p-4 rounded-xl text-left transition-all duration-300"
+            style={{
+              background: ativo ? "rgba(230,51,41,0.10)" : GLASS,
+              backdropFilter: "blur(24px)", WebkitBackdropFilter: "blur(24px)",
+              border: `1px solid ${ativo ? RED : GLASS_BD}`,
+              boxShadow: ativo ? `0 0 0 1px ${RED}55, 0 8px 24px ${RED}1f` : GLASS_SHADOW,
+            }}>
+            <div className="w-10 h-10 rounded-lg flex items-center justify-center shrink-0 transition-colors duration-300"
+              style={{ background: "rgba(255,255,255,0.04)", border: `1px solid ${ativo ? `${RED}66` : GLASS_BD}` }}>
+              <opt.Icon className="w-[18px] h-[18px]" style={{ color: ativo ? RED : "rgba(255,255,255,0.7)" }} />
+            </div>
+            <div className="min-w-0 flex-1">
+              <span className="text-white font-semibold text-sm leading-tight block tracking-tight">{opt.label}</span>
+              {opt.subtitulo && <span className="text-xs leading-tight block mt-0.5" style={{ color: MUTED }}>{opt.subtitulo}</span>}
+            </div>
+            {ativo && <Check className="w-4 h-4 shrink-0" style={{ color: RED }} />}
+          </motion.button>
+        );
+      })}
+    </div>
+  );
+}
+
+// Postura com mini-spline de pressão (substitui ícone genérico no nó "posicao").
+function OpcoesPostura({ opcoes, selecionada, onSelect }: {
+  opcoes: Opt[]; selecionada?: string; onSelect: (v: string) => void;
+}) {
+  return (
+    <div className="flex flex-col gap-3">
+      {opcoes.map(opt => {
+        const ativo = selecionada === opt.value;
+        return (
+          <motion.button key={opt.value} whileTap={{ scale: 0.97 }} onClick={() => onSelect(opt.value)}
+            className="flex items-center gap-3 p-4 rounded-xl text-left transition-all duration-300"
+            style={{
+              background: ativo ? "rgba(230,51,41,0.10)" : GLASS,
+              backdropFilter: "blur(24px)", WebkitBackdropFilter: "blur(24px)",
+              border: `1px solid ${ativo ? RED : GLASS_BD}`,
+              boxShadow: ativo ? `0 0 0 1px ${RED}55, 0 8px 24px ${RED}1f` : GLASS_SHADOW,
+            }}>
+            <span className="text-white font-semibold text-sm flex-1 tracking-tight">{opt.label}</span>
+            <PressureLine variant={opt.value} active={ativo} />
+            {ativo && <Check className="w-4 h-4 shrink-0" style={{ color: RED }} />}
+          </motion.button>
+        );
+      })}
     </div>
   );
 }
@@ -246,21 +566,18 @@ function CabecalhoPergunta({ Icon, titulo, subtitulo }: {
 }) {
   return (
     <>
-      <div className="flex justify-center mb-5">
-        <div className="w-16 h-16 rounded-full flex items-center justify-center shadow-lg"
-          style={{ background: RED, boxShadow: `0 4px 24px ${RED}55` }}>
-          <Icon className="w-8 h-8 text-white" />
-        </div>
+      <div className="flex justify-center mb-4">
+        <EyebrowChip Icon={Icon}>Diagnóstico</EyebrowChip>
       </div>
-      <h2 className="text-center text-2xl font-black text-white mb-2 leading-snug">{titulo}</h2>
-      {subtitulo ? <p className="text-center text-sm mb-6" style={{ color: "#888" }}>{subtitulo}</p> : <div className="mb-6" />}
+      <h2 className="text-center text-2xl font-bold text-white mb-2 leading-snug tracking-tight" style={{ letterSpacing: "-0.02em" }}>{titulo}</h2>
+      {subtitulo ? <p className="text-center text-sm mb-6" style={{ color: MUTED }}>{subtitulo}</p> : <div className="mb-6" />}
     </>
   );
 }
 
 function BotaoVoltar({ onClick }: { onClick: () => void }) {
   return (
-    <button onClick={onClick} className="flex items-center gap-1.5 mb-5 text-sm font-semibold" style={{ color: "#666" }}>
+    <button onClick={onClick} className="flex items-center gap-1.5 mb-5 text-sm font-semibold transition-colors" style={{ color: MUTED }}>
       <ChevronLeft className="w-4 h-4" /> Voltar
     </button>
   );
@@ -270,40 +587,47 @@ function BotaoPrincipal({ onClick, ativo = true, children }: {
   onClick: () => void; ativo?: boolean; children: React.ReactNode;
 }) {
   return (
-    <motion.button whileTap={{ scale: 0.97 }} onClick={onClick}
-      className="mt-8 w-full py-4 rounded-2xl font-extrabold text-white text-base"
-      style={{ background: ativo ? RED : "#2a0808", opacity: ativo ? 1 : 0.5 }}>
+    <motion.button whileTap={{ scale: 0.95 }} onClick={onClick} disabled={!ativo}
+      className="mt-8 w-full py-4 rounded-xl font-bold text-white text-base flex items-center justify-center gap-2 transition-all duration-300"
+      style={{
+        background: ativo ? `linear-gradient(135deg, ${RED}, #c41f17)` : "rgba(255,255,255,0.06)",
+        boxShadow: ativo ? `0 8px 24px rgba(230,51,41,0.4)` : "none",
+        opacity: ativo ? 1 : 0.5, letterSpacing: "-0.01em",
+      }}>
       {children}
     </motion.button>
   );
 }
 
-// ── Biometria — idade / peso / altura (1 pessoa) ────────────────────────────────
+// ── Biometria — idade / peso / altura (1 pessoa) + boneco biomecânico ───────────
 function Biometria({ pessoa, respostas, onContinuar }: {
   pessoa: "A" | "B"; respostas: Respostas; onContinuar: (patch: Partial<Respostas>) => void;
 }) {
   const [idade, setIdade]   = useState(pessoa === "A" ? respostas.idadeA : respostas.idadeB);
   const [peso, setPeso]     = useState(pessoa === "A" ? respostas.pesoA : respostas.pesoB);
   const [altura, setAltura] = useState(pessoa === "A" ? respostas.alturaA : respostas.alturaB);
-
-  const rotulo = (t: string) => (
-    <p className="text-center text-xs font-bold uppercase tracking-wider mb-3 mt-6 first:mt-0" style={{ color: "#777" }}>{t}</p>
-  );
+  const imcVal = peso / Math.pow((altura || 170) / 100, 2);
 
   return (
     <>
-      {rotulo("Idade")}
-      <NumberPicker value={idade} min={15} max={90} format={v => `${v} anos`} onChange={setIdade} />
-      {rotulo("Peso")}
-      <NumberPicker value={peso} min={40} max={180} format={v => `${v} kg`} onChange={setPeso} />
-      {rotulo("Altura")}
-      <NumberPicker value={altura} min={140} max={210} format={v => `${v} cm`} onChange={setAltura} />
+      <GlassCard className="px-5 py-4 mb-5" accent="blue">
+        <div className="flex items-center justify-between mb-1">
+          <span className="text-[11px] font-bold uppercase tracking-widest" style={{ color: MUTED }}>Mapa biomecânico</span>
+          <span className="text-[11px] font-bold tabular-nums" style={{ color: BLUE }}>IMC {imcVal.toFixed(1)}</span>
+        </div>
+        <BiomechanicalFigure />
+      </GlassCard>
+      <GlassCard className="px-5 py-5">
+        <NumberPicker label="Idade"  value={idade}  min={15}  max={90}  format={v => `${v} anos`} onChange={setIdade} />
+        <NumberPicker label="Peso"   value={peso}   min={40}  max={180} format={v => `${v} kg`}   onChange={setPeso} />
+        <NumberPicker label="Altura" value={altura} min={140} max={210} format={v => `${v} cm`}   onChange={setAltura} />
+      </GlassCard>
       <BotaoPrincipal onClick={() =>
         onContinuar(pessoa === "A"
           ? { idadeA: idade, pesoA: peso, alturaA: altura }
           : { idadeB: idade, pesoB: peso, alturaB: altura })
       }>
-        Continuar →
+        Continuar <ArrowRight className="w-4 h-4" />
       </BotaoPrincipal>
     </>
   );
@@ -332,13 +656,18 @@ function MultiEscolha({ opcoes, respostas, campo, onConfirmar }: {
           const ativo = sel.includes(opt.value);
           return (
             <motion.button key={opt.value} whileTap={{ scale: 0.97 }} onClick={() => toggle(opt.value)}
-              className="flex items-center gap-3 p-4 rounded-xl border text-left"
-              style={{ background: ativo ? "#1e0000" : CARD, borderColor: ativo ? RED : BORDER }}>
-              <div className="w-9 h-9 rounded-lg flex items-center justify-center shrink-0"
-                style={{ background: "#0a0000", border: `1px solid ${BORDER}` }}>
-                <opt.Icon className="w-4 h-4" style={{ color: ativo ? RED : "#555" }} />
+              className="flex items-center gap-3.5 p-4 rounded-xl text-left transition-all duration-300"
+              style={{
+                background: ativo ? "rgba(230,51,41,0.10)" : GLASS,
+                backdropFilter: "blur(24px)", WebkitBackdropFilter: "blur(24px)",
+                border: `1px solid ${ativo ? RED : GLASS_BD}`,
+                boxShadow: ativo ? `0 0 0 1px ${RED}55, 0 8px 24px ${RED}1f` : GLASS_SHADOW,
+              }}>
+              <div className="w-10 h-10 rounded-lg flex items-center justify-center shrink-0"
+                style={{ background: "rgba(255,255,255,0.04)", border: `1px solid ${ativo ? `${RED}66` : GLASS_BD}` }}>
+                <opt.Icon className="w-[18px] h-[18px]" style={{ color: ativo ? RED : "rgba(255,255,255,0.55)" }} />
               </div>
-              <span className="text-white font-semibold text-sm flex-1">{opt.label}</span>
+              <span className="text-white font-semibold text-sm flex-1 tracking-tight">{opt.label}</span>
               {ativo && <Check className="w-4 h-4 shrink-0" style={{ color: RED }} />}
             </motion.button>
           );
@@ -349,7 +678,7 @@ function MultiEscolha({ opcoes, respostas, campo, onConfirmar }: {
         const valor = sel.filter(v => v !== "nenhuma");
         onConfirmar({ [campo]: valor } as Partial<Respostas>);
       }}>
-        Confirmar →
+        Confirmar <ArrowRight className="w-4 h-4" />
       </BotaoPrincipal>
     </>
   );
@@ -383,6 +712,28 @@ function RenderNo({ node, respostas, onResponder }: {
 
   // unica
   const selecionada = node.campo ? respostas[node.campo] : undefined;
+  const onSelect = (v: string) => {
+    const valor = node.coerce ? node.coerce(v) : v;
+    onResponder({ [node.campo!]: valor } as Partial<Respostas>);
+  };
+
+  // Nó de postura ganha a matriz de conflitos + splines de pressão.
+  if (node.id === "posicao") {
+    return (
+      <>
+        <CabecalhoPergunta Icon={node.Icon} titulo={titulo} subtitulo={subtitulo} />
+        <GlassCard className="px-5 pt-4 pb-3 mb-5" accent="blue">
+          <span className="text-[11px] font-bold uppercase tracking-widest block mb-1" style={{ color: MUTED }}>
+            Análise de conflitos biomecânicos
+          </span>
+          <QuadrantMatrix r={respostas} />
+        </GlassCard>
+        <OpcoesPostura opcoes={resolverOpcoes(node, respostas)}
+          selecionada={selecionada === undefined ? undefined : String(selecionada)} onSelect={onSelect} />
+      </>
+    );
+  }
+
   return (
     <>
       <CabecalhoPergunta Icon={node.Icon} titulo={titulo} subtitulo={subtitulo} />
@@ -390,10 +741,7 @@ function RenderNo({ node, respostas, onResponder }: {
         opcoes={resolverOpcoes(node, respostas)}
         selecionada={selecionada === undefined ? undefined : String(selecionada)}
         grid2={node.grid2}
-        onSelect={(v) => {
-          const valor = node.coerce ? node.coerce(v) : v;
-          onResponder({ [node.campo!]: valor } as Partial<Respostas>);
-        }}
+        onSelect={onSelect}
       />
     </>
   );
@@ -402,14 +750,14 @@ function RenderNo({ node, respostas, onResponder }: {
 // ── Resultado ───────────────────────────────────────────────────────────────────
 function SkeletonCard() {
   return (
-    <div className="rounded-2xl overflow-hidden mb-5 animate-pulse" style={{ background: CARD, border: `1px solid ${BORDER}` }}>
-      <div className="w-full h-44" style={{ background: "#1a0505" }} />
+    <GlassCard className="overflow-hidden mb-5 animate-pulse">
+      <div className="w-full h-44" style={{ background: "rgba(255,255,255,0.04)" }} />
       <div className="px-5 py-5 space-y-3">
-        <div className="h-3 w-1/3 rounded" style={{ background: "#1e0808" }} />
-        <div className="h-5 w-2/3 rounded" style={{ background: "#1e0808" }} />
-        <div className="h-4 w-1/4 rounded" style={{ background: "#1e0808" }} />
+        <div className="h-3 w-1/3 rounded" style={{ background: "rgba(255,255,255,0.06)" }} />
+        <div className="h-5 w-2/3 rounded" style={{ background: "rgba(255,255,255,0.06)" }} />
+        <div className="h-4 w-1/4 rounded" style={{ background: "rgba(255,255,255,0.06)" }} />
       </div>
-    </div>
+    </GlassCard>
   );
 }
 
@@ -430,144 +778,186 @@ function FaseResultado({ state, waUrl, onWhatsApp, onVoltar }: {
   const semProdutos = !resultadoCarregando && resultado !== null && ranking.length === 0;
   const frases = frasesConcordancia(respostas);
   const travesseiro = travesseiroSugerido(respostas);
+  // Métricas de validação (anéis): suporte ortopédico = score real do topo; alívio = prioridade derivada.
+  const alivioPct = prioridades(respostas).find(p => p.label === "Alívio de Pressão")?.pct ?? 0;
+  const suportePct = top?.score ?? 0;
 
   return (
-    <div className="flex flex-col" style={{ background: BG }}>
+    <div className="flex flex-col">
       <div className="px-6 pb-8 pt-5">
         <BotaoVoltar onClick={onVoltar} />
 
-        <div className="text-center mb-6">
-          <p className="text-xs font-black tracking-widest uppercase mb-2" style={{ color: RED }}>Diagnóstico concluído</p>
-          <h2 className="text-2xl font-black text-white mb-2">Sua recomendação de descanso</h2>
+        <div className="flex flex-col items-center text-center mb-6">
+          <EyebrowChip Icon={ShieldCheck} color={RED}>Diagnóstico concluído</EyebrowChip>
+          <h2 className="text-2xl font-bold text-white mt-3 mb-1 tracking-tight" style={{ letterSpacing: "-0.02em" }}>
+            Engenharia do seu sono
+          </h2>
           {resultado && resultado.firmezaIndicada && (
-            <p className="text-sm" style={{ color: "#888" }}>
-              Firmeza indicada: <span className="font-bold" style={{ color: "#aaa" }}>{resultado.firmezaIndicada}</span>
+            <p className="text-sm" style={{ color: MUTED }}>
+              Firmeza indicada: <span className="font-bold text-white">{resultado.firmezaIndicada}</span>
             </p>
           )}
         </div>
 
+        {/* Mapa de prioridades ortopédicas (radar) + diagnóstico preliminar */}
+        {!resultadoCarregando && (
+          <GlassCard className="px-5 py-5 mb-5" accent="blue">
+            <span className="text-[11px] font-bold uppercase tracking-widest block mb-2" style={{ color: MUTED }}>
+              Mapa de prioridades ortopédicas
+            </span>
+            <RadarChart r={respostas} />
+            <div className="mt-3 pt-3" style={{ borderTop: `1px solid ${GLASS_BD}` }}>
+              <span className="text-[11px] font-bold uppercase tracking-widest block mb-1" style={{ color: BLUE }}>
+                Diagnóstico preliminar
+              </span>
+              <p className="text-xs leading-relaxed" style={{ color: "rgba(255,255,255,0.7)" }}>{diagnosticoPreliminar(respostas)}</p>
+            </div>
+          </GlassCard>
+        )}
+
         {/* Bloco de concordância (SIM, SIM, SIM) */}
         {frases.length > 0 && (
-          <div className="rounded-xl px-4 py-4 mb-5" style={{ background: "#0e0e0e", border: "1px solid #1e1e1e" }}>
+          <GlassCard className="px-4 py-4 mb-5">
             {frases.map(f => (
               <div key={f} className="flex items-start gap-2 mb-2 last:mb-0">
                 <Check className="w-4 h-4 shrink-0 mt-0.5" style={{ color: RED }} />
-                <p className="text-xs" style={{ color: "#aaa" }}>{f}</p>
+                <p className="text-xs" style={{ color: "rgba(255,255,255,0.7)" }}>{f}</p>
               </div>
             ))}
-            <p className="text-xs mt-3 pt-3" style={{ color: "#666", borderTop: "1px solid #1e1e1e" }}>
+            <p className="text-xs mt-3 pt-3" style={{ color: MUTED, borderTop: `1px solid ${GLASS_BD}` }}>
               Cruzamos seu perfil com todo o catálogo. Esta é a recomendação para o seu corpo.
             </p>
-          </div>
+          </GlassCard>
         )}
 
         {resultadoCarregando && mostrarSkeleton && <SkeletonCard />}
 
         {semProdutos && (
-          <div className="rounded-2xl p-6 text-center mb-5" style={{ background: CARD, border: `1px solid ${BORDER}` }}>
-            <div className="text-4xl mb-3">💬</div>
-            <p className="text-white font-black text-lg mb-1">Fale com um especialista</p>
-            <p className="text-sm" style={{ color: "#888" }}>
+          <GlassCard className="p-6 text-center mb-5">
+            <div className="flex justify-center mb-3">
+              <div className="w-12 h-12 rounded-full flex items-center justify-center"
+                style={{ background: "rgba(0,145,255,0.10)", border: `1px solid ${BLUE}44` }}>
+                <MessageCircle className="w-6 h-6" style={{ color: BLUE }} />
+              </div>
+            </div>
+            <p className="text-white font-bold text-lg mb-1 tracking-tight">Fale com um especialista</p>
+            <p className="text-sm" style={{ color: MUTED }}>
               Recebemos seu perfil de descanso. Nossa equipe vai indicar pessoalmente o colchão ideal para você.
             </p>
-          </div>
+          </GlassCard>
         )}
 
         {top && (
-          <div className="rounded-2xl overflow-hidden mb-4" style={{ background: CARD, border: `1.5px solid ${RED}` }}>
-            {top.imagem && (
-              <div className="w-full h-44 overflow-hidden" style={{ background: "#0e0e0e" }}>
-                <img src={top.imagem} alt={top.nome} className="w-full h-full object-contain" loading="lazy" />
+          <>
+            {/* Plano de sono — anéis de validação */}
+            <GlassCard className="px-5 py-5 mb-4">
+              <span className="text-[11px] font-bold uppercase tracking-widest block mb-4" style={{ color: MUTED }}>
+                Plano de sono personalizado
+              </span>
+              <div className="flex items-center justify-around">
+                <CircularProgress value={suportePct} label="Suporte Ortopédico" color={BLUE} />
+                <CircularProgress value={alivioPct} label="Alívio de Pressão" color={RED} />
               </div>
-            )}
-            <div className="px-5 py-5">
-              <div className="flex items-center justify-between mb-2">
-                <p className="text-xs font-bold uppercase tracking-wider" style={{ color: "#666" }}>Recomendação principal</p>
-                <span className="text-xs font-black px-3 py-1 rounded-full"
-                  style={{ background: "#1e0000", color: RED, border: `1px solid ${BORDER}` }}>{top.classificacao}</span>
-              </div>
-              <h3 className="text-xl font-black text-white mb-1 leading-tight">{top.nome}</h3>
-              <div className="flex items-baseline gap-2 mb-3">
-                <span className="text-4xl font-black" style={{ color: RED }}>{top.score}%</span>
-                <span className="text-xs font-semibold" style={{ color: "#777" }}>de compatibilidade</span>
-              </div>
-              {top.precoPix && <p className="text-lg font-extrabold mb-3" style={{ color: RED }}>{top.precoPix} no Pix</p>}
-              {top.justificativa && (
-                <p className="text-sm mb-3 leading-relaxed" style={{ color: "#999" }}>{top.justificativa}</p>
+            </GlassCard>
+
+            <GlassCard className="overflow-hidden mb-4" accent="red">
+              {top.imagem && (
+                <div className="w-full h-44 overflow-hidden" style={{ background: "rgba(255,255,255,0.03)" }}>
+                  <img src={top.imagem} alt={top.nome} className="w-full h-full object-contain" loading="lazy" />
+                </div>
               )}
-              <div className="flex flex-col gap-2">
-                {top.motivos.map(m => (
-                  <div key={m} className="flex items-center gap-2 text-sm" style={{ color: "#aaa" }}>
-                    <Check className="w-4 h-4 shrink-0" style={{ color: RED }} />{m}
-                  </div>
-                ))}
-              </div>
-              {top.avisos && top.avisos.length > 0 && (
-                <div className="mt-4 flex flex-col gap-2">
-                  {top.avisos.map(a => (
-                    <div key={a} className="flex items-start gap-2 rounded-lg px-3 py-2"
-                      style={{ background: "#1a1400", border: "1px solid #3a2e00" }}>
-                      <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5" style={{ color: "#d4a200" }} />
-                      <p className="text-xs leading-snug" style={{ color: "#caa84a" }}>{a}</p>
+              <div className="px-5 py-5">
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-[11px] font-bold uppercase tracking-widest" style={{ color: MUTED }}>Recomendação principal</span>
+                  <span className="text-[11px] font-bold px-3 py-1 rounded-full"
+                    style={{ background: "rgba(230,51,41,0.12)", color: RED, border: `1px solid ${RED}55` }}>{top.classificacao}</span>
+                </div>
+                <h3 className="text-xl font-bold text-white mb-1 leading-tight tracking-tight">{top.nome}</h3>
+                <div className="flex items-baseline gap-2 mb-3">
+                  <span className="text-4xl font-bold tracking-tight" style={{ color: RED }}>{top.score}%</span>
+                  <span className="text-xs font-semibold" style={{ color: MUTED }}>de compatibilidade</span>
+                </div>
+                {top.precoPix && <p className="text-lg font-bold mb-3" style={{ color: RED }}>{top.precoPix} no Pix</p>}
+                {top.justificativa && (
+                  <p className="text-sm mb-3 leading-relaxed" style={{ color: "rgba(255,255,255,0.7)" }}>{top.justificativa}</p>
+                )}
+                <div className="flex flex-col gap-2">
+                  {top.motivos.map(m => (
+                    <div key={m} className="flex items-center gap-2 text-sm" style={{ color: "rgba(255,255,255,0.8)" }}>
+                      <Check className="w-4 h-4 shrink-0" style={{ color: RED }} />{m}
                     </div>
                   ))}
                 </div>
-              )}
-            </div>
-          </div>
+                {top.avisos && top.avisos.length > 0 && (
+                  <div className="mt-4 flex flex-col gap-2">
+                    {top.avisos.map(a => (
+                      <div key={a} className="flex items-start gap-2 rounded-lg px-3 py-2"
+                        style={{ background: "rgba(212,162,0,0.08)", border: "1px solid rgba(212,162,0,0.25)" }}>
+                        <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5" style={{ color: "#d4a200" }} />
+                        <p className="text-xs leading-snug" style={{ color: "#d8b94a" }}>{a}</p>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </GlassCard>
+          </>
         )}
 
         {outros.length > 0 && (
           <>
-            <p className="text-xs font-bold uppercase tracking-wider mb-3" style={{ color: "#555" }}>Alternativas</p>
+            <span className="text-[11px] font-bold uppercase tracking-widest block mb-3" style={{ color: MUTED }}>Alternativas de engenharia</span>
             <div className="flex flex-col gap-3 mb-5">
               {outros.map(item => (
-                <div key={item.produtoId} className="rounded-xl px-4 py-4 flex items-center gap-4"
-                  style={{ background: CARD, border: `1px solid ${BORDER}` }}>
+                <GlassCard key={item.produtoId} className="px-4 py-4 flex items-center gap-4">
                   {item.imagem && (
                     <img src={item.imagem} alt={item.nome} className="w-14 h-14 rounded-lg object-contain shrink-0"
-                      style={{ background: "#0e0e0e" }} loading="lazy" />
+                      style={{ background: "rgba(255,255,255,0.03)" }} loading="lazy" />
                   )}
                   <div className="flex-1 min-w-0">
-                    <span className="text-[10px] font-black uppercase tracking-wider px-2 py-0.5 rounded-full"
-                      style={{ background: "#1e0000", color: RED, border: `1px solid ${BORDER}` }}>
+                    <span className="text-[10px] font-bold uppercase tracking-widest px-2 py-0.5 rounded-full"
+                      style={{ background: "rgba(0,145,255,0.10)", color: BLUE, border: `1px solid ${BLUE}44` }}>
                       {CATEGORIA_LABEL[item.categoria]}
                     </span>
-                    <p className="text-white font-bold text-sm leading-tight truncate mt-1.5">{item.nome}</p>
-                    {item.precoPix && <p className="text-sm font-extrabold mt-1" style={{ color: RED }}>{item.precoPix}</p>}
+                    <p className="text-white font-semibold text-sm leading-tight truncate mt-1.5 tracking-tight">{item.nome}</p>
+                    {item.precoPix && <p className="text-sm font-bold mt-1" style={{ color: RED }}>{item.precoPix}</p>}
                     {item.avisos && item.avisos.length > 0 && (
                       <div className="flex items-center gap-1 mt-1">
                         <AlertTriangle className="w-3 h-3 shrink-0" style={{ color: "#d4a200" }} />
-                        <p className="text-[10px] leading-tight" style={{ color: "#caa84a" }}>{item.avisos[0]}</p>
+                        <p className="text-[10px] leading-tight" style={{ color: "#d8b94a" }}>{item.avisos[0]}</p>
                       </div>
                     )}
                   </div>
                   <div className="shrink-0 text-right">
-                    <p className="text-xl font-black text-white">{item.score}%</p>
-                    <p className="text-[10px]" style={{ color: "#666" }}>{item.classificacao}</p>
+                    <p className="text-xl font-bold text-white tracking-tight">{item.score}%</p>
+                    <p className="text-[10px]" style={{ color: MUTED }}>{item.classificacao}</p>
                   </div>
-                </div>
+                </GlassCard>
               ))}
             </div>
           </>
         )}
 
         {travesseiro && (
-          <a href={travesseiro.url} target="_blank" rel="noopener noreferrer"
-            className="flex items-center gap-3 rounded-xl px-4 py-3 mb-5" style={{ background: "#0e0e0e", border: "1px solid #1e1e1e" }}>
-            <div className="text-2xl">🛌</div>
-            <div className="min-w-0">
-              <p className="text-[10px] font-bold uppercase tracking-wider" style={{ color: "#666" }}>Complemento sugerido</p>
-              <p className="text-white font-bold text-sm leading-tight truncate">{travesseiro.nome}</p>
-            </div>
+          <a href={travesseiro.url} target="_blank" rel="noopener noreferrer" className="block mb-5">
+            <GlassCard className="flex items-center gap-3 px-4 py-3">
+              <div className="w-10 h-10 rounded-lg flex items-center justify-center shrink-0"
+                style={{ background: "rgba(255,255,255,0.04)", border: `1px solid ${GLASS_BD}` }}>
+                <BedDouble className="w-5 h-5" style={{ color: BLUE }} />
+              </div>
+              <div className="min-w-0">
+                <p className="text-[10px] font-bold uppercase tracking-widest" style={{ color: MUTED }}>Complemento sugerido</p>
+                <p className="text-white font-semibold text-sm leading-tight truncate tracking-tight">{travesseiro.nome}</p>
+              </div>
+            </GlassCard>
           </a>
         )}
 
         {!resultadoCarregando && resultado !== null && (
           <a href={waUrl} target="_blank" rel="noopener noreferrer" onClick={onWhatsApp}
-            className="w-full py-4 rounded-2xl font-extrabold text-white text-base flex items-center justify-center gap-2"
-            style={{ background: "#25D366", boxShadow: "0 4px 20px rgba(37,211,102,0.3)" }}>
-            <MessageCircle className="w-5 h-5" /> Falar com especialista no WhatsApp →
+            className="w-full py-4 rounded-xl font-bold text-white text-base flex items-center justify-center gap-2 transition-transform active:scale-95"
+            style={{ background: "#25D366", boxShadow: "0 8px 24px rgba(37,211,102,0.35)", letterSpacing: "-0.01em" }}>
+            <MessageCircle className="w-5 h-5" /> Falar com especialista no WhatsApp
           </a>
         )}
       </div>
@@ -580,21 +970,21 @@ function Finalizado({ waUrl, onReiniciar, onReabrirWA }: {
   waUrl: string; onReiniciar: () => void; onReabrirWA: () => void;
 }) {
   return (
-    <div className="flex flex-col items-center justify-center flex-1 px-6 py-12 text-center" style={{ background: BG }}>
-      <div className="w-16 h-16 rounded-full flex items-center justify-center mb-6"
-        style={{ background: "#25D366", boxShadow: "0 4px 24px rgba(37,211,102,0.35)" }}>
+    <div className="flex flex-col items-center justify-center flex-1 px-6 py-12 text-center">
+      <div className="w-16 h-16 rounded-2xl flex items-center justify-center mb-6"
+        style={{ background: "#25D366", boxShadow: "0 8px 28px rgba(37,211,102,0.4)" }}>
         <Check className="w-8 h-8 text-white" />
       </div>
-      <h2 className="text-2xl font-black text-white mb-2">Tudo certo!</h2>
-      <p className="text-sm mb-8 max-w-sm" style={{ color: "#888" }}>
+      <h2 className="text-2xl font-bold text-white mb-2 tracking-tight" style={{ letterSpacing: "-0.02em" }}>Tudo certo!</h2>
+      <p className="text-sm mb-8 max-w-sm" style={{ color: MUTED }}>
         Abrimos o WhatsApp para você falar com um especialista. Se a janela não abriu, toque no botão abaixo.
       </p>
       <a href={waUrl} target="_blank" rel="noopener noreferrer" onClick={onReabrirWA}
-        className="flex items-center justify-center gap-2.5 w-full max-w-xs py-4 rounded-2xl font-extrabold text-white text-base mb-3"
-        style={{ background: "#25D366", boxShadow: "0 4px 20px rgba(37,211,102,0.3)" }}>
+        className="flex items-center justify-center gap-2.5 w-full max-w-xs py-4 rounded-xl font-bold text-white text-base mb-3 transition-transform active:scale-95"
+        style={{ background: "#25D366", boxShadow: "0 8px 24px rgba(37,211,102,0.35)" }}>
         <MessageCircle className="w-5 h-5" /> Abrir WhatsApp
       </a>
-      <button onClick={onReiniciar} className="w-full max-w-xs py-3 rounded-2xl text-sm font-semibold" style={{ color: "#666" }}>
+      <button onClick={onReiniciar} className="w-full max-w-xs py-3 rounded-xl text-sm font-semibold" style={{ color: MUTED }}>
         Refazer o diagnóstico
       </button>
     </div>
@@ -604,30 +994,53 @@ function Finalizado({ waUrl, onReiniciar, onReabrirWA }: {
 // ── Welcome (somente página, não embedded) ──────────────────────────────────────
 function WelcomeScreen({ onStart }: { onStart: () => void }) {
   return (
-    <div className="min-h-screen flex flex-col items-center justify-center px-6 py-12 text-center" style={{ background: BG }}>
-      <div className="w-16 h-16 rounded-2xl flex items-center justify-center mb-6"
-        style={{ background: RED, boxShadow: `0 4px 24px ${RED}55` }}>
-        <BedDouble className="w-8 h-8 text-white" />
-      </div>
-      <p className="text-xs font-black tracking-widest uppercase mb-3" style={{ color: RED }}>Diagnóstico Gratuito</p>
-      <h1 className="text-4xl font-black text-white mb-3 leading-tight">
-        Mapa do Sono<br /><span style={{ color: "#aaa" }}>Castor</span>
+    <div className="min-h-screen flex flex-col items-center justify-center px-6 py-12 text-center">
+      <div className="mb-8"><Wordmark /></div>
+      <p className="text-xs font-bold tracking-[0.2em] uppercase mb-3" style={{ color: BLUE }}>Diagnóstico inteligente</p>
+      <h1 className="text-4xl font-bold text-white mb-3 leading-[1.1] tracking-tight" style={{ letterSpacing: "-0.03em" }}>
+        Entenda seu sono.<br /><span style={{ color: MUTED }}>Transforme seus dias.</span>
       </h1>
-      <p className="text-base mb-8 max-w-sm" style={{ color: "#888" }}>
-        Responda algumas perguntas rápidas e descubra os colchões com maior compatibilidade com o seu corpo.
+      <p className="text-base mb-8 max-w-sm" style={{ color: MUTED }}>
+        Recomendações personalizadas com base na sua biomecânica — engenharia do sono para o seu corpo descansar de verdade.
       </p>
-      <div className="flex flex-col gap-2 mb-10 w-full max-w-xs text-left">
-        {["100% Online · Leva menos de 2 minutos", "Personalizado · Baseado no seu perfil de descanso", "Gratuito · Sem compromisso"].map(t => (
-          <div key={t} className="flex items-center gap-3 text-sm" style={{ color: "#666" }}>
-            <Check className="w-4 h-4 shrink-0" style={{ color: RED }} /> {t}
+      <div className="flex flex-col gap-2.5 mb-10 w-full max-w-xs text-left">
+        {[
+          { Icon: Activity, t: "Análise biomecânica · Perfil do seu corpo" },
+          { Icon: ShieldCheck, t: "Baseado em dados · Recomendação técnica" },
+          { Icon: Wind, t: "100% online · Leva menos de 2 minutos" },
+        ].map(({ Icon, t }) => (
+          <div key={t} className="flex items-center gap-3 text-sm" style={{ color: "rgba(255,255,255,0.7)" }}>
+            <div className="w-7 h-7 rounded-lg flex items-center justify-center shrink-0"
+              style={{ background: "rgba(255,255,255,0.04)", border: `1px solid ${GLASS_BD}` }}>
+              <Icon className="w-3.5 h-3.5" style={{ color: BLUE }} />
+            </div>
+            {t}
           </div>
         ))}
       </div>
-      <motion.button whileTap={{ scale: 0.97 }} whileHover={{ scale: 1.02 }} onClick={onStart}
-        className="w-full max-w-xs py-4 rounded-2xl font-extrabold text-white text-base flex items-center justify-center gap-2"
-        style={{ background: RED, boxShadow: `0 4px 24px ${RED}55` }}>
-        Começar diagnóstico →
+      <motion.button whileTap={{ scale: 0.96 }} whileHover={{ scale: 1.02 }} onClick={onStart}
+        className="w-full max-w-xs py-4 rounded-xl font-bold text-white text-base flex items-center justify-center gap-2"
+        style={{ background: `linear-gradient(135deg, ${RED}, #c41f17)`, boxShadow: `0 8px 24px rgba(230,51,41,0.4)`, letterSpacing: "-0.01em" }}>
+        Fazer meu diagnóstico <ArrowRight className="w-4 h-4" />
       </motion.button>
+      <p className="text-[11px] mt-5 tracking-wide" style={{ color: "rgba(255,255,255,0.35)" }}>PORQUE AMANHÃ COMEÇA HOJE.</p>
+    </div>
+  );
+}
+
+// ── Fundo técnico (gradiente radial azul + grid de linhas) ──────────────────────
+function BackdropFX() {
+  return (
+    <div className="pointer-events-none absolute inset-0 overflow-hidden" aria-hidden>
+      <div className="absolute inset-0" style={{ background: "radial-gradient(circle at 50% 28%, rgba(0,145,255,0.15) 0%, transparent 60%)" }} />
+      <div className="absolute inset-0" style={{ background: "radial-gradient(circle at 50% 120%, rgba(0,145,255,0.10) 0%, transparent 55%)" }} />
+      <div className="absolute inset-0 opacity-[0.4]" style={{
+        backgroundImage:
+          "linear-gradient(rgba(255,255,255,0.025) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.025) 1px, transparent 1px)",
+        backgroundSize: "44px 44px",
+        maskImage: "radial-gradient(circle at 50% 40%, #000 0%, transparent 75%)",
+        WebkitMaskImage: "radial-gradient(circle at 50% 40%, #000 0%, transparent 75%)",
+      }} />
     </div>
   );
 }
@@ -731,43 +1144,46 @@ export default function MapaSono({ embedded = false }: MapaSonoProps) {
   const chaveTela =
     state.fase === "questionario" ? `q-${state.nodeId}` : state.fase;
 
-  const outerClass = embedded ? "flex flex-col" : "flex flex-col min-h-screen";
+  const outerClass = embedded ? "relative flex flex-col overflow-hidden" : "relative flex flex-col min-h-screen overflow-hidden";
 
   return (
     <div className={outerClass} style={{ background: BG }}>
-      <AnimatePresence mode="wait">
-        {mostrarWelcome && (
-          <motion.div key="welcome" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="flex-1 flex flex-col">
-            <WelcomeScreen onStart={() => setMostrarWelcome(false)} />
-          </motion.div>
-        )}
+      <BackdropFX />
+      <div className="relative z-10 flex-1 flex flex-col">
+        <AnimatePresence mode="wait">
+          {mostrarWelcome && (
+            <motion.div key="welcome" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="flex-1 flex flex-col">
+              <WelcomeScreen onStart={() => setMostrarWelcome(false)} />
+            </motion.div>
+          )}
 
-        {!mostrarWelcome && (
-          <motion.div key={chaveTela}
-            initial={{ opacity: 0, x: 24 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -24 }}
-            transition={{ duration: 0.2 }} className="flex-1 flex flex-col">
+          {!mostrarWelcome && (
+            <motion.div key={chaveTela}
+              initial={{ opacity: 0, x: 24 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -24 }}
+              transition={{ duration: 0.2 }} className="flex-1 flex flex-col">
 
-            {state.fase === "questionario" && node && (
-              <div className="flex flex-col" style={{ background: BG }}>
-                <ProgressHeader step={step} total={total} />
-                <div className="px-5 pb-6">
-                  {podeVoltar(state) && <BotaoVoltar onClick={voltar} />}
-                  <RenderNo node={node} respostas={state.respostas} onResponder={aoResponder} />
+              {state.fase === "questionario" && node && (
+                <div className="flex flex-col">
+                  <ProgressHeader step={step} total={total} />
+                  <div className="px-5 pb-6">
+                    {podeVoltar(state) && <BotaoVoltar onClick={voltar} />}
+                    <RenderNo node={node} respostas={state.respostas} onResponder={aoResponder} />
+                  </div>
                 </div>
-              </div>
-            )}
+              )}
 
-            {state.fase === "resultado" && (
-              <FaseResultado state={state} waUrl={waUrl} onWhatsApp={aoWhatsApp} onVoltar={voltar} />
-            )}
+              {state.fase === "resultado" && (
+                <FaseResultado state={state} waUrl={waUrl} onWhatsApp={aoWhatsApp} onVoltar={voltar} />
+              )}
 
-            {state.fase === "finalizado" && (
-              <Finalizado waUrl={waUrl} onReiniciar={reiniciar}
-                onReabrirWA={() => emitir("whatsapp_aberto", { reaberto: true })} />
-            )}
-          </motion.div>
-        )}
-      </AnimatePresence>
+              {state.fase === "finalizado" && (
+                <Finalizado waUrl={waUrl} onReiniciar={reiniciar}
+                  onReabrirWA={() => emitir("whatsapp_aberto", { reaberto: true })} />
+              )}
+            </motion.div>
+          )}
+        </AnimatePresence>
+      </div>
     </div>
   );
 }
