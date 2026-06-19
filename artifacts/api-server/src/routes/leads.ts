@@ -493,6 +493,8 @@ router.patch("/leads/:id", requireAuth, async (req: AuthRequest, res) => {
       "nome", "whatsapp", "email", "estagio", "origem", "tags",
       "observacoes", "vendedorAtribuido", "perfilBiomecanico",
       "motivoPerda", "motivoGanho",
+      "statusFunil", "motivoTroca", "prazoCompra",
+      "produtoFinalVendido", "motivoNaoVenda", "satisfacaoPosVenda",
     ] as const;
 
     const updates: Record<string, unknown> = { atualizadoEm: new Date() };
@@ -506,6 +508,9 @@ router.patch("/leads/:id", requireAuth, async (req: AuthRequest, res) => {
       origem: "Origem", tags: "Tags", observacoes: "Observações",
       vendedorAtribuido: "Vendedor", perfilBiomecanico: "Perfil biomecanico",
       motivoPerda: "Motivo perda", motivoGanho: "Motivo ganho",
+      statusFunil: "Status funil", motivoTroca: "Motivo troca",
+      prazoCompra: "Prazo compra", produtoFinalVendido: "Produto vendido",
+      motivoNaoVenda: "Motivo não-venda", satisfacaoPosVenda: "Satisfação pós-venda",
     };
     const editedFields: string[] = [];
     for (const key of allowed) {

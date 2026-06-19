@@ -6,7 +6,7 @@ import {
   ArrowLeft, Phone, Mail, User, Clock, MessageSquare, FileText,
   Plus, Flame, Thermometer, Snowflake, CheckCircle2, Circle,
   Brain, Stethoscope, ChevronDown, ChevronUp, Edit2, Check, X,
-  Moon, Sparkles, Target, Activity, ShoppingCart,
+  Moon, Sparkles, Target, Activity, ShoppingCart, TrendingUp, Star,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -64,6 +64,41 @@ function origemLabel(o: string): string {
   };
   return map[o] ?? o;
 }
+
+function intentLabel(score: number | null | undefined) {
+  if (score == null) return null;
+  if (score >= 70) return { label: "Compra imediata", color: "bg-red-100 text-red-700 border-red-200", barColor: "bg-red-500" };
+  if (score >= 45) return { label: "Alta intenção", color: "bg-orange-100 text-orange-700 border-orange-200", barColor: "bg-orange-500" };
+  if (score >= 20) return { label: "Em consideração", color: "bg-yellow-100 text-yellow-700 border-yellow-200", barColor: "bg-yellow-500" };
+  return { label: "Pesquisando", color: "bg-slate-100 text-slate-600 border-slate-200", barColor: "bg-slate-400" };
+}
+
+const STATUS_FUNIL_LABELS: Record<string, string> = {
+  recomendacao_emitida: "Recomendação emitida",
+  whatsapp_aberto: "WhatsApp aberto",
+  orcamento_enviado: "Orçamento enviado",
+  negociacao: "Em negociação",
+  venda_realizada: "Venda realizada",
+  perdido: "Perdido",
+  adiado: "Adiado",
+};
+
+const MOTIVO_TROCA_LABELS: Record<string, string> = {
+  afundou: "Colchão afundou", dor_coluna: "Dores", velho: "Colchão velho",
+  mudanca: "Mudança", presente: "Presente", pesquisando: "Pesquisando",
+};
+
+const PRAZO_LABELS: Record<string, string> = {
+  hoje: "Hoje", essa_semana: "Essa semana", esse_mes: "Esse mês", sem_pressa: "Sem pressa",
+};
+
+const MOTIVO_NAO_VENDA_OPTIONS = [
+  { key: "preco", label: "Preço" },
+  { key: "concorrente", label: "Concorrente" },
+  { key: "adiou", label: "Adiou" },
+  { key: "sem_necessidade", label: "Sem necessidade" },
+  { key: "outro", label: "Outro" },
+];
 
 function tipoIcon(tipo: string) {
   const icons: Record<string, string> = {
@@ -264,6 +299,49 @@ export default function ClienteDetalhe() {
         </div>
       </div>
 
+      {/* Intenção de Compra + Funil */}
+      {(lead.scoreIntencao != null || lead.statusFunil || lead.motivoTroca || lead.prazoCompra) && (() => {
+        const intent = intentLabel(lead.scoreIntencao);
+        return (
+          <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl overflow-hidden shadow-sm">
+            <div className="px-4 py-3 border-b border-slate-100 dark:border-slate-700 flex items-center gap-2">
+              <TrendingUp className="w-4 h-4 text-indigo-500" />
+              <h3 className="font-semibold text-slate-800 dark:text-slate-200 text-sm">Intenção de Compra</h3>
+            </div>
+            <div className="p-4 space-y-3">
+              {intent && (
+                <div>
+                  <div className="flex items-center justify-between mb-1.5">
+                    <Badge variant="outline" className={cn("text-xs", intent.color)}>{intent.label}</Badge>
+                    <span className="text-sm font-bold text-slate-700 dark:text-slate-300">{lead.scoreIntencao}</span>
+                  </div>
+                  <div className="h-2 bg-slate-100 dark:bg-slate-700 rounded-full overflow-hidden">
+                    <div className={cn("h-full rounded-full transition-all", intent.barColor)} style={{ width: `${Math.min(lead.scoreIntencao, 100)}%` }} />
+                  </div>
+                </div>
+              )}
+              <div className="flex flex-wrap gap-2">
+                {lead.statusFunil && (
+                  <Badge variant="outline" className="text-xs bg-blue-50 dark:bg-blue-950/40 text-blue-700 dark:text-blue-400 border-blue-200 dark:border-blue-800">
+                    {STATUS_FUNIL_LABELS[lead.statusFunil] ?? lead.statusFunil}
+                  </Badge>
+                )}
+                {lead.motivoTroca && (
+                  <Badge variant="outline" className="text-xs bg-amber-50 dark:bg-amber-950/40 text-amber-700 dark:text-amber-400 border-amber-200 dark:border-amber-800">
+                    {MOTIVO_TROCA_LABELS[lead.motivoTroca] ?? lead.motivoTroca}
+                  </Badge>
+                )}
+                {lead.prazoCompra && (
+                  <Badge variant="outline" className="text-xs bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-400 border-emerald-200 dark:border-emerald-800">
+                    {PRAZO_LABELS[lead.prazoCompra] ?? lead.prazoCompra}
+                  </Badge>
+                )}
+              </div>
+            </div>
+          </div>
+        );
+      })()}
+
       {/* Diagnóstico do Sono (Mapa do Sono) — Fase 5 */}
       {diagnostico && (
         <div className="bg-white dark:bg-slate-800 border border-indigo-200 dark:border-indigo-900 rounded-2xl overflow-hidden shadow-sm">
@@ -459,6 +537,75 @@ export default function ClienteDetalhe() {
                 )}
               </div>
             ))}
+          </div>
+        </div>
+      )}
+
+      {/* Dataset Pós-Venda */}
+      {(lead.estagio === "ganho" || lead.estagio === "perdido") && (
+        <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl overflow-hidden shadow-sm">
+          <div className="px-4 py-3 border-b border-slate-100 dark:border-slate-700 flex items-center gap-2">
+            <FileText className="w-4 h-4 text-slate-500" />
+            <h3 className="font-semibold text-slate-800 dark:text-slate-200 text-sm">Dataset Pós-Venda</h3>
+          </div>
+          <div className="p-4 space-y-4">
+            <div>
+              <p className="text-xs font-semibold text-slate-400 dark:text-slate-500 uppercase tracking-wide mb-1.5">Produto final vendido</p>
+              <input
+                type="text"
+                defaultValue={lead.produtoFinalVendido ?? ""}
+                placeholder="Ex: Colchão Castor Premium"
+                className="w-full rounded-lg border border-slate-200 dark:border-slate-600 bg-slate-50 dark:bg-slate-700 px-3 py-2 text-sm text-slate-700 dark:text-slate-200 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500/30"
+                onBlur={(e) => {
+                  const v = e.target.value.trim();
+                  if (v !== (lead.produtoFinalVendido ?? "")) patchLead.mutate({ produtoFinalVendido: v || null });
+                }}
+              />
+            </div>
+            {lead.estagio === "perdido" && (
+              <div>
+                <p className="text-xs font-semibold text-slate-400 dark:text-slate-500 uppercase tracking-wide mb-1.5">Motivo da não-venda</p>
+                <Select
+                  value={lead.motivoNaoVenda ?? ""}
+                  onValueChange={(v) => patchLead.mutate({ motivoNaoVenda: v || null })}
+                >
+                  <SelectTrigger className="h-9 text-sm">
+                    <SelectValue placeholder="Selecione..." />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {MOTIVO_NAO_VENDA_OPTIONS.map((o) => (
+                      <SelectItem key={o.key} value={o.key}>{o.label}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
+            {lead.estagio === "ganho" && (
+              <div>
+                <p className="text-xs font-semibold text-slate-400 dark:text-slate-500 uppercase tracking-wide mb-1.5">Satisfação pós-venda</p>
+                <div className="flex items-center gap-1">
+                  {[1, 2, 3, 4, 5].map((n) => (
+                    <button
+                      key={n}
+                      onClick={() => patchLead.mutate({ satisfacaoPosVenda: n })}
+                      className="p-0.5 transition-colors"
+                    >
+                      <Star
+                        className={cn(
+                          "w-6 h-6 transition-colors",
+                          n <= (lead.satisfacaoPosVenda ?? 0)
+                            ? "fill-amber-400 text-amber-400"
+                            : "text-slate-300 dark:text-slate-600",
+                        )}
+                      />
+                    </button>
+                  ))}
+                  {lead.satisfacaoPosVenda != null && (
+                    <span className="ml-2 text-sm font-semibold text-slate-600 dark:text-slate-400">{lead.satisfacaoPosVenda}/5</span>
+                  )}
+                </div>
+              </div>
+            )}
           </div>
         </div>
       )}
