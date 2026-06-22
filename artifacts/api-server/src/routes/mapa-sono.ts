@@ -77,9 +77,15 @@ router.post("/mapa-sono/compatibilidade", async (req: Request, res: Response) =>
       .limit(500);
 
     const produtos: ProdutoCatalogoInput[] = rows;
+
+    if (rows.length === 0) {
+      console.warn(`[MapaSono] ZERO produtos elegíveis para lojaId=${lojaId} — verificar catálogo`);
+    }
+
     const data = montarRankingRegras(perfil, produtos);
 
-    // ranking vazio é resposta válida — o frontend mostra "fale com especialista"
+    console.log(`[MapaSono] lojaId=${lojaId} produtos_db=${rows.length} ranking=${data.ranking.length} origem=${data.origem}`);
+
     res.json({ success: true, data });
   } catch (err) {
     console.error("[MapaSono] POST /compatibilidade error:", err);

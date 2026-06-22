@@ -69,6 +69,7 @@ export interface ResultadoCompatibilidade {
   ranking: RankingItem[];
   firmezaIndicada: string;
   perfilResumo: string;
+  origem?: "regras" | "motor" | "emergencia";
 }
 
 export interface Opt<V extends string = string> {
