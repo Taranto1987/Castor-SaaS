@@ -298,7 +298,8 @@ async function executarCrawler() {
         const altura = alturaMatch ? alturaMatch[0] : "";
 
         // Descrição comercial completa (HTML preservado) + ficha técnica normalizada.
-        const descricao = html || null;
+        const shortHtml = item.short_description?.html ?? "";
+        const descricao = [shortHtml, html].filter(Boolean).join("\n") || null;
         const fichaTecnica = parseFichaTecnica(item);
 
         try {

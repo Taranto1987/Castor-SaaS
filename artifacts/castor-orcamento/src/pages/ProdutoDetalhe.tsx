@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { useParams, useLocation } from "wouter";
 import { motion } from "framer-motion";
-import { ArrowLeft, MessageCircle, Package, Tag, Ruler, ShoppingCart, FileText, ClipboardList, ChevronDown } from "lucide-react";
+import { ArrowLeft, MessageCircle, Package, Tag, Ruler, ShoppingCart, FileText, ClipboardList, ChevronDown, Heart } from "lucide-react";
 import { useWAInfo } from "@/hooks/use-wa-info";
 
 interface Produto {
@@ -399,9 +399,17 @@ export default function ProdutoDetalhe() {
           </div>
         </motion.div>
 
-        {/* ── Descrição Persuasiva ─────────────────────────────────── */}
+        {/* ── Por que você vai amar ─────────────────────────────── */}
+        {produto.fichaTecnica && (produto.fichaTecnica as any)?._raw?.short_description_html && (
+          <ShortDescriptionSection html={(produto.fichaTecnica as any)._raw.short_description_html} />
+        )}
+
+        {/* ── Descrição ───────────────────────────────────────────── */}
         {produto.descricao && (
-          <DescricaoSection html={produto.descricao} />
+          <DescricaoSection
+            html={produto.descricao}
+            shortHtml={(produto.fichaTecnica as any)?._raw?.short_description_html}
+          />
         )}
 
         {/* ── Ficha Técnica ───────────────────────────────────────── */}
@@ -413,10 +421,54 @@ export default function ProdutoDetalhe() {
   );
 }
 
-function DescricaoSection({ html }: { html: string }) {
+function ShortDescriptionSection({ html }: { html: string }) {
+  const clean = html
+    .replace(/<script[^>]*>[\s\S]*?<\/script>/gi, "")
+    .replace(/<style[^>]*>[\s\S]*?<\/style>/gi, "")
+    .replace(/style="[^"]*"/gi, "")
+    .replace(/class="[^"]*"/gi, "");
+
+  const plainText = clean.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim();
+  if (!plainText || plainText.length < 20) return null;
+
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 12 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.3, delay: 0.05 }}
+      className="mt-8 bg-gradient-to-br from-blue-50 to-white rounded-2xl border border-blue-100 shadow-sm overflow-hidden"
+    >
+      <div className="flex items-center gap-2 px-6 py-4 border-b border-blue-100">
+        <Heart className="w-5 h-5 text-rose-500" />
+        <h2 className="text-slate-800 font-semibold">Por que você vai amar este produto</h2>
+      </div>
+
+      <div className="px-6 py-5">
+        <div
+          className="prose prose-sm prose-slate max-w-none
+            [&_p]:text-sm [&_p]:text-slate-600 [&_p]:leading-relaxed [&_p]:mb-3
+            [&_ul]:text-sm [&_ul]:text-slate-600 [&_ul]:pl-4 [&_ul]:mb-2
+            [&_li]:mb-1
+            [&_strong]:text-slate-800"
+          dangerouslySetInnerHTML={{ __html: clean }}
+        />
+      </div>
+    </motion.div>
+  );
+}
+
+function DescricaoSection({ html, shortHtml }: { html: string; shortHtml?: string }) {
   const [expanded, setExpanded] = useState(false);
 
-  const clean = html
+  let filtered = html;
+  if (shortHtml) {
+    const shortPlain = shortHtml.replace(/<[^>]+>/g, "").replace(/\s+/g, " ").trim().slice(0, 80);
+    if (shortPlain && filtered.includes(shortPlain.slice(0, 40))) {
+      filtered = filtered.replace(shortHtml, "");
+    }
+  }
+
+  const clean = filtered
     .replace(/<script[^>]*>[\s\S]*?<\/script>/gi, "")
     .replace(/<style[^>]*>[\s\S]*?<\/style>/gi, "")
     .replace(/style="[^"]*"/gi, "")
