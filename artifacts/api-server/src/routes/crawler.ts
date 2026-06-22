@@ -131,14 +131,14 @@ const BASE_FIELDS = `
       final_price { value currency }
     }
   }
-  description { html }`;
+  description { html }
+  short_description { html }`;
 
 // Campos extras (estáveis no ProductInterface Magento 2) + custom_attributes (pode não
 // existir em todas as instâncias). Se a query rica falhar na validação do GraphQL — que é
 // all-or-nothing — caímos no BASE_FIELDS para NUNCA coletar 0 produtos (o que dispararia o
 // soft-delete em massa no fim do sync).
 const RICH_FIELDS = `${BASE_FIELDS}
-  short_description { html }
   media_gallery { url label }
   meta_title
   meta_description
