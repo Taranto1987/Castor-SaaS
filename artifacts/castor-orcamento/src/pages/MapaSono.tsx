@@ -115,18 +115,12 @@ function frasesConcordancia(r: Respostas): string[] {
 }
 
 // ── Sugestão de travesseiro (só uso constante, conforme queixa) ─────────────────
-function travesseiroSugerido(r: Respostas): { nome: string; url: string } | null {
+function travesseiroSugerido(r: Respostas): { nome: string } | null {
   if (r.contexto !== "constante") return null;
   if (r.dores.includes("cervical") || r.dores.includes("ombro"))
-    return {
-      nome: "Travesseiro Viscosoft Hot & Cold",
-      url: "https://lojacastor.com.br/travesseiros-castor/travesseiros-castor-viscosoft",
-    };
+    return { nome: "Travesseiro Viscosoft Hot & Cold" };
   if (r.dores.includes("joelho") || r.dores.includes("quadril") || r.gestante)
-    return {
-      nome: "Travesseiro de Corpo 140x40cm",
-      url: "https://lojacastor.com.br/travesseiro-castor-de-corpo-140x40x22cm",
-    };
+    return { nome: "Travesseiro de Corpo 140x40cm" };
   return null;
 }
 
@@ -861,11 +855,7 @@ function FaseResultado({ state, waUrl, onWhatsApp, onVoltar }: {
   const top = ranking[0] ?? null;
   const outros = ranking.slice(1);
   const semProdutos = !resultadoCarregando && resultado !== null && ranking.length === 0;
-  const frases = frasesConcordancia(respostas);
   const travesseiro = travesseiroSugerido(respostas);
-  // Métricas de validação (anéis): suporte ortopédico = score real do topo; alívio = prioridade derivada.
-  const alivioPct = prioridades(respostas).find(p => p.label === "Alívio de Pressão")?.pct ?? 0;
-  const suportePct = top?.score ?? 0;
 
   return (
     <div className="flex flex-col">
@@ -883,30 +873,6 @@ function FaseResultado({ state, waUrl, onWhatsApp, onVoltar }: {
             </p>
           )}
         </div>
-
-        {/* Dashboard analítico — mesmos painéis do diagnóstico, consolidados */}
-        {!resultadoCarregando && (
-          <>
-            <ConflitoPanel r={respostas} />
-            <PrioridadesPanel r={respostas} />
-            <DiagnosticoPanel r={respostas} />
-          </>
-        )}
-
-        {/* Bloco de concordância (SIM, SIM, SIM) */}
-        {frases.length > 0 && (
-          <GlassCard className="px-4 py-4 mb-5">
-            {frases.map(f => (
-              <div key={f} className="flex items-start gap-2 mb-2 last:mb-0">
-                <Check className="w-4 h-4 shrink-0 mt-0.5" style={{ color: RED }} />
-                <p className="text-xs" style={{ color: "rgba(255,255,255,0.7)" }}>{f}</p>
-              </div>
-            ))}
-            <p className="text-xs mt-3 pt-3" style={{ color: MUTED, borderTop: `1px solid ${GLASS_BD}` }}>
-              Cruzamos seu perfil com todo o catálogo. Esta é a recomendação para o seu corpo.
-            </p>
-          </GlassCard>
-        )}
 
         {resultadoCarregando && mostrarSkeleton && <SkeletonCard />}
 
@@ -937,17 +903,6 @@ function FaseResultado({ state, waUrl, onWhatsApp, onVoltar }: {
 
         {top && (
           <>
-            {/* Plano de sono — anéis de validação */}
-            <GlassCard className="px-5 py-5 mb-4">
-              <span className="text-[11px] font-bold uppercase tracking-widest block mb-4" style={{ color: MUTED }}>
-                Plano de sono personalizado
-              </span>
-              <div className="flex items-center justify-around">
-                <CircularProgress value={suportePct} label="Suporte Ortopédico" color={BLUE} />
-                <CircularProgress value={alivioPct} label="Alívio de Pressão" color={RED} />
-              </div>
-            </GlassCard>
-
             <GlassCard className="overflow-hidden mb-4" accent="red">
               {top.imagem && (
                 <div className="w-full h-44 overflow-hidden" style={{ background: "rgba(255,255,255,0.03)" }}>
@@ -1042,7 +997,7 @@ function FaseResultado({ state, waUrl, onWhatsApp, onVoltar }: {
         )}
 
         {travesseiro && (
-          <a href={travesseiro.url} target="_blank" rel="noopener noreferrer" className="block mb-5">
+          <div className="block mb-5">
             <GlassCard className="flex items-center gap-3 px-4 py-3">
               <div className="w-10 h-10 rounded-lg flex items-center justify-center shrink-0"
                 style={{ background: "rgba(255,255,255,0.04)", border: `1px solid ${GLASS_BD}` }}>
@@ -1053,7 +1008,7 @@ function FaseResultado({ state, waUrl, onWhatsApp, onVoltar }: {
                 <p className="text-white font-semibold text-sm leading-tight truncate tracking-tight">{travesseiro.nome}</p>
               </div>
             </GlassCard>
-          </a>
+          </div>
         )}
 
         {!resultadoCarregando && resultado !== null && (
