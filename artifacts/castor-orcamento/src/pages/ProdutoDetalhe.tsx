@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { useParams, useLocation } from "wouter";
 import { motion } from "framer-motion";
-import { ArrowLeft, MessageCircle, Package, Tag, Ruler, ShoppingCart } from "lucide-react";
+import { ArrowLeft, MessageCircle, Package, Tag, Ruler, ShoppingCart, FileText, ClipboardList, ChevronDown } from "lucide-react";
 import { useWAInfo } from "@/hooks/use-wa-info";
 
 interface Produto {
@@ -22,6 +22,7 @@ interface Produto {
   estoque: number | null;
   precoBase: number | null;
   descricao?: string | null;
+  fichaTecnica?: Record<string, unknown> | null;
 }
 
 // Descrição comercial real → texto puro truncado para meta tags (fallback no chamador).
@@ -31,6 +32,38 @@ function descricaoParaMeta(html: string | null | undefined): string | null {
   if (!texto) return null;
   return texto.length > 300 ? `${texto.slice(0, 297)}...` : texto;
 }
+
+const FICHA_LABELS: Record<string, string> = {
+  biotipos_por_pessoa: "Biotipos (por pessoa)",
+  biotipo: "Biotipo",
+  tamanho: "Tamanho",
+  medida: "Medida",
+  altura: "Altura",
+  pillow_top: "Pillow Top",
+  conforto: "Conforto",
+  tecido: "Tecido",
+  cor: "Cor",
+  estrutura_do_colchao: "Estrutura do Colchão",
+  estrutura: "Estrutura",
+  garantia: "Garantia",
+  densidade: "Densidade",
+  mola: "Mola",
+  ventilacao: "Ventilação",
+  peso_suportado: "Peso Suportado",
+  peso_maximo: "Peso Máximo",
+  composicao: "Composição",
+  material: "Material",
+  enchimento: "Enchimento",
+  revestimento: "Revestimento",
+  acabamento: "Acabamento",
+  formato: "Formato",
+  espessura: "Espessura",
+  largura: "Largura",
+  comprimento: "Comprimento",
+  profundidade: "Profundidade",
+};
+
+const FICHA_HIDDEN_KEYS = new Set(["_raw", "url_key", "meta_title", "meta_description", "short_description"]);
 
 const CATEGORY_LABELS: Record<string, string> = {
   "colchoes": "Colchões",
@@ -365,7 +398,115 @@ export default function ProdutoDetalhe() {
             </a>
           </div>
         </motion.div>
+
+        {/* ── Descrição Persuasiva ─────────────────────────────────── */}
+        {produto.descricao && (
+          <DescricaoSection html={produto.descricao} />
+        )}
+
+        {/* ── Ficha Técnica ───────────────────────────────────────── */}
+        {produto.fichaTecnica && Object.keys(produto.fichaTecnica).some(k => !FICHA_HIDDEN_KEYS.has(k)) && (
+          <FichaTecnicaSection ficha={produto.fichaTecnica} />
+        )}
       </main>
     </div>
+  );
+}
+
+function DescricaoSection({ html }: { html: string }) {
+  const [expanded, setExpanded] = useState(false);
+
+  const clean = html
+    .replace(/<script[^>]*>[\s\S]*?<\/script>/gi, "")
+    .replace(/<style[^>]*>[\s\S]*?<\/style>/gi, "")
+    .replace(/style="[^"]*"/gi, "")
+    .replace(/class="[^"]*"/gi, "");
+
+  const plainText = clean.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim();
+  if (!plainText || plainText.length < 20) return null;
+
+  const isLong = plainText.length > 400;
+
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 12 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.3, delay: 0.1 }}
+      className="mt-8 bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden"
+    >
+      <button
+        onClick={() => setExpanded(!expanded)}
+        className="w-full flex items-center justify-between px-6 py-4 hover:bg-slate-50 transition-colors"
+      >
+        <div className="flex items-center gap-2 text-slate-800 font-semibold">
+          <FileText className="w-5 h-5 text-blue-500" />
+          Descrição
+        </div>
+        <ChevronDown className={`w-5 h-5 text-slate-400 transition-transform ${expanded ? "rotate-180" : ""}`} />
+      </button>
+
+      <div className={`relative px-6 overflow-hidden transition-all duration-300 ${expanded ? "pb-6 max-h-[4000px]" : isLong ? "pb-0 max-h-48" : "pb-6 max-h-[4000px]"}`}>
+        <div
+          className="prose prose-sm prose-slate max-w-none
+            [&_h1]:text-base [&_h1]:font-bold [&_h1]:mt-4 [&_h1]:mb-2
+            [&_h2]:text-sm [&_h2]:font-bold [&_h2]:mt-4 [&_h2]:mb-2
+            [&_h3]:text-sm [&_h3]:font-semibold [&_h3]:mt-3 [&_h3]:mb-1
+            [&_p]:text-sm [&_p]:text-slate-600 [&_p]:leading-relaxed [&_p]:mb-2
+            [&_ul]:text-sm [&_ul]:text-slate-600 [&_ul]:pl-4 [&_ul]:mb-2
+            [&_li]:mb-0.5
+            [&_strong]:text-slate-800"
+          dangerouslySetInnerHTML={{ __html: clean }}
+        />
+        {!expanded && isLong && (
+          <div className="absolute bottom-0 left-0 right-0 h-20 bg-gradient-to-t from-white to-transparent pointer-events-none" />
+        )}
+      </div>
+
+      {isLong && !expanded && (
+        <button
+          onClick={() => setExpanded(true)}
+          className="w-full py-3 text-sm font-medium text-blue-600 hover:text-blue-700 hover:bg-blue-50 transition-colors border-t border-slate-100"
+        >
+          Ver descrição completa
+        </button>
+      )}
+    </motion.div>
+  );
+}
+
+function FichaTecnicaSection({ ficha }: { ficha: Record<string, unknown> }) {
+  const entries = Object.entries(ficha)
+    .filter(([key, val]) => !FICHA_HIDDEN_KEYS.has(key) && val !== null && val !== undefined && String(val).trim() !== "")
+    .map(([key, val]) => ({
+      label: FICHA_LABELS[key] ?? key.replace(/_/g, " ").replace(/\b\w/g, c => c.toUpperCase()),
+      value: String(val).trim(),
+    }));
+
+  if (entries.length === 0) return null;
+
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 12 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.3, delay: 0.2 }}
+      className="mt-6 bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden"
+    >
+      <div className="flex items-center gap-2 px-6 py-4 border-b border-slate-100">
+        <ClipboardList className="w-5 h-5 text-blue-500" />
+        <h2 className="text-slate-800 font-semibold">Ficha técnica</h2>
+      </div>
+
+      <div className="divide-y divide-slate-100">
+        {entries.map(({ label, value }, i) => (
+          <div
+            key={i}
+            className={`flex items-start justify-between px-6 py-3 ${i % 2 === 0 ? "bg-white" : "bg-slate-50/50"}`}
+          >
+            <span className="text-sm text-slate-500 min-w-[40%]">{label}</span>
+            <span className="text-sm text-slate-800 font-medium text-right">{value}</span>
+          </div>
+        ))}
+      </div>
+    </motion.div>
   );
 }
