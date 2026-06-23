@@ -17,6 +17,15 @@ function requireDono(req: Request, res: Response, next: NextFunction) {
 
 const router: IRouter = Router();
 
+function extractGallery(p: typeof produtosTable.$inferSelect): Array<{url: string; label: string | null}> {
+  const ft = p.fichaTecnica as Record<string, unknown> | null;
+  const raw = ft?._raw as Record<string, unknown> | undefined;
+  const gallery = raw?.media_gallery as Array<{url: string; label: string | null}> | undefined;
+  if (Array.isArray(gallery) && gallery.length > 0) return gallery;
+  if (p.imagem) return [{ url: p.imagem, label: p.nome }];
+  return [];
+}
+
 function mapProduto(p: typeof produtosTable.$inferSelect) {
   // Prefer DB-stored values (written by crawler); fall back to runtime extraction
   // for products that pre-date the family columns or were added via outlet/manual entry.
@@ -49,6 +58,7 @@ function mapProduto(p: typeof produtosTable.$inferSelect) {
     size: family.size,
     descricao: p.descricao,
     fichaTecnica: p.fichaTecnica,
+    imagens: extractGallery(p),
     criadoEm: p.criadoEm,
   };
 }
@@ -517,6 +527,31 @@ router.patch("/gestao/bulk-encomenda", requireDono, async (req, res) => {
     res.json({ updated: ids.length });
   } catch (error) {
     console.error("Erro ao bulk-encomenda:", error);
+    res.status(500).json({ error: "Erro interno" });
+  }
+});
+
+router.get("/related/:familySlug", async (req, res) => {
+  try {
+    const { familySlug } = req.params;
+    const excludeId = req.query.exclude ? parseInt(req.query.exclude as string, 10) : undefined;
+    const lojaId = resolveLojaId(req);
+
+    const siblings = await db.select().from(produtosTable)
+      .where(and(
+        eq(produtosTable.familySlug, familySlug),
+        eq(produtosTable.lojaId, lojaId),
+        eq(produtosTable.disponivel, true),
+      ))
+      .limit(8);
+
+    const filtered = excludeId
+      ? siblings.filter(p => p.id !== excludeId)
+      : siblings;
+
+    res.setHeader("Cache-Control", "public, max-age=300");
+    res.json(filtered.map(mapProdutoPublic));
+  } catch {
     res.status(500).json({ error: "Erro interno" });
   }
 });

@@ -34,6 +34,7 @@ export type ProductGroup = {
   categoria: string;
   variants: Variant[];
   hasSizes: boolean;
+  ranking?: number;
 };
 
 /**

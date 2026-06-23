@@ -3,6 +3,9 @@ import { useParams, useLocation } from "wouter";
 import { motion } from "framer-motion";
 import { ArrowLeft, MessageCircle, Package, Tag, Ruler, ShoppingCart, FileText, ClipboardList, ChevronDown, Heart } from "lucide-react";
 import { useWAInfo } from "@/hooks/use-wa-info";
+import { useLoja } from "@/contexts/LojaContext";
+import { ProductGallery } from "@/components/ProductGallery";
+import { RelatedProducts } from "@/components/RelatedProducts";
 
 interface Produto {
   id: number;
@@ -23,6 +26,9 @@ interface Produto {
   precoBase: number | null;
   descricao?: string | null;
   fichaTecnica?: Record<string, unknown> | null;
+  imagens?: Array<{url: string; label: string | null}> | null;
+  familySlug?: string | null;
+  familyName?: string | null;
 }
 
 // Descrição comercial real → texto puro truncado para meta tags (fallback no chamador).
@@ -126,7 +132,7 @@ function useSEO(produto: Produto | null) {
       "@type": "Product",
       name: produto.nome,
       sku: produto.sku ?? undefined,
-      image: image ? [image] : undefined,
+      image: produto.imagens?.length ? produto.imagens.map(i => i.url) : image ? [image] : undefined,
       description,
       brand: { "@type": "Brand", name: "Castor" },
       offers: {
@@ -178,6 +184,7 @@ export default function ProdutoDetalhe() {
   const params = useParams<{ slug: string }>();
   const [, navigate] = useLocation();
   const waInfo = useWAInfo();
+  const { lojaId } = useLoja();
 
   const [produto, setProduto] = useState<Produto | null>(null);
   const [loading, setLoading] = useState(true);
@@ -291,17 +298,10 @@ export default function ProdutoDetalhe() {
           className="grid md:grid-cols-2 gap-8"
         >
           {/* ── Imagem ─────────────────────────────────────────────────── */}
-          <div className="bg-white rounded-2xl overflow-hidden border border-slate-200 shadow-sm aspect-square flex items-center justify-center p-6">
-            {produto.imagem ? (
-              <img
-                src={produto.imagem}
-                alt={produto.nome}
-                className="w-full h-full object-contain"
-              />
-            ) : (
-              <Package className="w-24 h-24 text-slate-200" />
-            )}
-          </div>
+          <ProductGallery
+            imagens={produto.imagens ?? (produto.imagem ? [{ url: produto.imagem, label: produto.nome }] : [])}
+            productName={produto.nome}
+          />
 
           {/* ── Detalhes ───────────────────────────────────────────────── */}
           <div className="flex flex-col gap-4">
@@ -415,6 +415,15 @@ export default function ProdutoDetalhe() {
         {/* ── Ficha Técnica ───────────────────────────────────────── */}
         {produto.fichaTecnica && Object.keys(produto.fichaTecnica).some(k => !FICHA_HIDDEN_KEYS.has(k)) && (
           <FichaTecnicaSection ficha={produto.fichaTecnica} />
+        )}
+
+        {/* ── Produtos Relacionados ──────────────────────────────── */}
+        {produto.familySlug && (
+          <RelatedProducts
+            familySlug={produto.familySlug}
+            currentProductId={produto.id}
+            lojaId={lojaId}
+          />
         )}
       </main>
     </div>
