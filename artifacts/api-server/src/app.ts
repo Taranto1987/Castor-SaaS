@@ -48,8 +48,8 @@ app.use("/api/whatsapp/disconnect", makeLimiter(10, 15 * 60 * 1000)); // 10/15mi
 app.use("/api/whatsapp/status",     makeLimiter(120, 60 * 1000));     // 120/min (3s polling × 40 cycles)
 // MCP Server — external agent access, higher per-window but capped
 app.use("/api/mcp",                 makeLimiter(60, 60 * 60 * 1000)); // 60/hour per IP
-// Crawler — Playwright, heavy resource usage
-app.use("/api/crawler",             makeLimiter(10, 60 * 60 * 1000)); // 10/hour per IP
+// Crawler — admin-only (requireDono), needs generous limit for status polling during crawl
+app.use("/api/crawler",             makeLimiter(300, 60 * 60 * 1000)); // 300/hour per IP
 // Product catalog — public reads
 app.use("/api/produtos",            makeLimiter(200));                 // 200/15min per IP
 // Financeiro + Dashboard — authenticated but DB-heavy
