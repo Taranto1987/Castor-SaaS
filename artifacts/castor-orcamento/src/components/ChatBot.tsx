@@ -222,6 +222,7 @@ export default function ChatBot({ hideFloating = false }: { hideFloating?: boole
       normalized = normalized.replace(pattern, replacement);
     }
     return normalized
+      .replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" class="text-red-700 underline font-medium hover:text-red-900" target="_self">$1</a>')
       .replace(/\*\*(.*?)\*\*/g, "<strong>$1</strong>")
       .replace(/\n/g, "<br />");
   };

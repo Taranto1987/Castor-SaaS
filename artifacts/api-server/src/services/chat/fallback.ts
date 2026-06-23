@@ -8,23 +8,36 @@ interface ProductLine {
   nome: string;
   precoPix: string | null;
   size: string | null;
+  slug: string | null;
 }
 
-function detectSizePreference(userMessages: string[]): string | null {
-  const text = userMessages.join(" ").toLowerCase();
-  const keywords: [RegExp, string][] = [
-    [/\bking\b/, "King"],
-    [/\bqueen\b/, "Queen"],
-    [/\bcasal\b/, "Casal"],
-    [/\bsolteiro\b|\bsolteir[aã]o\b|\bsingle\b|\btwin\b/, "Solteiro"],
-  ];
-  for (const [re, size] of keywords) {
-    if (re.test(text)) return size;
+const SIZE_KEYWORDS: [RegExp, string][] = [
+  [/\bking\b/i, "King"],
+  [/\bqueen\b/i, "Queen"],
+  [/\bcasal\b/i, "Casal"],
+  [/\bsolteiro\b|\bsolteir[aã]o\b|\bsingle\b|\btwin\b/i, "Solteiro"],
+];
+
+function detectSizeFromText(text: string): string | null {
+  const lower = text.toLowerCase();
+  for (const [re, size] of SIZE_KEYWORDS) {
+    if (re.test(lower)) return size;
   }
   return null;
 }
 
-/** Extracts product name/price/size from already-executed tool results. */
+function detectSizePreference(userMessages: string[]): string | null {
+  return detectSizeFromText(userMessages.join(" "));
+}
+
+function matchesSize(product: ProductLine, sizePreference: string): boolean {
+  if (product.size) return normalizeSize(product.size) === sizePreference;
+  const nameSize = detectSizeFromText(product.nome);
+  if (nameSize) return nameSize === sizePreference;
+  return false;
+}
+
+/** Extracts product name/price/size/slug from already-executed tool results. */
 function extractFromToolResults(toolResults: ToolResultBlockParam[]): ProductLine[] {
   const out: ProductLine[] = [];
   for (const tr of toolResults) {
@@ -40,6 +53,7 @@ function extractFromToolResults(toolResults: ToolResultBlockParam[]): ProductLin
             nome: rec["nome"],
             precoPix: (rec["precoPix"] as string) ?? null,
             size: (rec["size"] as string) ?? null,
+            slug: (rec["slug"] as string) ?? null,
           });
         } else if (typeof rec["name"] === "string" && Array.isArray(rec["variants"])) {
           const v = rec["variants"][0] as Record<string, unknown> | undefined;
@@ -47,6 +61,7 @@ function extractFromToolResults(toolResults: ToolResultBlockParam[]): ProductLin
             nome: rec["name"],
             precoPix: (v?.["precoPix"] as string) ?? null,
             size: (v?.["size"] as string) ?? null,
+            slug: null,
           });
         }
       }
@@ -72,7 +87,7 @@ export async function buildRecommendationFallback(
 
   let products = extractFromToolResults(toolResults)
     .filter(p => p.nome)
-    .filter(p => !sizePreference || !p.size || normalizeSize(p.size) === sizePreference)
+    .filter(p => !sizePreference || matchesSize(p, sizePreference))
     .slice(0, 3);
 
   if (products.length === 0) {
@@ -89,6 +104,7 @@ export async function buildRecommendationFallback(
           nome: f.name,
           precoPix: variant?.precoPix ?? f.variants[0]?.precoPix ?? null,
           size: variant?.size ?? null,
+          slug: null,
         };
       });
     } catch {
@@ -104,8 +120,9 @@ export async function buildRecommendationFallback(
   }
 
   const lines = products.map(p => {
+    const label = p.slug ? `[${p.nome}](/produto/${p.slug})` : `**${p.nome}**`;
     const sizeLabel = p.size ? ` (${p.size})` : "";
-    return `• **${p.nome}**${sizeLabel}${p.precoPix ? ` — PIX: ${p.precoPix}` : ""}`;
+    return `• ${label}${sizeLabel}${p.precoPix ? ` — PIX: ${p.precoPix}` : ""}`;
   });
   return [
     "Com base no seu perfil, estas opções do nosso catálogo se destacam:",
