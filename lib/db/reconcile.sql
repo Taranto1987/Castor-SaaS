@@ -275,7 +275,8 @@ CREATE TABLE "orcamentos" (
 	"status" text DEFAULT 'pendente' NOT NULL,
 	"preco_base_total" text,
 	"desconto_aplicado" text,
-	"criado_em" timestamp DEFAULT now()
+	"criado_em" timestamp DEFAULT now(),
+	"vendido_em" timestamp
 );
 --> statement-breakpoint
 CREATE TABLE "audit_logs" (
