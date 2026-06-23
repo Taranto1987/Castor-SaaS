@@ -220,7 +220,7 @@ export default function PublicLayout({ children }: PublicLayoutProps) {
 
       {/* ── Fixed bottom bar (mobile only) ──────────────────────────────── */}
       <nav className={`fixed bottom-0 inset-x-0 z-50 md:hidden bg-white border-t border-slate-200 shadow-[0_-2px_10px_rgba(0,0,0,0.06)] transition-transform duration-300 ${footerVisible ? "translate-y-full" : "translate-y-0"}`}>
-        <div className="flex justify-around items-center h-14">
+        <div className="flex justify-around items-center h-11">
           <Link
             href="/catalogo"
             className={cn(
@@ -228,8 +228,8 @@ export default function PublicLayout({ children }: PublicLayoutProps) {
               location === "/catalogo" ? "text-red-600" : "text-slate-500"
             )}
           >
-            <Search className="w-5 h-5" />
-            <span className="text-[10px] font-semibold">Catálogo</span>
+            <Search className="w-4 h-4" />
+            <span className="text-[9px] font-semibold">Catálogo</span>
           </Link>
           <Link
             href="/mapa-sono"
@@ -238,8 +238,8 @@ export default function PublicLayout({ children }: PublicLayoutProps) {
               location === "/mapa-sono" ? "text-red-600" : "text-slate-500"
             )}
           >
-            <Moon className="w-5 h-5" />
-            <span className="text-[10px] font-semibold">Mapa do Sono</span>
+            <Moon className="w-4 h-4" />
+            <span className="text-[9px] font-semibold">Mapa do Sono</span>
           </Link>
           <a
             href={whatsapp}
@@ -248,8 +248,8 @@ export default function PublicLayout({ children }: PublicLayoutProps) {
             onClick={() => trackWhatsAppClick("bottom_bar", waInfo.loja)}
             className="flex flex-col items-center gap-0.5 px-3 py-1 rounded-lg text-green-600"
           >
-            <MessageCircle className="w-5 h-5" />
-            <span className="text-[10px] font-semibold">WhatsApp</span>
+            <MessageCircle className="w-4 h-4" />
+            <span className="text-[9px] font-semibold">WhatsApp</span>
           </a>
         </div>
       </nav>
