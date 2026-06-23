@@ -1,14 +1,30 @@
 import type Anthropic from "@anthropic-ai/sdk";
 import { getCatalog } from "../../lib/tools/read";
+import { normalizeSize } from "@workspace/db";
 
 type ToolResultBlockParam = Anthropic.Messages.ToolResultBlockParam;
 
 interface ProductLine {
   nome: string;
   precoPix: string | null;
+  size: string | null;
 }
 
-/** Extracts product name/price pairs from already-executed tool results. */
+function detectSizePreference(userMessages: string[]): string | null {
+  const text = userMessages.join(" ").toLowerCase();
+  const keywords: [RegExp, string][] = [
+    [/\bking\b/, "King"],
+    [/\bqueen\b/, "Queen"],
+    [/\bcasal\b/, "Casal"],
+    [/\bsolteiro\b|\bsolteir[aã]o\b|\bsingle\b|\btwin\b/, "Solteiro"],
+  ];
+  for (const [re, size] of keywords) {
+    if (re.test(text)) return size;
+  }
+  return null;
+}
+
+/** Extracts product name/price/size from already-executed tool results. */
 function extractFromToolResults(toolResults: ToolResultBlockParam[]): ProductLine[] {
   const out: ProductLine[] = [];
   for (const tr of toolResults) {
@@ -20,12 +36,18 @@ function extractFromToolResults(toolResults: ToolResultBlockParam[]): ProductLin
         if (!item || typeof item !== "object") continue;
         const rec = item as Record<string, unknown>;
         if (typeof rec["nome"] === "string") {
-          // search_products shape
-          out.push({ nome: rec["nome"], precoPix: (rec["precoPix"] as string) ?? null });
+          out.push({
+            nome: rec["nome"],
+            precoPix: (rec["precoPix"] as string) ?? null,
+            size: (rec["size"] as string) ?? null,
+          });
         } else if (typeof rec["name"] === "string" && Array.isArray(rec["variants"])) {
-          // get_catalog / get_product_family shape
           const v = rec["variants"][0] as Record<string, unknown> | undefined;
-          out.push({ nome: rec["name"], precoPix: (v?.["precoPix"] as string) ?? null });
+          out.push({
+            nome: rec["name"],
+            precoPix: (v?.["precoPix"] as string) ?? null,
+            size: (v?.["size"] as string) ?? null,
+          });
         }
       }
     } catch {
@@ -44,18 +66,31 @@ function extractFromToolResults(toolResults: ToolResultBlockParam[]): ProductLin
 export async function buildRecommendationFallback(
   toolResults: ToolResultBlockParam[],
   lojaId: number,
+  userMessages?: string[],
 ): Promise<string> {
+  const sizePreference = userMessages?.length ? detectSizePreference(userMessages) : null;
+
   let products = extractFromToolResults(toolResults)
     .filter(p => p.nome)
+    .filter(p => !sizePreference || !p.size || normalizeSize(p.size) === sizePreference)
     .slice(0, 3);
 
   if (products.length === 0) {
     try {
       const families = await getCatalog({ category: "colchoes", lojaId });
-      products = families.slice(0, 3).map(f => ({
-        nome: f.name,
-        precoPix: f.variants[0]?.precoPix ?? null,
-      }));
+      const filtered = sizePreference
+        ? families.filter(f => f.variants.some(v => normalizeSize(v.size) === sizePreference))
+        : families;
+      products = filtered.slice(0, 3).map(f => {
+        const variant = sizePreference
+          ? f.variants.find(v => normalizeSize(v.size) === sizePreference)
+          : f.variants[0];
+        return {
+          nome: f.name,
+          precoPix: variant?.precoPix ?? f.variants[0]?.precoPix ?? null,
+          size: variant?.size ?? null,
+        };
+      });
     } catch {
       // DB unavailable — fall through to WhatsApp handoff
     }
@@ -68,9 +103,10 @@ export async function buildRecommendationFallback(
     );
   }
 
-  const lines = products.map(
-    p => `• **${p.nome}**${p.precoPix ? ` — PIX: ${p.precoPix}` : ""}`,
-  );
+  const lines = products.map(p => {
+    const sizeLabel = p.size ? ` (${p.size})` : "";
+    return `• **${p.nome}**${sizeLabel}${p.precoPix ? ` — PIX: ${p.precoPix}` : ""}`;
+  });
   return [
     "Com base no seu perfil, estas opções do nosso catálogo se destacam:",
     "",
