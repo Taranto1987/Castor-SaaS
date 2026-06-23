@@ -61,11 +61,25 @@ async function extrairDadosConversa(
 
 export async function processarLeadDaConversa(
   messages: ChatMessage[],
-  ultimaRespostaAssistente: string
+  ultimaRespostaAssistente: string,
+  lojaId: number,
+  fallbackProductIds: number[] = [],
 ): Promise<ExtracaoLead | null> {
   const dados = await extrairDadosConversa(messages, ultimaRespostaAssistente);
-  if (!dados?.deveSalvar) return null;
-  if (!dados.nomeCliente || !dados.telefone || !dados.produtoIds.length) return null;
-  await autoSalvarOrcamentoDaConversa(dados.nomeCliente, dados.telefone, dados.produtoIds);
+  if (!dados) return null;
+
+  if (dados.produtoIds.length === 0 && fallbackProductIds.length > 0) {
+    dados.produtoIds = fallbackProductIds;
+  }
+
+  if (!dados.telefone) return null;
+  if (!dados.nomeCliente) dados.nomeCliente = "Lead Chat";
+
+  dados.deveSalvar = true;
+
+  if (dados.produtoIds.length > 0) {
+    await autoSalvarOrcamentoDaConversa(dados.nomeCliente, dados.telefone, dados.produtoIds, lojaId);
+  }
+
   return dados;
 }

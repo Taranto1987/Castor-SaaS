@@ -24,6 +24,13 @@ import { trackAIUsage } from "../lib/ai-usage";
 
 const router = Router();
 
+function extractPhoneFromText(text: string): string | null {
+  const match = text.match(/\(?\d{2}\)?\s*\d{4,5}[-.\s]?\d{4}/);
+  if (match) return match[0].replace(/\D/g, "");
+  const digits = text.match(/\b(\d{10,11})\b/);
+  return digits ? digits[1] : null;
+}
+
 function getAnthropicClient(): Anthropic | null {
   const apiKey = process.env.ANTHROPIC_API_KEY?.trim();
   if (!apiKey) return null;
@@ -92,6 +99,7 @@ router.post("/", async (req, res) => {
     }
 
     let fullAssistantText = "";
+    let toolProductIds: number[] = [];
     let pass2InputTokens = 0, pass2OutputTokens = 0, pass2CacheRead = 0, pass2CacheWrite = 0;
     const sessionStart = Date.now();
 
@@ -188,10 +196,23 @@ router.post("/", async (req, res) => {
         requestId: (res.locals as Record<string, unknown>)["requestId"] as string | undefined,
       });
 
+      for (const tr of toolResults) {
+        if (typeof tr.content !== "string") continue;
+        try {
+          const data = JSON.parse(tr.content);
+          const items = Array.isArray(data) ? data : [data];
+          for (const item of items) {
+            if (item?.id && typeof item.id === "number") toolProductIds.push(item.id);
+          }
+        } catch { /* skip non-JSON */ }
+      }
+
       // Pass 2: stream final answer with tool results injected
       const formattingReminder: Anthropic.Messages.TextBlockParam = {
         type: "text",
-        text: "LEMBRETE: ao responder, use 'familyName' (não 'nome') e formate produtos como • [familyName](/produto/slug) (Tamanho) — PIX: R$ X.XXX. Remova 'Colchão Castor' do início. Máximo 3 produtos com bullets (•).",
+        text: "LEMBRETE: use 'familyName' (não 'nome'), remova 'Colchão Castor' do início, dimensões e 'Double Face', " +
+          "e formate como • [familyName](/produto/slug) (Tamanho) — PIX: R$ X.XXX. " +
+          "Links funcionam no chat — NUNCA diga que não tem links. Máximo 3 produtos com bullets (•).",
       };
 
       let pass2Text = "";
@@ -339,8 +360,24 @@ router.post("/", async (req, res) => {
 
         // Skip Haiku lead extraction for low-intent sessions — ~70% of messages produce no saveable lead
         const lead = classification.intent !== "low"
-          ? await processarLeadDaConversa(chatMessages, fullAssistantText)
+          ? await processarLeadDaConversa(chatMessages, fullAssistantText, lojaId, toolProductIds)
           : null;
+        const leadPhone = lead?.telefone ?? extractPhoneFromText(allUserText);
+
+        if (leadPhone) {
+          if (customerId) {
+            await stitchIdentityByPhone(customerId, leadPhone, lead?.nomeCliente ?? null, lojaId);
+          }
+          const allMessages = [
+            ...chatMessages,
+            ...(fullAssistantText ? [{ role: "assistant" as const, content: fullAssistantText }] : []),
+          ];
+          setImmediate(() => {
+            generateAndSaveLeadContext(leadPhone, lojaId, lead?.nomeCliente ?? null, allMessages)
+              .catch((err) => logger.error({ err }, "lead context sync failed"));
+          });
+        }
+
         if (lead?.deveSalvar) {
           emitEvent({
             type: "lead_captured",
@@ -350,24 +387,6 @@ router.post("/", async (req, res) => {
             hasPhone: !!lead.telefone,
             productIds: lead.produtoIds,
           });
-
-          // Phone stitching: links this device to any existing customer with the same phone,
-          // enabling cross-device identity continuity when the user provides their number.
-          if (customerId && lead.telefone) {
-            await stitchIdentityByPhone(customerId, lead.telefone, lead.nomeCliente, lojaId);
-          }
-
-          // Sync lead context so WhatsApp path inherits this web conversation's knowledge.
-          if (lead.telefone) {
-            const allMessages = [
-              ...chatMessages,
-              ...(fullAssistantText ? [{ role: "assistant" as const, content: fullAssistantText }] : []),
-            ];
-            setImmediate(() => {
-              generateAndSaveLeadContext(lead.telefone!, lojaId, lead.nomeCliente ?? null, allMessages)
-                .catch((err) => logger.error({ err }, "lead context sync failed"));
-            });
-          }
         }
 
         // Generate relational state capsule — skip for low-intent first sessions (no relational value)
