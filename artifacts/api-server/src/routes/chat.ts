@@ -191,7 +191,9 @@ router.post("/", async (req, res) => {
       // Pass 2: stream final answer with tool results injected
       const formattingReminder: Anthropic.Messages.TextBlockParam = {
         type: "text",
-        text: "LEMBRETE: ao responder, use 'familyName' (não 'nome') e formate produtos como • [familyName](/produto/slug) (Tamanho) — PIX: R$ X.XXX. Remova 'Colchão Castor' do início. Máximo 3 produtos com bullets (•).",
+        text: "LEMBRETE: use 'familyName' (não 'nome'), remova 'Colchão Castor' do início, dimensões e 'Double Face', " +
+          "e formate como • [familyName](/produto/slug) (Tamanho) — PIX: R$ X.XXX. " +
+          "Links funcionam no chat — NUNCA diga que não tem links. Máximo 3 produtos com bullets (•).",
       };
 
       let pass2Text = "";

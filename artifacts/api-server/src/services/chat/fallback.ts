@@ -14,7 +14,13 @@ interface ProductLine {
 
 function cleanDisplayName(p: ProductLine): string {
   const raw = p.familyName ?? p.nome;
-  return raw.replace(/^Colch[aã]o\s+Castor\s*/i, "").trim() || p.nome;
+  return raw
+    .replace(/^Colch[aã]o\s+Castor\s*/i, "")
+    .replace(/\s*\d+x\d+(?:x\d+)?(?:\s*cm)?/i, "")
+    .replace(/\s+Double\s+Face/i, "")
+    .replace(/\b(Solteiro|Solteir[aã]o|Casal|Queen|King)\b/gi, "")
+    .replace(/\s{2,}/g, " ")
+    .trim() || p.nome;
 }
 
 const SIZE_KEYWORDS: [RegExp, string][] = [
@@ -33,7 +39,12 @@ function detectSizeFromText(text: string): string | null {
 }
 
 function detectSizePreference(userMessages: string[]): string | null {
-  return detectSizeFromText(userMessages.join(" "));
+  const text = userMessages.join(" ");
+  const found: string[] = [];
+  for (const [re, size] of SIZE_KEYWORDS) {
+    if (re.test(text)) found.push(size);
+  }
+  return found.length === 1 ? found[0] : null;
 }
 
 function matchesSize(product: ProductLine, sizePreference: string): boolean {
