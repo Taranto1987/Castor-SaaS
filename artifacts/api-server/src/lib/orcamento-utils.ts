@@ -1,6 +1,6 @@
 import { db } from "@workspace/db";
 import { produtosTable, orcamentosTable } from "@workspace/db/schema";
-import { inArray } from "drizzle-orm";
+import { inArray, and, eq } from "drizzle-orm";
 import { parseBRL as parsarPreco, formatBRL } from "../services/shared/currency";
 
 export { parsarPreco, formatBRL };
@@ -24,20 +24,30 @@ export const BENEFICIO_DEFAULT = "✨ Qualidade Castor — fabricante líder em 
 export async function autoSalvarOrcamentoDaConversa(
   nomeCliente: string,
   telefone: string,
-  produtoIds: number[]
+  produtoIds: number[],
+  lojaId: number,
 ): Promise<number | null> {
-  if (!nomeCliente?.trim() || !telefone?.trim() || !produtoIds?.length) return null;
+  if (!nomeCliente?.trim() || !telefone?.trim() || !produtoIds?.length) {
+    console.warn("[AutoSave] Dados insuficientes:", { nomeCliente, telefone, produtoIds: produtoIds?.length });
+    return null;
+  }
 
   try {
     const ids = produtoIds.map((id) => Number(id)).filter((id) => !isNaN(id) && id > 0);
-    if (ids.length === 0) return null;
+    if (ids.length === 0) {
+      console.warn("[AutoSave] Nenhum ID válido em:", produtoIds);
+      return null;
+    }
 
     const produtos = await db
       .select()
       .from(produtosTable)
-      .where(inArray(produtosTable.id, ids));
+      .where(and(inArray(produtosTable.id, ids), eq(produtosTable.lojaId, lojaId)));
 
-    if (produtos.length === 0) return null;
+    if (produtos.length === 0) {
+      console.warn("[AutoSave] Nenhum produto encontrado para IDs:", ids, "lojaId:", lojaId);
+      return null;
+    }
 
     let totalBase = 0;
     const listaNomes: string[] = [];
@@ -81,6 +91,7 @@ export async function autoSalvarOrcamentoDaConversa(
     const [inserted] = await db
       .insert(orcamentosTable)
       .values({
+        lojaId,
         cliente: nomeCliente.trim(),
         whatsapp: telefone.trim(),
         produtosJson: produtos.map((p) => ({ id: p.id, nome: p.nome })),
