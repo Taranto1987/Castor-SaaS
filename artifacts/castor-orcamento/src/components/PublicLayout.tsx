@@ -131,7 +131,7 @@ export default function PublicLayout({ children }: PublicLayoutProps) {
       </main>
 
       {/* Footer */}
-      <footer className="bg-slate-900 text-white pt-12 pb-6">
+      <footer className="bg-slate-900 text-white pt-12 pb-20 md:pb-6">
         <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="grid grid-cols-1 md:grid-cols-3 gap-8 mb-8">
             <div>
