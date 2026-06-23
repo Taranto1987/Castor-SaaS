@@ -1,7 +1,7 @@
 import { Router, type IRouter, type Request, type Response, type NextFunction } from "express";
 import { db, extractFamilyInfo } from "@workspace/db";
 import { produtosTable, outletInteressesTable, lojasTable } from "@workspace/db/schema";
-import { ilike, or, eq, and, isNull, gt, desc, count, max, inArray, type SQL } from "drizzle-orm";
+import { ilike, or, eq, and, isNull, gt, desc, count, max, inArray, sql, type SQL } from "drizzle-orm";
 import { getSession, isDono as isDonoSession } from "../lib/sessions";
 import { resolveLojaId } from "../middlewares/auth";
 import { getPricingConfig, calcOutletPrice, DEFAULT_PRICING } from "./loja";
@@ -16,6 +16,17 @@ function requireDono(req: Request, res: Response, next: NextFunction) {
 }
 
 const router: IRouter = Router();
+
+function deduplicateBySku<T extends { id: number; sku?: string | null }>(rows: T[]): T[] {
+  const seen = new Map<string, number>();
+  return rows.filter(r => {
+    if (!r.sku) return true;
+    const existing = seen.get(r.sku);
+    if (existing !== undefined) return false;
+    seen.set(r.sku, r.id);
+    return true;
+  });
+}
 
 function extractGallery(p: typeof produtosTable.$inferSelect): Array<{url: string; label: string | null}> {
   const ft = p.fichaTecnica as Record<string, unknown> | null;
@@ -92,7 +103,7 @@ router.get("/", async (req, res) => {
       .from(produtosTable)
       .where(whereCond)
       .limit(limite ? parseInt(limite as string) : 100);
-    res.json(results.map(mapProduto));
+    res.json(deduplicateBySku(results).map(mapProduto));
   } catch (error) {
     console.error("Erro ao listar produtos:", error);
     res.status(500).json({ error: "Erro interno" });
@@ -119,7 +130,7 @@ router.get("/outlet", async (req, res) => {
       ))
       .orderBy(produtosTable.nome)
       .limit(limite && !isNaN(limite) ? limite : 1000);
-    res.json(results.map(mapProdutoPublic));
+    res.json(deduplicateBySku(results).map(mapProdutoPublic));
   } catch (error) {
     console.error("Erro ao listar outlet:", error);
     res.status(500).json({ error: "Erro interno" });
@@ -408,7 +419,7 @@ router.get("/estoque", async (req, res) => {
       .from(produtosTable)
       .where(and(eq(produtosTable.encomenda, false), eq(produtosTable.lojaId, lojaId)))
       .orderBy(produtosTable.nome);
-    res.json(results.map(mapProduto));
+    res.json(deduplicateBySku(results).map(mapProduto));
   } catch (error) {
     console.error("Erro ao listar estoque:", error);
     res.status(500).json({ error: "Erro interno" });
@@ -472,7 +483,7 @@ router.get("/gestao", requireDono, async (req, res) => {
       .orderBy(produtosTable.categoria, produtosTable.nome)
       .limit(600);
 
-    res.json(rows);
+    res.json(deduplicateBySku(rows));
   } catch (error) {
     console.error("Erro ao listar gestao:", error);
     res.status(500).json({ error: "Erro interno" });
@@ -531,6 +542,31 @@ router.patch("/gestao/bulk-encomenda", requireDono, async (req, res) => {
   }
 });
 
+router.delete("/gestao/cleanup-duplicates", requireDono, async (req, res) => {
+  try {
+    const lojaId = resolveLojaId(req);
+    const duplicateIds: number[] = await db.execute(sql`
+      DELETE FROM produtos
+      WHERE id IN (
+        SELECT id FROM (
+          SELECT id,
+                 ROW_NUMBER() OVER (PARTITION BY sku, loja_id ORDER BY id) AS rn
+          FROM produtos
+          WHERE sku IS NOT NULL AND loja_id = ${lojaId}
+        ) ranked
+        WHERE rn > 1
+      )
+      RETURNING id
+    `).then((rows: any) => (Array.isArray(rows) ? rows : rows.rows ?? []).map((r: any) => r.id));
+
+    console.log(`[Cleanup] Removed ${duplicateIds.length} duplicate products for loja ${lojaId}`);
+    res.json({ deleted: duplicateIds.length, ids: duplicateIds });
+  } catch (error) {
+    console.error("Erro ao limpar duplicatas:", error);
+    res.status(500).json({ error: "Erro interno" });
+  }
+});
+
 router.get("/related/:familySlug", async (req, res) => {
   try {
     const { familySlug } = req.params;
@@ -550,7 +586,7 @@ router.get("/related/:familySlug", async (req, res) => {
       : siblings;
 
     res.setHeader("Cache-Control", "public, max-age=300");
-    res.json(filtered.map(mapProdutoPublic));
+    res.json(deduplicateBySku(filtered).map(mapProdutoPublic));
   } catch {
     res.status(500).json({ error: "Erro interno" });
   }
