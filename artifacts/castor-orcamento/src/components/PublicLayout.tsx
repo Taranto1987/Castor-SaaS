@@ -125,8 +125,8 @@ export default function PublicLayout({ children }: PublicLayoutProps) {
         </AnimatePresence>
       </header>
 
-      {/* Main */}
-      <main className="flex-1">
+      {/* Main — pb-16 on mobile to compensate fixed bottom bar */}
+      <main className="flex-1 pb-16 md:pb-0">
         {children}
       </main>
 
@@ -204,6 +204,42 @@ export default function PublicLayout({ children }: PublicLayoutProps) {
       </footer>
 
       <ChatBot />
+
+      {/* ── Fixed bottom bar (mobile only) ──────────────────────────────── */}
+      <nav className="fixed bottom-0 inset-x-0 z-50 md:hidden bg-white border-t border-slate-200 shadow-[0_-2px_10px_rgba(0,0,0,0.06)]">
+        <div className="flex justify-around items-center h-14">
+          <Link
+            href="/catalogo"
+            className={cn(
+              "flex flex-col items-center gap-0.5 px-3 py-1 rounded-lg transition-colors",
+              location === "/catalogo" ? "text-red-600" : "text-slate-500"
+            )}
+          >
+            <Search className="w-5 h-5" />
+            <span className="text-[10px] font-semibold">Catálogo</span>
+          </Link>
+          <Link
+            href="/mapa-sono"
+            className={cn(
+              "flex flex-col items-center gap-0.5 px-3 py-1 rounded-lg transition-colors",
+              location === "/mapa-sono" ? "text-red-600" : "text-slate-500"
+            )}
+          >
+            <Moon className="w-5 h-5" />
+            <span className="text-[10px] font-semibold">Mapa do Sono</span>
+          </Link>
+          <a
+            href={whatsapp}
+            target="_blank"
+            rel="noreferrer"
+            onClick={() => trackWhatsAppClick("bottom_bar", waInfo.loja)}
+            className="flex flex-col items-center gap-0.5 px-3 py-1 rounded-lg text-green-600"
+          >
+            <MessageCircle className="w-5 h-5" />
+            <span className="text-[10px] font-semibold">WhatsApp</span>
+          </a>
+        </div>
+      </nav>
     </div>
   );
 }
