@@ -235,7 +235,7 @@ export default function ChatBot({ hideFloating = false }: { hideFloating?: boole
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: 20, scale: 0.95 }}
             transition={{ type: "spring", damping: 25, stiffness: 300 }}
-            className="fixed bottom-36 md:bottom-24 right-4 sm:right-6 z-[60] w-[calc(100vw-2rem)] sm:w-[380px] max-h-[60dvh] md:max-h-[70dvh] bg-white rounded-2xl shadow-2xl shadow-black/20 border border-slate-200 flex flex-col overflow-hidden"
+            className="fixed bottom-36 md:bottom-24 right-4 sm:right-6 z-[60] w-[calc(100vw-2rem)] sm:w-[420px] max-h-[75dvh] md:max-h-[75dvh] bg-white rounded-2xl shadow-2xl shadow-black/20 border border-slate-200 flex flex-col overflow-hidden"
           >
             <div className="bg-gradient-to-r from-red-700 to-red-600 text-white px-4 py-3 flex items-center justify-between shrink-0">
               <div className="flex items-center gap-2.5">
@@ -271,7 +271,7 @@ export default function ChatBot({ hideFloating = false }: { hideFloating?: boole
                     </div>
                   )}
                   <div
-                    className={`max-w-[80%] px-3 py-2 rounded-2xl text-[13px] leading-relaxed ${
+                    className={`max-w-[85%] px-3.5 py-2.5 rounded-2xl text-[15px] leading-relaxed ${
                       msg.role === "user"
                         ? "bg-red-600 text-white rounded-br-md"
                         : "bg-white text-slate-700 border border-slate-200 rounded-bl-md shadow-sm"
@@ -311,7 +311,7 @@ export default function ChatBot({ hideFloating = false }: { hideFloating?: boole
                   onKeyDown={handleKeyDown}
                   placeholder="Digite sua mensagem..."
                   disabled={isStreaming}
-                  className="flex-1 bg-slate-100 border border-slate-200 rounded-xl px-3 py-2.5 text-sm text-slate-800 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-red-500/30 focus:border-red-400 disabled:opacity-50"
+                  className="flex-1 bg-slate-100 border border-slate-200 rounded-xl px-3 py-2.5 text-base text-slate-800 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-red-500/30 focus:border-red-400 disabled:opacity-50"
                 />
                 <button
                   onClick={sendMessage}
@@ -334,19 +334,19 @@ export default function ChatBot({ hideFloating = false }: { hideFloating?: boole
           setIsOpen(!isOpen);
           setShowPulse(false);
         }}
-        className={`fixed bottom-20 md:bottom-6 right-[5.5rem] sm:right-52 z-[60] w-14 h-14 rounded-full shadow-xl flex items-center justify-center transition-all duration-300 active:scale-90 ${
+        className={`fixed bottom-16 md:bottom-6 right-[5.5rem] sm:right-52 z-[60] w-11 h-11 rounded-full shadow-xl flex items-center justify-center transition-all duration-300 active:scale-90 ${
           isOpen
             ? "bg-slate-700 hover:bg-slate-600"
             : "bg-gradient-to-br from-red-600 to-red-700 hover:from-red-500 hover:to-red-600"
         } ${hideFloating && !isOpen ? "translate-y-20 opacity-0 pointer-events-none" : ""}`}
       >
         {isOpen ? (
-          <X className="w-6 h-6 text-white" />
+          <X className="w-5 h-5 text-white" />
         ) : (
           <>
-            <Sparkles className="w-6 h-6 text-white" />
+            <Sparkles className="w-5 h-5 text-white" />
             {showPulse && (
-              <span className="absolute -top-1 -right-1 w-4 h-4 bg-green-500 rounded-full border-2 border-white animate-pulse" />
+              <span className="absolute -top-0.5 -right-0.5 w-3 h-3 bg-green-500 rounded-full border-2 border-white animate-pulse" />
             )}
           </>
         )}
@@ -357,7 +357,7 @@ export default function ChatBot({ hideFloating = false }: { hideFloating?: boole
           initial={{ opacity: 0, x: 10 }}
           animate={{ opacity: 1, x: 0 }}
           exit={{ opacity: 0, x: 10 }}
-          className="fixed bottom-[7.5rem] md:bottom-[4.5rem] right-[10rem] sm:right-[17rem] z-[59] bg-white text-slate-700 text-xs font-semibold px-3 py-1.5 rounded-lg shadow-lg border border-slate-200 whitespace-nowrap"
+          className="fixed bottom-[5.5rem] md:bottom-[4rem] right-[10rem] sm:right-[17rem] z-[59] bg-white text-slate-700 text-xs font-semibold px-3 py-1.5 rounded-lg shadow-lg border border-slate-200 whitespace-nowrap"
         >
           Precisa de ajuda? Fale comigo! 💬
         </motion.div>
