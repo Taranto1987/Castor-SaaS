@@ -1,7 +1,7 @@
 import { Router, type IRouter, type Request, type Response, type NextFunction } from "express";
 import { db, extractFamilyInfo } from "@workspace/db";
-import { produtosTable, crawlerStatusTable } from "@workspace/db/schema";
-import { eq, lt, sql } from "drizzle-orm";
+import { produtosTable, crawlerStatusTable, lojasTable } from "@workspace/db/schema";
+import { eq, lt, and, sql } from "drizzle-orm";
 import axios from "axios";
 import { getSession, isDono } from "../lib/sessions";
 
@@ -268,7 +268,14 @@ async function executarCrawler() {
   const seenSkus = new Set<string>();
 
   try {
-    await atualizarStatus("running", "Buscando produtos via API...", 0, 0);
+    await atualizarStatus("running", "Buscando lojas ativas e produtos via API...", 0, 0);
+
+    const lojasAtivas = await db
+      .select({ id: lojasTable.id })
+      .from(lojasTable)
+      .where(eq(lojasTable.ativa, true));
+    const lojaIds = lojasAtivas.length > 0 ? lojasAtivas.map(l => l.id) : [1];
+    console.log(`[Crawler] Lojas ativas: ${lojaIds.join(", ")}`);
 
     // Count total first
     let totalEstimado = 0;
@@ -323,52 +330,39 @@ async function executarCrawler() {
 
         const categoriaReal = resolveCategory(item.name, slug, categoria.nome);
 
+        const productValues = {
+          nome: item.name,
+          sku: item.sku,
+          slug,
+          link,
+          preco,
+          precoPix,
+          precoBase: String(precoRegular),
+          parcelamento: `12x de ${formatBRL(precoRegular / 12)}`,
+          medidas: medidas || null,
+          altura: altura || null,
+          categoria: categoriaReal,
+          imagem: imagem || null,
+          familySlug,
+          familyName,
+          size,
+          descricao,
+          fichaTecnica,
+          disponivel: true,
+          sincronizadoEm: syncStart,
+        };
+
         try {
-          await db.insert(produtosTable).values({
-            lojaId: 1,
-            nome: item.name,
-            sku: item.sku,
-            slug,
-            link,
-            preco,
-            precoPix,
-            precoBase: String(precoRegular),
-            parcelamento: `12x de ${formatBRL(precoRegular / 12)}`,
-            medidas: medidas || null,
-            altura: altura || null,
-            categoria: categoriaReal,
-            imagem: imagem || null,
-            familySlug,
-            familyName,
-            size,
-            descricao,
-            fichaTecnica,
-            disponivel: true,
-            sincronizadoEm: syncStart,
-          }).onConflictDoUpdate({
-            target: [produtosTable.sku, produtosTable.lojaId],
-            targetWhere: sql`${produtosTable.sku} IS NOT NULL`,
-            set: {
-              slug,
-              link,
-              nome: item.name,
-              preco,
-              precoPix,
-              precoBase: String(precoRegular),
-              parcelamento: `12x de ${formatBRL(precoRegular / 12)}`,
-              medidas: medidas || null,
-              altura: altura || null,
-              categoria: categoriaReal,
-              imagem: imagem || null,
-              familySlug,
-              familyName,
-              size,
-              descricao,
-              fichaTecnica,
-              disponivel: true,
-              sincronizadoEm: syncStart,
-            },
-          });
+          for (const lid of lojaIds) {
+            await db.insert(produtosTable).values({
+              lojaId: lid,
+              ...productValues,
+            }).onConflictDoUpdate({
+              target: [produtosTable.sku, produtosTable.lojaId],
+              targetWhere: sql`${produtosTable.sku} IS NOT NULL`,
+              set: productValues,
+            });
+          }
           produtosColetados++;
         } catch (err) {
           console.error(`[Crawler] Erro ao salvar ${item.name}:`, err);
