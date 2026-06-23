@@ -1,7 +1,7 @@
 import { Router, type IRouter, type Request, type Response, type NextFunction } from "express";
 import { db, extractFamilyInfo } from "@workspace/db";
-import { produtosTable, crawlerStatusTable } from "@workspace/db/schema";
-import { eq, lt, sql } from "drizzle-orm";
+import { produtosTable, crawlerStatusTable, lojasTable } from "@workspace/db/schema";
+import { eq, lt, and, sql } from "drizzle-orm";
 import axios from "axios";
 import { getSession, isDono } from "../lib/sessions";
 
@@ -245,11 +245,37 @@ async function executarCrawler() {
     { id: 1016, nome: "protetor" },
   ];
 
+  // Reclassifica produtos que o Magento devolve numa categoria errada
+  // (ex: roupa de cama aparecendo dentro de travesseiros).
+  const CATEGORY_KEYWORDS: Array<{ pattern: RegExp; category: string }> = [
+    { pattern: /lencol|len[cç]ol|jogo\s*de\s*cama|edredom|coberdrom|cobertor|fronha|colcha|sobre.?lencol/i, category: "roupa-de-cama" },
+    { pattern: /protetor|impermeavel|imperm[eé]avel/i, category: "protetor" },
+    { pattern: /travesseiro|pillow/i, category: "travesseiros" },
+    { pattern: /cama\s*box\s*\+?\s*colch[aã]o|box\s*\+?\s*colch|colch[aã]o\s*\+?\s*box/i, category: "cama-box-colchao" },
+    { pattern: /cama\s*box(?!\s*\+?\s*colch)/i, category: "cama-box" },
+    { pattern: /colch[aã]o/i, category: "colchoes" },
+  ];
+
+  function resolveCategory(nome: string, slug: string, crawlerCategory: string): string {
+    const text = `${nome} ${slug}`.toLowerCase();
+    for (const { pattern, category } of CATEGORY_KEYWORDS) {
+      if (pattern.test(text)) return category;
+    }
+    return crawlerCategory;
+  }
+
   const seenIds = new Set<number>();
   const seenSkus = new Set<string>();
 
   try {
-    await atualizarStatus("running", "Buscando produtos via API...", 0, 0);
+    await atualizarStatus("running", "Buscando lojas ativas e produtos via API...", 0, 0);
+
+    const lojasAtivas = await db
+      .select({ id: lojasTable.id })
+      .from(lojasTable)
+      .where(eq(lojasTable.ativa, true));
+    const lojaIds = lojasAtivas.length > 0 ? lojasAtivas.map(l => l.id) : [1];
+    console.log(`[Crawler] Lojas ativas: ${lojaIds.join(", ")}`);
 
     // Count total first
     let totalEstimado = 0;
@@ -302,52 +328,41 @@ async function executarCrawler() {
         const descricao = [shortHtml, html].filter(Boolean).join("\n") || null;
         const fichaTecnica = parseFichaTecnica(item);
 
+        const categoriaReal = resolveCategory(item.name, slug, categoria.nome);
+
+        const productValues = {
+          nome: item.name,
+          sku: item.sku,
+          slug,
+          link,
+          preco,
+          precoPix,
+          precoBase: String(precoRegular),
+          parcelamento: `12x de ${formatBRL(precoRegular / 12)}`,
+          medidas: medidas || null,
+          altura: altura || null,
+          categoria: categoriaReal,
+          imagem: imagem || null,
+          familySlug,
+          familyName,
+          size,
+          descricao,
+          fichaTecnica,
+          disponivel: true,
+          sincronizadoEm: syncStart,
+        };
+
         try {
-          await db.insert(produtosTable).values({
-            lojaId: 1,
-            nome: item.name,
-            sku: item.sku,
-            slug,
-            link,
-            preco,
-            precoPix,
-            precoBase: String(precoRegular),
-            parcelamento: `12x de ${formatBRL(precoRegular / 12)}`,
-            medidas: medidas || null,
-            altura: altura || null,
-            categoria: categoria.nome,
-            imagem: imagem || null,
-            familySlug,
-            familyName,
-            size,
-            descricao,
-            fichaTecnica,
-            disponivel: true,
-            sincronizadoEm: syncStart,
-          }).onConflictDoUpdate({
-            target: [produtosTable.sku, produtosTable.lojaId],
-            targetWhere: sql`${produtosTable.sku} IS NOT NULL`,
-            set: {
-              slug,
-              link,
-              nome: item.name,
-              preco,
-              precoPix,
-              precoBase: String(precoRegular),
-              parcelamento: `12x de ${formatBRL(precoRegular / 12)}`,
-              medidas: medidas || null,
-              altura: altura || null,
-              categoria: categoria.nome,
-              imagem: imagem || null,
-              familySlug,
-              familyName,
-              size,
-              descricao,
-              fichaTecnica,
-              disponivel: true,
-              sincronizadoEm: syncStart,
-            },
-          });
+          for (const lid of lojaIds) {
+            await db.insert(produtosTable).values({
+              lojaId: lid,
+              ...productValues,
+            }).onConflictDoUpdate({
+              target: [produtosTable.sku, produtosTable.lojaId],
+              targetWhere: sql`${produtosTable.sku} IS NOT NULL`,
+              set: productValues,
+            });
+          }
           produtosColetados++;
         } catch (err) {
           console.error(`[Crawler] Erro ao salvar ${item.name}:`, err);
