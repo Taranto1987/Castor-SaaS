@@ -45,7 +45,7 @@ export interface RankingItemRegras extends RankingItem {
 
 export interface ResultadoRegras extends Omit<ResultadoCompatibilidade, "ranking"> {
   ranking: RankingItemRegras[];
-  origem: "regras" | "motor"; // observabilidade
+  origem: "regras" | "motor" | "emergencia";
 }
 
 // ── Tabela de regras (a tabela do dono) — fragmentos de nome normalizados ───────
@@ -163,18 +163,58 @@ export function montarRankingRegras(
   if (escolhidos.length === 0) {
     const base = montarRanking(perfil, elegiveis);
     const porId = new Map(elegiveis.map((p) => [String(p.id), p]));
-    return {
-      ...base,
-      origem: "motor",
-      ranking: base.ranking.map((item) => {
-        const prod = porId.get(item.produtoId);
+
+    if (base.ranking.length > 0) {
+      return {
+        ...base,
+        origem: "motor",
+        ranking: base.ranking.map((item) => {
+          const prod = porId.get(item.produtoId);
+          return {
+            ...item,
+            avisos: prod ? avisosDe(prod, perfil) : [],
+            justificativa: item.motivos.join(". ") + ".",
+          };
+        }),
+      };
+    }
+
+    // 2b) Emergency fallback: motor-v2 returned empty (all products scored < 65).
+    // Show top 3 eligible products anyway so the user always sees options.
+    if (elegiveis.length > 0) {
+      const emergencyCands = elegiveis
+        .map((prod) => {
+          const vetor = produtoToVector(prod);
+          const score = compatibilidade(vetorPerfil, vetor);
+          return { prod, vetor, score };
+        })
+        .sort((a, b) => b.score - a.score)
+        .slice(0, 3);
+
+      const emergencyRanking: RankingItemRegras[] = emergencyCands.map((c, i) => {
+        const motivos = gerarMotivos(perfil, c.vetor, firmezaIndicada);
         return {
-          ...item,
-          avisos: prod ? avisosDe(prod, perfil) : [],
-          justificativa: item.motivos.join(". ") + ".",
+          produtoId: String(c.prod.id),
+          nome: c.prod.familyName ?? c.prod.nome,
+          score: c.score,
+          classificacao: classificar(c.score),
+          categoria: FAIXA[i] ?? "custo_beneficio",
+          motivos,
+          precoPix: c.prod.precoPix,
+          imagem: c.prod.imagem,
+          size: c.prod.size,
+          avisos: [
+            "Compatibilidade abaixo do ideal para seu perfil. Consulte um especialista.",
+            ...avisosDe(c.prod, perfil),
+          ],
+          justificativa: motivos.join(". ") + ".",
         };
-      }),
-    };
+      });
+
+      return { ranking: emergencyRanking, firmezaIndicada, perfilResumo: gerarResumo(perfil, firmezaIndicada), origem: "emergencia" };
+    }
+
+    return { ...base, origem: "motor", ranking: [] };
   }
 
   // 3) Caminho de regras: score REAL do motor por produto, ordenado por score.

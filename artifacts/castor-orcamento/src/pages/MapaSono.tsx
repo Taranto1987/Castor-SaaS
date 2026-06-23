@@ -84,6 +84,7 @@ async function buscarCompatibilidade(
     ranking: Array.isArray(obj.data.ranking) ? obj.data.ranking : [],
     firmezaIndicada: obj.data.firmezaIndicada ?? "",
     perfilResumo: obj.data.perfilResumo ?? "",
+    origem: obj.data.origem,
   };
 }
 
@@ -920,6 +921,16 @@ function FaseResultado({ state, waUrl, onWhatsApp, onVoltar }: {
             <p className="text-white font-bold text-lg mb-1 tracking-tight">Fale com um especialista</p>
             <p className="text-sm" style={{ color: MUTED }}>
               Recebemos seu perfil de descanso. Nossa equipe vai indicar pessoalmente o colchão ideal para você.
+            </p>
+          </GlassCard>
+        )}
+
+        {resultado?.origem === "emergencia" && ranking.length > 0 && (
+          <GlassCard className="px-4 py-3 mb-4 flex items-start gap-3">
+            <AlertTriangle className="w-5 h-5 shrink-0 mt-0.5" style={{ color: "#f59e0b" }} />
+            <p className="text-xs leading-relaxed" style={{ color: "rgba(255,255,255,0.7)" }}>
+              Estes produtos têm compatibilidade moderada com seu perfil.
+              Recomendamos conversar com um especialista para refinar a escolha.
             </p>
           </GlassCard>
         )}
