@@ -13,7 +13,7 @@ const GREETING = "Olá! 👋 Sou o **ThallesZzz**, consultor especialista em col
 // Required after prompt changes that produce incompatible conversation styles.
 const CHAT_CACHE_VERSION = "3";
 
-export default function ChatBot() {
+export default function ChatBot({ hideFloating = false }: { hideFloating?: boolean }) {
   const [isOpen, setIsOpen] = useState(false);
   const [messages, setMessages] = useState<Message[]>(() => {
     try {
@@ -334,11 +334,11 @@ export default function ChatBot() {
           setIsOpen(!isOpen);
           setShowPulse(false);
         }}
-        className={`fixed bottom-20 md:bottom-6 right-[5.5rem] sm:right-52 z-[60] w-14 h-14 rounded-full shadow-xl flex items-center justify-center transition-all active:scale-90 ${
+        className={`fixed bottom-20 md:bottom-6 right-[5.5rem] sm:right-52 z-[60] w-14 h-14 rounded-full shadow-xl flex items-center justify-center transition-all duration-300 active:scale-90 ${
           isOpen
             ? "bg-slate-700 hover:bg-slate-600"
             : "bg-gradient-to-br from-red-600 to-red-700 hover:from-red-500 hover:to-red-600"
-        }`}
+        } ${hideFloating && !isOpen ? "translate-y-20 opacity-0 pointer-events-none" : ""}`}
       >
         {isOpen ? (
           <X className="w-6 h-6 text-white" />
@@ -352,7 +352,7 @@ export default function ChatBot() {
         )}
       </button>
 
-      {!isOpen && showPulse && (
+      {!isOpen && showPulse && !hideFloating && (
         <motion.div
           initial={{ opacity: 0, x: 10 }}
           animate={{ opacity: 1, x: 0 }}
