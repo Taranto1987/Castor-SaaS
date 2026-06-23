@@ -1,4 +1,4 @@
-import { ReactNode, useState } from "react";
+import { ReactNode, useState, useRef, useEffect } from "react";
 import { Link, useLocation } from "wouter";
 import { cn } from "@/lib/utils";
 import { MessageCircle, Menu, X, Moon, Search, ChevronRight, Tag } from "lucide-react";
@@ -16,6 +16,19 @@ export default function PublicLayout({ children }: PublicLayoutProps) {
   const [mobileOpen, setMobileOpen] = useState(false);
   const waInfo = useWAInfo();
   const whatsapp = `https://wa.me/${waInfo.numero}?text=${encodeURIComponent(`Olá! Vi o site da Castor e quero saber mais sobre os colchões!`)}`;
+  const footerRef = useRef<HTMLElement>(null);
+  const [footerVisible, setFooterVisible] = useState(false);
+
+  useEffect(() => {
+    const footer = footerRef.current;
+    if (!footer) return;
+    const observer = new IntersectionObserver(
+      ([entry]) => setFooterVisible(entry.isIntersecting),
+      { threshold: 0 }
+    );
+    observer.observe(footer);
+    return () => observer.disconnect();
+  }, []);
 
   const navLinks = [
     { path: "/catalogo", label: "Catálogo", icon: Search },
@@ -131,7 +144,7 @@ export default function PublicLayout({ children }: PublicLayoutProps) {
       </main>
 
       {/* Footer */}
-      <footer className="bg-slate-900 text-white pt-12 pb-6">
+      <footer ref={footerRef} className="bg-slate-900 text-white pt-12 pb-6">
         <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="grid grid-cols-1 md:grid-cols-3 gap-8 mb-8">
             <div>
@@ -203,10 +216,10 @@ export default function PublicLayout({ children }: PublicLayoutProps) {
         </div>
       </footer>
 
-      <ChatBot />
+      <ChatBot hideFloating={footerVisible} />
 
       {/* ── Fixed bottom bar (mobile only) ──────────────────────────────── */}
-      <nav className="fixed bottom-0 inset-x-0 z-50 md:hidden bg-white border-t border-slate-200 shadow-[0_-2px_10px_rgba(0,0,0,0.06)]">
+      <nav className={`fixed bottom-0 inset-x-0 z-50 md:hidden bg-white border-t border-slate-200 shadow-[0_-2px_10px_rgba(0,0,0,0.06)] transition-transform duration-300 ${footerVisible ? "translate-y-full" : "translate-y-0"}`}>
         <div className="flex justify-around items-center h-14">
           <Link
             href="/catalogo"

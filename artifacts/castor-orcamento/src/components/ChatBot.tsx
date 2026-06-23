@@ -13,7 +13,7 @@ const GREETING = "Olá! 👋 Sou o **ThallesZzz**, consultor especialista em col
 // Required after prompt changes that produce incompatible conversation styles.
 const CHAT_CACHE_VERSION = "3";
 
-export default function ChatBot() {
+export default function ChatBot({ hideFloating = false }: { hideFloating?: boolean }) {
   const [isOpen, setIsOpen] = useState(false);
   const [messages, setMessages] = useState<Message[]>(() => {
     try {
@@ -235,7 +235,7 @@ export default function ChatBot() {
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: 20, scale: 0.95 }}
             transition={{ type: "spring", damping: 25, stiffness: 300 }}
-            className="fixed bottom-24 right-4 sm:right-6 z-[60] w-[calc(100vw-2rem)] sm:w-[380px] max-h-[70dvh] bg-white rounded-2xl shadow-2xl shadow-black/20 border border-slate-200 flex flex-col overflow-hidden"
+            className="fixed bottom-36 md:bottom-24 right-4 sm:right-6 z-[60] w-[calc(100vw-2rem)] sm:w-[380px] max-h-[60dvh] md:max-h-[70dvh] bg-white rounded-2xl shadow-2xl shadow-black/20 border border-slate-200 flex flex-col overflow-hidden"
           >
             <div className="bg-gradient-to-r from-red-700 to-red-600 text-white px-4 py-3 flex items-center justify-between shrink-0">
               <div className="flex items-center gap-2.5">
@@ -334,11 +334,11 @@ export default function ChatBot() {
           setIsOpen(!isOpen);
           setShowPulse(false);
         }}
-        className={`fixed bottom-6 right-[5.5rem] sm:right-52 z-[60] w-14 h-14 rounded-full shadow-xl flex items-center justify-center transition-all active:scale-90 ${
+        className={`fixed bottom-20 md:bottom-6 right-[5.5rem] sm:right-52 z-[60] w-14 h-14 rounded-full shadow-xl flex items-center justify-center transition-all duration-300 active:scale-90 ${
           isOpen
             ? "bg-slate-700 hover:bg-slate-600"
             : "bg-gradient-to-br from-red-600 to-red-700 hover:from-red-500 hover:to-red-600"
-        }`}
+        } ${hideFloating && !isOpen ? "translate-y-20 opacity-0 pointer-events-none" : ""}`}
       >
         {isOpen ? (
           <X className="w-6 h-6 text-white" />
@@ -352,12 +352,12 @@ export default function ChatBot() {
         )}
       </button>
 
-      {!isOpen && showPulse && (
+      {!isOpen && showPulse && !hideFloating && (
         <motion.div
           initial={{ opacity: 0, x: 10 }}
           animate={{ opacity: 1, x: 0 }}
           exit={{ opacity: 0, x: 10 }}
-          className="fixed bottom-[4.5rem] right-[10rem] sm:right-[17rem] z-[59] bg-white text-slate-700 text-xs font-semibold px-3 py-1.5 rounded-lg shadow-lg border border-slate-200 whitespace-nowrap"
+          className="fixed bottom-[7.5rem] md:bottom-[4.5rem] right-[10rem] sm:right-[17rem] z-[59] bg-white text-slate-700 text-xs font-semibold px-3 py-1.5 rounded-lg shadow-lg border border-slate-200 whitespace-nowrap"
         >
           Precisa de ajuda? Fale comigo! 💬
         </motion.div>
