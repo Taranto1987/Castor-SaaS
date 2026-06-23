@@ -245,6 +245,25 @@ async function executarCrawler() {
     { id: 1016, nome: "protetor" },
   ];
 
+  // Reclassifica produtos que o Magento devolve numa categoria errada
+  // (ex: roupa de cama aparecendo dentro de travesseiros).
+  const CATEGORY_KEYWORDS: Array<{ pattern: RegExp; category: string }> = [
+    { pattern: /lencol|len[cç]ol|jogo\s*de\s*cama|edredom|coberdrom|cobertor|fronha|colcha|sobre.?lencol/i, category: "roupa-de-cama" },
+    { pattern: /protetor|impermeavel|imperm[eé]avel/i, category: "protetor" },
+    { pattern: /travesseiro|pillow/i, category: "travesseiros" },
+    { pattern: /cama\s*box\s*\+?\s*colch[aã]o|box\s*\+?\s*colch|colch[aã]o\s*\+?\s*box/i, category: "cama-box-colchao" },
+    { pattern: /cama\s*box(?!\s*\+?\s*colch)/i, category: "cama-box" },
+    { pattern: /colch[aã]o/i, category: "colchoes" },
+  ];
+
+  function resolveCategory(nome: string, slug: string, crawlerCategory: string): string {
+    const text = `${nome} ${slug}`.toLowerCase();
+    for (const { pattern, category } of CATEGORY_KEYWORDS) {
+      if (pattern.test(text)) return category;
+    }
+    return crawlerCategory;
+  }
+
   const seenIds = new Set<number>();
   const seenSkus = new Set<string>();
 
@@ -302,6 +321,8 @@ async function executarCrawler() {
         const descricao = [shortHtml, html].filter(Boolean).join("\n") || null;
         const fichaTecnica = parseFichaTecnica(item);
 
+        const categoriaReal = resolveCategory(item.name, slug, categoria.nome);
+
         try {
           await db.insert(produtosTable).values({
             lojaId: 1,
@@ -315,7 +336,7 @@ async function executarCrawler() {
             parcelamento: `12x de ${formatBRL(precoRegular / 12)}`,
             medidas: medidas || null,
             altura: altura || null,
-            categoria: categoria.nome,
+            categoria: categoriaReal,
             imagem: imagem || null,
             familySlug,
             familyName,
@@ -337,7 +358,7 @@ async function executarCrawler() {
               parcelamento: `12x de ${formatBRL(precoRegular / 12)}`,
               medidas: medidas || null,
               altura: altura || null,
-              categoria: categoria.nome,
+              categoria: categoriaReal,
               imagem: imagem || null,
               familySlug,
               familyName,
