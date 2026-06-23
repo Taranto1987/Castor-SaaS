@@ -8,9 +8,37 @@ import { trackWhatsAppClick, trackPageView } from "@/lib/tracking";
 import { useLoja } from "@/contexts/LojaContext";
 import { useWAInfo } from "@/hooks/use-wa-info";
 import type { CatalogoProduto } from "@/utils/groupProducts";
+import type { ProductSize } from "@/utils/normalizeSize";
+
+interface CatalogVariant {
+  size: ProductSize;
+  produtoId: number | null;
+  slug: string | null;
+  preco: string | null;
+  precoPix: string | null;
+  parcelamento: string | null;
+  medidas: string | null;
+  altura: string | null;
+  imagem: string | null;
+  disponivel: boolean;
+  encomenda: boolean;
+  estoque: number | null;
+}
+
+interface CatalogFamily {
+  id: string;
+  name: string;
+  category: string;
+  ranking: number;
+  imageUrl: string | null;
+  availableSizes: ProductSize[];
+  variants: CatalogVariant[];
+}
 
 const MAPS_CABO_FRIO = "https://maps.app.goo.gl/UuF6w1nAvTgXockS6";
 const MAPS_ARARUAMA  = "https://maps.app.goo.gl/cGmvFgeubawLRNGy8";
+
+const FALLBACK_IMG = "https://images.unsplash.com/photo-1584031402256-c787e148e02d?w=800&q=80";
 
 function waLink(numero: string, loja: string, texto?: string) {
   const msg = texto ?? `Olá! Vi o site da Castor ${loja} e quero saber mais sobre os colchões!`;
@@ -25,6 +53,17 @@ const fade = (delay = 0) => ({
 });
 
 const REGIOES = ["Cabo Frio", "Búzios", "Arraial do Cabo", "São Pedro da Aldeia", "Araruama", "Iguaba Grande", "Saquarema"];
+
+function getBestVariant(variants: CatalogVariant[]): CatalogVariant | null {
+  const withPrice = variants.filter(v => v.precoPix && v.disponivel);
+  if (withPrice.length === 0) return variants.find(v => v.precoPix) ?? variants[0] ?? null;
+  const sizeOrder: ProductSize[] = ["King", "Queen", "Casal", "Solteiro"];
+  for (const s of sizeOrder) {
+    const found = withPrice.find(v => v.size === s);
+    if (found) return found;
+  }
+  return withPrice[0];
+}
 
 export default function Landing() {
   const [showMapa, setShowMapa] = useState(false);
@@ -41,7 +80,18 @@ export default function Landing() {
     staleTime: 10 * 60 * 1000,
   });
 
-  // Synchronous toggle + background API fetch for full lojaInfo
+  const { data: destaques = [] } = useQuery<CatalogFamily[]>({
+    queryKey: ["landing-destaques", lojaId],
+    queryFn: async () => {
+      const res = await fetch(`/api/catalog/families?lojaId=${lojaId}`);
+      if (!res.ok) return [];
+      return res.json();
+    },
+    staleTime: 10 * 60 * 1000,
+  });
+
+  const topDestaques = destaques.slice(0, 6);
+
   const toggle = () => {
     const newId = lojaId === 2 ? 1 : 2;
     selecionarLoja(newId);
@@ -53,42 +103,30 @@ export default function Landing() {
   return (
     <div className="overflow-x-hidden">
 
-      {/* ── HERO ─────────────────────────────────────────────────────────── */}
+      {/* ── HERO (compacto) ──────────────────────────────────────────────── */}
       <section className="relative bg-gradient-to-br from-slate-900 via-red-950 to-slate-900 text-white overflow-hidden">
         <div className="absolute inset-0 opacity-[0.04]" style={{
           backgroundImage: "repeating-linear-gradient(0deg,#fff 0,#fff 1px,transparent 1px,transparent 60px),repeating-linear-gradient(90deg,#fff 0,#fff 1px,transparent 1px,transparent 60px)"
         }} />
 
-        <div className="relative max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 pt-20 pb-24 md:pt-28 md:pb-32">
-          <div className="flex flex-col md:flex-row items-center gap-12">
-
-            {/* Text */}
-            <div className="flex-1 text-center md:text-left">
-              <motion.div {...fade(0)} className="inline-flex items-center gap-2 bg-red-500/20 border border-red-400/30 rounded-full px-4 py-1.5 text-red-300 text-xs font-bold uppercase tracking-wider mb-6">
+        <div className="relative max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 pt-14 pb-14 md:pt-20 md:pb-16">
+          <div className="max-w-2xl mx-auto md:mx-0 text-center md:text-left">
+              <motion.div {...fade(0)} className="inline-flex items-center gap-2 bg-red-500/20 border border-red-400/30 rounded-full px-4 py-1.5 text-red-300 text-xs font-bold uppercase tracking-wider mb-5">
                 <Star className="w-3.5 h-3.5 fill-red-400 text-red-400" /> Especialistas em Sono · Região dos Lagos – RJ
               </motion.div>
 
-              <motion.h1 {...fade(0.1)} className="text-4xl md:text-5xl lg:text-6xl font-black leading-[1.08] tracking-tight mb-6">
-                Não vendemos<br />
-                <span className="text-transparent bg-clip-text bg-gradient-to-r from-red-400 to-red-300">colchão.</span><br />
-                Resolvemos<br />o seu sono.
+              <motion.h1 {...fade(0.1)} className="text-3xl md:text-4xl lg:text-5xl font-black leading-[1.08] tracking-tight mb-4">
+                Não vendemos{" "}
+                <span className="text-transparent bg-clip-text bg-gradient-to-r from-red-400 to-red-300">colchão.</span>{" "}
+                Resolvemos o seu sono.
               </motion.h1>
 
-              <motion.p {...fade(0.2)} className="text-slate-300 text-lg leading-relaxed mb-4 max-w-xl">
+              <motion.p {...fade(0.15)} className="text-slate-300 text-base leading-relaxed mb-5 max-w-xl mx-auto md:mx-0">
                 Diagnóstico personalizado, tecnologia suíça Castor e atendimento de quem realmente entende do assunto.
               </motion.p>
 
-              {/* Cidades atendidas */}
-              <motion.div {...fade(0.25)} className="flex flex-wrap gap-2 justify-center md:justify-start mb-4">
-                {REGIOES.map(c => (
-                  <span key={c} className="bg-white/10 border border-white/15 text-white/70 text-xs font-semibold px-3 py-1 rounded-full">
-                    📍 {c}
-                  </span>
-                ))}
-              </motion.div>
-
-              <motion.div {...fade(0.28)} className="mb-8">
-                  <p className="text-white/60 text-xs font-semibold uppercase tracking-widest mb-2 text-center md:text-left">📍 Qual loja mais perto de você?</p>
+              <motion.div {...fade(0.2)} className="mb-6">
+                  <p className="text-white/60 text-xs font-semibold uppercase tracking-widest mb-2">📍 Qual loja mais perto de você?</p>
                   <div className="inline-flex bg-white/10 backdrop-blur-sm rounded-xl p-1 border border-white/15">
                     <button
                       onClick={() => lojaId !== 1 && toggle()}
@@ -115,50 +153,19 @@ export default function Landing() {
                   </div>
                 </motion.div>
 
-              <motion.div {...fade(0.3)} className="flex flex-col sm:flex-row gap-3 justify-center md:justify-start">
-                <button onClick={() => setShowMapa(true)} className="flex items-center justify-center gap-2 bg-red-600 hover:bg-red-500 text-white font-extrabold px-7 py-4 rounded-2xl transition-all shadow-xl shadow-red-900/40 active:scale-95 text-base">
+              <motion.div {...fade(0.25)} className="flex flex-col sm:flex-row gap-3 justify-center md:justify-start">
+                <button onClick={() => setShowMapa(true)} className="flex items-center justify-center gap-2 bg-red-600 hover:bg-red-500 text-white font-extrabold px-7 py-3.5 rounded-2xl transition-all shadow-xl shadow-red-900/40 active:scale-95 text-sm">
                   <Moon className="w-5 h-5" />
                   Descobrir meu colchão ideal
                 </button>
-                <Link href="/catalogo" className="flex items-center justify-center gap-2 bg-white/10 hover:bg-white/20 border border-white/20 text-white font-bold px-7 py-4 rounded-2xl transition-all text-base">
+                <Link href="/catalogo" className="flex items-center justify-center gap-2 bg-white/10 hover:bg-white/20 border border-white/20 text-white font-bold px-7 py-3.5 rounded-2xl transition-all text-sm">
                   Ver catálogo <ChevronRight className="w-4 h-4" />
                 </Link>
               </motion.div>
-            </div>
-
-            {/* Avatar hero card */}
-            <motion.div
-              initial={{ opacity: 0, scale: 0.9, x: 40 }}
-              animate={{ opacity: 1, scale: 1, x: 0 }}
-              transition={{ duration: 0.7, delay: 0.2 }}
-              className="flex-shrink-0"
-            >
-              <a
-                href={waLink(waInfo.numero, waInfo.loja, `Oi ${waInfo.contato}! Vi vocês no site e quero saber mais sobre os colchões Castor.`)}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="block cursor-pointer group"
-              >
-                <div className="relative w-64 h-64 md:w-80 md:h-80 group-hover:scale-[1.02] transition-transform">
-                  <div className="absolute inset-0 bg-gradient-to-br from-red-500/30 to-red-900/30 rounded-[2rem] backdrop-blur-sm border border-white/10 shadow-2xl" />
-                  <img
-                    src={lojaId === 2 ? "/marcela-avatar.webp" : "/thalles-avatar.webp"}
-                    alt={`Especialista ${waInfo.contato}`}
-                    className="absolute inset-0 w-full h-full object-cover object-top rounded-[2rem]"
-                    fetchPriority="high"
-                    decoding="async"
-                  />
-                  <div className="absolute bottom-4 left-4 right-4 bg-black/60 backdrop-blur-md rounded-xl px-3 py-2">
-                    <p className="text-white font-extrabold text-sm">Especialista {waInfo.contato}</p>
-                    <p className="text-green-400 text-xs font-semibold">● Online agora · Mapa do Sono</p>
-                  </div>
-                </div>
-              </a>
-            </motion.div>
           </div>
 
           {/* Trust bar */}
-          <motion.div {...fade(0.4)} className="mt-14 grid grid-cols-2 md:grid-cols-4 gap-3">
+          <motion.div {...fade(0.3)} className="mt-10 grid grid-cols-2 md:grid-cols-4 gap-3">
             {[
               { icon: "⭐", v: "5.0", label: "Google Reviews" },
               { icon: "🏆", v: "Campeã", label: "ReclameAQUI 2025" },
@@ -174,6 +181,110 @@ export default function Landing() {
               </div>
             ))}
           </motion.div>
+        </div>
+      </section>
+
+      {/* ── PRODUTOS EM DESTAQUE ─────────────────────────────────────────── */}
+      {topDestaques.length > 0 && (
+        <section className="py-14 bg-white">
+          <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
+            <motion.div {...fade()} className="text-center mb-8">
+              <p className="text-red-600 font-bold text-sm uppercase tracking-wider mb-2">Mais procurados</p>
+              <h2 className="text-2xl md:text-3xl font-black text-slate-900 tracking-tight">Destaques da Castor {waInfo.loja}</h2>
+            </motion.div>
+
+            <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+              {topDestaques.map((family, i) => {
+                const best = getBestVariant(family.variants);
+                const img = family.imageUrl || best?.imagem || FALLBACK_IMG;
+                const slug = best?.slug;
+                const href = slug ? `/produto/${slug}` : "/catalogo";
+
+                return (
+                  <motion.div key={family.id} {...fade(i * 0.06)}>
+                    <Link
+                      href={href}
+                      className="block bg-white border border-slate-200 rounded-2xl overflow-hidden hover:border-red-300 hover:shadow-lg transition-all group"
+                    >
+                      <div className="aspect-[4/3] overflow-hidden bg-slate-100">
+                        <img
+                          src={img}
+                          alt={family.name}
+                          className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                          loading="lazy"
+                        />
+                      </div>
+                      <div className="p-3">
+                        <span className="inline-block bg-slate-100 text-slate-500 text-[10px] font-bold uppercase tracking-wide px-2 py-0.5 rounded-full mb-1.5">
+                          {family.category === "colchoes" ? "Colchão"
+                           : family.category === "cama-box-colchao" ? "Box + Colchão"
+                           : family.category === "cama-box" ? "Cama Box"
+                           : family.category}
+                        </span>
+                        <p className="font-bold text-slate-900 text-sm leading-tight line-clamp-2 group-hover:text-red-600 transition-colors">{family.name}</p>
+                        {best?.precoPix && (
+                          <div className="mt-1.5">
+                            <span className="text-[10px] text-slate-400">Pix</span>
+                            <p className="text-red-600 font-extrabold text-base">{best.precoPix}</p>
+                          </div>
+                        )}
+                        {family.availableSizes.length > 1 && (
+                          <div className="flex gap-1 mt-1.5 flex-wrap">
+                            {family.availableSizes.map(s => (
+                              <span key={s} className="text-[10px] font-semibold text-slate-400 bg-slate-50 border border-slate-100 px-1.5 py-0.5 rounded">
+                                {s}
+                              </span>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    </Link>
+                  </motion.div>
+                );
+              })}
+            </div>
+
+            <motion.div {...fade(0.3)} className="text-center mt-8">
+              <Link href="/catalogo" className="inline-flex items-center gap-2 bg-red-600 hover:bg-red-700 text-white font-extrabold px-8 py-3.5 rounded-2xl shadow-lg transition-all active:scale-95 text-sm">
+                Ver catálogo completo <ChevronRight className="w-4 h-4" />
+              </Link>
+            </motion.div>
+          </div>
+        </section>
+      )}
+
+      {/* ── CATEGORIAS ───────────────────────────────────────────────────── */}
+      <section className="py-14 bg-slate-50">
+        <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
+          <motion.div {...fade()} className="text-center mb-8">
+            <p className="text-red-600 font-bold text-sm uppercase tracking-wider mb-2">Portfólio completo</p>
+            <h2 className="text-2xl md:text-3xl font-black text-slate-900">Explore nossos produtos</h2>
+            <p className="text-slate-500 mt-2 text-sm">Entrega em toda a Região dos Lagos — {REGIOES.join(" · ")}</p>
+          </motion.div>
+
+          <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+            {[
+              { Icon: BedDouble, nome: "Colchões",     desc: "Mola, espuma e híbrido",      cat: "colchoes",        iconBg: "bg-red-50",     iconColor: "text-red-600"     },
+              { Icon: Package,   nome: "Cama Box",     desc: "Box + colchão conjunto",       cat: "cama-box-colchao",iconBg: "bg-amber-50",   iconColor: "text-amber-600"   },
+              { Icon: Box,       nome: "Box Avulso",   desc: "Só a base cama box",           cat: "cama-box",        iconBg: "bg-slate-100",  iconColor: "text-slate-600"   },
+              { Icon: Moon,      nome: "Travesseiros", desc: "Memória, látex e pluma",       cat: "travesseiros",    iconBg: "bg-violet-50",  iconColor: "text-violet-600"  },
+              { Icon: Shield,    nome: "Protetores",   desc: "Proteção e higiene",           cat: "protetor",        iconBg: "bg-emerald-50", iconColor: "text-emerald-600" },
+              { Icon: Layers,    nome: "Roupa de Cama",desc: "Jogo de lençóis e edredom",   cat: "roupa-de-cama",   iconBg: "bg-sky-50",     iconColor: "text-sky-600"     },
+            ].map((c, i) => (
+              <motion.div key={c.cat} {...fade(i * 0.07)}>
+                <Link href={`/catalogo?categoria=${c.cat}`} className="flex items-center gap-4 bg-white border border-slate-200 rounded-2xl px-5 py-4 hover:border-red-300 hover:shadow-md transition-all group">
+                  <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${c.iconBg}`}>
+                    <c.Icon className={`w-5 h-5 ${c.iconColor}`} strokeWidth={1.75} />
+                  </div>
+                  <div className="min-w-0">
+                    <p className="font-extrabold text-slate-900 group-hover:text-red-600 transition-colors leading-tight">{c.nome}</p>
+                    <p className="text-xs text-slate-400 mt-0.5">{c.desc}</p>
+                  </div>
+                  <ChevronRight className="w-4 h-4 text-slate-300 group-hover:text-red-400 ml-auto shrink-0 transition-colors" />
+                </Link>
+              </motion.div>
+            ))}
+          </div>
         </div>
       </section>
 
@@ -206,43 +317,12 @@ export default function Landing() {
         </div>
       </section>
 
-      {/* ── TECNOLOGIAS ──────────────────────────────────────────────────── */}
-      <section className="py-20 bg-slate-50">
-        <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
-          <motion.div {...fade()} className="text-center mb-12">
-            <p className="text-red-600 font-bold text-sm uppercase tracking-wider mb-2">Por que Castor é diferente</p>
-            <h2 className="text-3xl md:text-4xl font-black text-slate-900 tracking-tight">
-              Engenharia do sono.<br className="hidden md:block" /> Não só um colchão.
-            </h2>
-          </motion.div>
-
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
-            {[
-              { icon: Zap, cor: "bg-blue-50 text-blue-600", titulo: "Pocket® Autêntico", desc: "Molas pré-comprimidas de aço temperado: se um se mexe, o outro não sente. Suporte individualizado real." },
-              { icon: Wind, cor: "bg-cyan-50 text-cyan-600", titulo: "Fresh Comfort Gel®", desc: "Partículas de gel dissipam o calor corporal e mantêm a temperatura ideal (18–22°C) para o sono REM." },
-              { icon: Shield, cor: "bg-emerald-50 text-emerald-600", titulo: "Actigard® Anti-ácaros", desc: "Tratamento suíço permanente no tecido que elimina ácaros, fungos e bactérias — essencial para quem tem rinite." },
-              { icon: Award, cor: "bg-red-50 text-red-600", titulo: "Pró-Espuma INER", desc: "Densidade real certificada. D33 significa 33kg/m³ de matéria-prima verdadeira — sem carga mineral barata." },
-              { icon: RotateCcw, cor: "bg-purple-50 text-purple-600", titulo: "Double Face", desc: "Pode girar dos dois lados, distribuindo o desgaste. Isso aumenta a durabilidade em até 50% — projetado para 10+ anos." },
-              { icon: Star, cor: "bg-amber-50 text-amber-600", titulo: "Molas Tecnopedic®", desc: "Aço carbono com alto teor de manganês, temperado eletronicamente. Mantém o suporte ortopédico sem afundar." },
-            ].map((t, i) => (
-              <motion.div key={t.titulo} {...fade(i * 0.07)} className="bg-white border border-slate-200 rounded-2xl p-6 hover:shadow-lg hover:border-red-200 transition-all">
-                <div className={`w-10 h-10 rounded-xl flex items-center justify-center mb-4 ${t.cor}`}>
-                  <t.icon className="w-5 h-5" />
-                </div>
-                <h3 className="font-extrabold text-slate-900 mb-2">{t.titulo}</h3>
-                <p className="text-slate-500 text-sm leading-relaxed">{t.desc}</p>
-              </motion.div>
-            ))}
-          </div>
-        </div>
-      </section>
-
       {/* ── DEPOIMENTOS ──────────────────────────────────────────────────── */}
-      <section className="py-20 bg-white">
+      <section className="py-16 bg-white">
         <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
-          <motion.div {...fade()} className="text-center mb-12">
+          <motion.div {...fade()} className="text-center mb-10">
             <p className="text-red-600 font-bold text-sm uppercase tracking-wider mb-2">Avaliações reais · Google</p>
-            <h2 className="text-3xl font-black text-slate-900">O que nossos clientes dizem</h2>
+            <h2 className="text-2xl md:text-3xl font-black text-slate-900">O que nossos clientes dizem</h2>
             <div className="flex items-center justify-center gap-1 mt-3">
               {[1,2,3,4,5].map(i => <Star key={i} className="w-5 h-5 fill-amber-400 text-amber-400" />)}
               <span className="ml-2 text-slate-600 font-bold">5.0 no Google</span>
@@ -275,50 +355,40 @@ export default function Landing() {
         </div>
       </section>
 
-      {/* ── CATEGORIAS ───────────────────────────────────────────────────── */}
-      <section className="py-20 bg-slate-50">
+      {/* ── TECNOLOGIAS ──────────────────────────────────────────────────── */}
+      <section className="py-16 bg-slate-50">
         <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
-          <motion.div {...fade()} className="text-center mb-12">
-            <p className="text-red-600 font-bold text-sm uppercase tracking-wider mb-2">Portfólio completo</p>
-            <h2 className="text-3xl font-black text-slate-900">Explore nossos produtos</h2>
-            <p className="text-slate-500 mt-2 text-sm">Entrega em toda a Região dos Lagos — {REGIOES.join(" · ")}</p>
+          <motion.div {...fade()} className="text-center mb-10">
+            <p className="text-red-600 font-bold text-sm uppercase tracking-wider mb-2">Por que Castor é diferente</p>
+            <h2 className="text-2xl md:text-3xl font-black text-slate-900 tracking-tight">
+              Engenharia do sono.<br className="hidden md:block" /> Não só um colchão.
+            </h2>
           </motion.div>
 
-          <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
             {[
-              { Icon: BedDouble, nome: "Colchões",     desc: "Mola, espuma e híbrido",      cat: "colchoes",        iconBg: "bg-red-50",     iconColor: "text-red-600"     },
-              { Icon: Package,   nome: "Cama Box",     desc: "Box + colchão conjunto",       cat: "cama-box-colchao",iconBg: "bg-amber-50",   iconColor: "text-amber-600"   },
-              { Icon: Box,       nome: "Box Avulso",   desc: "Só a base cama box",           cat: "cama-box",        iconBg: "bg-slate-100",  iconColor: "text-slate-600"   },
-              { Icon: Moon,      nome: "Travesseiros", desc: "Memória, látex e pluma",       cat: "travesseiros",    iconBg: "bg-violet-50",  iconColor: "text-violet-600"  },
-              { Icon: Shield,    nome: "Protetores",   desc: "Proteção e higiene",           cat: "protetor",        iconBg: "bg-emerald-50", iconColor: "text-emerald-600" },
-              { Icon: Layers,    nome: "Roupa de Cama",desc: "Jogo de lençóis e edredom",   cat: "roupa-de-cama",   iconBg: "bg-sky-50",     iconColor: "text-sky-600"     },
-            ].map((c, i) => (
-              <motion.div key={c.cat} {...fade(i * 0.07)}>
-                <Link href={`/catalogo?categoria=${c.cat}`} className="flex items-center gap-4 bg-white border border-slate-200 rounded-2xl px-5 py-4 hover:border-red-300 hover:shadow-md transition-all group">
-                  <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${c.iconBg}`}>
-                    <c.Icon className={`w-5 h-5 ${c.iconColor}`} strokeWidth={1.75} />
-                  </div>
-                  <div className="min-w-0">
-                    <p className="font-extrabold text-slate-900 group-hover:text-red-600 transition-colors leading-tight">{c.nome}</p>
-                    <p className="text-xs text-slate-400 mt-0.5">{c.desc}</p>
-                  </div>
-                  <ChevronRight className="w-4 h-4 text-slate-300 group-hover:text-red-400 ml-auto shrink-0 transition-colors" />
-                </Link>
+              { icon: Zap, cor: "bg-blue-50 text-blue-600", titulo: "Pocket® Autêntico", desc: "Molas pré-comprimidas de aço temperado: se um se mexe, o outro não sente. Suporte individualizado real." },
+              { icon: Wind, cor: "bg-cyan-50 text-cyan-600", titulo: "Fresh Comfort Gel®", desc: "Partículas de gel dissipam o calor corporal e mantêm a temperatura ideal (18–22°C) para o sono REM." },
+              { icon: Shield, cor: "bg-emerald-50 text-emerald-600", titulo: "Actigard® Anti-ácaros", desc: "Tratamento suíço permanente no tecido que elimina ácaros, fungos e bactérias — essencial para quem tem rinite." },
+              { icon: Award, cor: "bg-red-50 text-red-600", titulo: "Pró-Espuma INER", desc: "Densidade real certificada. D33 significa 33kg/m³ de matéria-prima verdadeira — sem carga mineral barata." },
+              { icon: RotateCcw, cor: "bg-purple-50 text-purple-600", titulo: "Double Face", desc: "Pode girar dos dois lados, distribuindo o desgaste. Isso aumenta a durabilidade em até 50% — projetado para 10+ anos." },
+              { icon: Star, cor: "bg-amber-50 text-amber-600", titulo: "Molas Tecnopedic®", desc: "Aço carbono com alto teor de manganês, temperado eletronicamente. Mantém o suporte ortopédico sem afundar." },
+            ].map((t, i) => (
+              <motion.div key={t.titulo} {...fade(i * 0.07)} className="bg-white border border-slate-200 rounded-2xl p-6 hover:shadow-lg hover:border-red-200 transition-all">
+                <div className={`w-10 h-10 rounded-xl flex items-center justify-center mb-4 ${t.cor}`}>
+                  <t.icon className="w-5 h-5" />
+                </div>
+                <h3 className="font-extrabold text-slate-900 mb-2">{t.titulo}</h3>
+                <p className="text-slate-500 text-sm leading-relaxed">{t.desc}</p>
               </motion.div>
             ))}
           </div>
-
-          <motion.div {...fade(0.3)} className="text-center mt-8">
-            <Link href="/catalogo" className="inline-flex items-center gap-2 bg-red-600 hover:bg-red-700 text-white font-extrabold px-8 py-4 rounded-2xl shadow-lg transition-all active:scale-95">
-              Ver todo o catálogo <ChevronRight className="w-4 h-4" />
-            </Link>
-          </motion.div>
         </div>
       </section>
 
       {/* ── OFERTAS OUTLET ───────────────────────────────────────────────── */}
       {outletDestaque.length > 0 && (
-        <section className="py-16 bg-white">
+        <section className="py-14 bg-white">
           <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
             <motion.div {...fade()} className="flex items-center justify-between mb-8">
               <div>
@@ -380,7 +450,7 @@ export default function Landing() {
       )}
 
       {/* ── LOCALIZAÇÃO + CTA FINAL ──────────────────────────────────────── */}
-      <section className="py-20 bg-white">
+      <section className="py-16 bg-slate-50">
         <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-10 items-center">
             <motion.div {...fade()}>
@@ -392,7 +462,7 @@ export default function Landing() {
 
               {/* Cabo Frio */}
               <a href={MAPS_CABO_FRIO} target="_blank" rel="noreferrer"
-                className="flex items-start gap-3 bg-slate-50 border border-slate-200 rounded-2xl px-5 py-4 hover:border-red-300 transition-all group mb-3">
+                className="flex items-start gap-3 bg-white border border-slate-200 rounded-2xl px-5 py-4 hover:border-red-300 transition-all group mb-3">
                 <MapPin className="w-5 h-5 text-red-500 mt-0.5 shrink-0" />
                 <div className="flex-1 min-w-0">
                   <p className="text-xs font-bold text-red-600 uppercase tracking-wide mb-0.5">Cabo Frio</p>
@@ -404,7 +474,7 @@ export default function Landing() {
 
               {/* Araruama */}
               <a href={MAPS_ARARUAMA} target="_blank" rel="noreferrer"
-                className="flex items-start gap-3 bg-slate-50 border border-slate-200 rounded-2xl px-5 py-4 hover:border-red-300 transition-all group mb-4">
+                className="flex items-start gap-3 bg-white border border-slate-200 rounded-2xl px-5 py-4 hover:border-red-300 transition-all group mb-4">
                 <MapPin className="w-5 h-5 text-red-500 mt-0.5 shrink-0" />
                 <div className="flex-1 min-w-0">
                   <p className="text-xs font-bold text-red-600 uppercase tracking-wide mb-0.5">Araruama</p>
@@ -417,7 +487,7 @@ export default function Landing() {
               <p className="text-xs text-slate-400">Seg–Sex: 9h às 18h &nbsp;·&nbsp; Sáb: 9h às 13h</p>
             </motion.div>
 
-            {/* CTA WhatsApp — inteligente por localização */}
+            {/* CTA WhatsApp */}
             <motion.div {...fade(0.15)} className="bg-gradient-to-br from-red-600 to-red-900 rounded-3xl p-8 text-white shadow-2xl shadow-red-900/30 text-center">
               <p className="text-red-200 text-sm font-bold uppercase tracking-wider mb-3">
                 {lojaId === 2 ? "Loja Araruama" : "Fale agora mesmo"}
@@ -444,18 +514,6 @@ export default function Landing() {
           </div>
         </div>
       </section>
-
-      {/* ── FLOATING WHATSAPP — inteligente ──────────────────────────────── */}
-      <a
-        href={waLink(waInfo.numero, waInfo.loja)}
-        target="_blank"
-        rel="noreferrer"
-        onClick={() => trackWhatsAppClick("landing_floating", waInfo.loja)}
-        className="fixed bottom-6 right-6 z-50 flex items-center gap-2 bg-green-500 hover:bg-green-600 text-white font-bold px-4 py-3 rounded-2xl shadow-2xl shadow-green-900/40 transition-all active:scale-95 hover:scale-105"
-      >
-        <MessageCircle className="w-5 h-5" />
-        <span className="text-sm hidden sm:inline">WhatsApp {waInfo.loja}</span>
-      </a>
 
       {/* ── MODAL MAPA DO SONO ─────────────────────────────────────────────── */}
       <MapaSonoModal open={showMapa} onClose={() => setShowMapa(false)} />
