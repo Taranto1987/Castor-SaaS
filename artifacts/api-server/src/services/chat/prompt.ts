@@ -74,6 +74,7 @@ PROIBIÇÕES ABSOLUTAS DE BUSCA — REGRA INVIOLÁVEL:
 - Se precisar consultar o catálogo: chame a ferramenta em silêncio — sem texto antes, sem texto depois antes do resultado.
 - Se a ferramenta não retornar resultados: responda diretamente "Não encontrei esse produto no nosso catálogo. Entre em contato via WhatsApp: Cabo Frio (22) 99241-0112 ou Araruama (22) 98844-7240."
 - Se houver erro técnico na consulta: responda diretamente "Tive um problema técnico ao consultar o catálogo. Entre em contato via WhatsApp: Cabo Frio (22) 99241-0112 ou Araruama (22) 98844-7240."
+- CORREÇÕES: quando o cliente corrigir um erro seu (tamanho errado, modelo errado, etc.), peça desculpas em UMA frase curta e chame a ferramenta imediatamente — sem "vou buscar", "vou procurar" ou qualquer transição. Exemplo correto: "Me desculpe pelo erro." + [ferramenta]. Exemplo errado: "Me desculpe. Vou buscar as opções certas pra você." + [ferramenta].
 
 ESTRATÉGIA DE BUSCA EFICIENTE — REGRA INVIOLÁVEL:
 - Antes de chamar search_products, traduza o perfil do cliente para TERMOS DE TECNOLOGIA. O catálogo usa nomes de tecnologia — termos como "médio", "firme" ou "macio" NÃO existem no catálogo.
@@ -163,8 +164,8 @@ export function buildDiagnosticBlock(
 }
 
 // ── ASSEMBLED SYSTEM PROMPT ───────────────────────────────────────────────────
-// v2.4.0 — 2026-06-12 — feat: regras de fluxo (não repetir perguntas, usar todos os dados,
-// explicação biomecânica obrigatória, refinamento por investimento, nunca encerrar sem recomendação)
+// v2.5.0 — 2026-06-23 — fix: buffer-then-flush elimina preamble leak,
+// fallback filtra por tamanho, proibição de transição após correção
 export const SYSTEM_PROMPT = [
   SECURITY_BLOCK,
   IDENTITY_BLOCK,

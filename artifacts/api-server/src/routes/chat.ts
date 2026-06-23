@@ -144,11 +144,10 @@ router.post("/", async (req, res) => {
     }
 
     // ── Tool-aware streaming ──────────────────────────────────────────────────
-    // Pass 1: streaming with tools. If the model calls a tool we buffer and
-    // don't forward to SSE; then we execute the tools and stream pass 2.
-    // If no tool use, text is forwarded directly — zero latency penalty.
-    // Note: the prompt prohibits preamble phrases before tool calls (v2.1.0),
-    // so text forwarded here before a tool_use block should be empty in practice.
+    // Pass 1: buffer-then-flush. ALL text is buffered during streaming.
+    // After finalMessage(): if no tool_use → flush buffer to client.
+    // If tool_use → discard buffer (preamble like "Vou buscar!" never reaches client).
+    // Pass 2 (post-tool) still streams live to the client.
 
     let hasToolUse = false;
     const stream = client.messages.stream({
@@ -163,15 +162,22 @@ router.post("/", async (req, res) => {
       if (event.type === "content_block_start" && event.content_block.type === "tool_use") hasToolUse = true;
     });
 
+    let pass1Buffer = "";
     stream.on("text", (text) => {
-      if (!hasToolUse) {
-        if (res.writableEnded || ac.signal.aborted) return;
-        fullAssistantText += text;
-        res.write(`data: ${JSON.stringify({ content: text })}\n\n`);
-      }
+      pass1Buffer += text;
     });
 
     const firstResponse = await stream.finalMessage();
+
+    const userMessageTexts = chatMessages.filter(m => m.role === "user").map(m => m.content);
+
+    // Flush Pass 1 buffer only when no tool was called
+    if (!hasToolUse && firstResponse.stop_reason !== "tool_use") {
+      if (!res.writableEnded && !ac.signal.aborted) {
+        fullAssistantText = pass1Buffer;
+        res.write(`data: ${JSON.stringify({ content: pass1Buffer })}\n\n`);
+      }
+    }
 
     if (firstResponse.stop_reason === "tool_use") {
       const toolBlocks = firstResponse.content.filter(
@@ -225,7 +231,7 @@ router.post("/", async (req, res) => {
       // ou veio vazio, entrega recomendação determinística com os dados reais
       // já obtidos das ferramentas nesta rodada.
       if (!pass2Text.trim() && !res.writableEnded && !ac.signal.aborted) {
-        const fallback = await buildRecommendationFallback(toolResults, lojaId);
+        const fallback = await buildRecommendationFallback(toolResults, lojaId, userMessageTexts);
         fullAssistantText += fallback;
         res.write(`data: ${JSON.stringify({ content: fallback })}\n\n`);
         log.warn({ sessionId, event: "pass2_fallback_sent" }, "pass2 empty — deterministic fallback sent");
@@ -234,7 +240,7 @@ router.post("/", async (req, res) => {
       // tool_use iniciado mas stop_reason !== "tool_use" (ex: max_tokens truncou
       // o bloco da ferramenta). Nenhum texto foi enviado ao cliente — entrega
       // fallback determinístico em vez de stream vazio.
-      const fallback = await buildRecommendationFallback([], lojaId);
+      const fallback = await buildRecommendationFallback([], lojaId, userMessageTexts);
       fullAssistantText += fallback;
       if (!res.writableEnded && !ac.signal.aborted) {
         res.write(`data: ${JSON.stringify({ content: fallback })}\n\n`);
