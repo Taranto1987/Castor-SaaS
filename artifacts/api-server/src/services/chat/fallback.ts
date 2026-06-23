@@ -6,9 +6,15 @@ type ToolResultBlockParam = Anthropic.Messages.ToolResultBlockParam;
 
 interface ProductLine {
   nome: string;
+  familyName: string | null;
   precoPix: string | null;
   size: string | null;
   slug: string | null;
+}
+
+function cleanDisplayName(p: ProductLine): string {
+  const raw = p.familyName ?? p.nome;
+  return raw.replace(/^Colch[aã]o\s+Castor\s*/i, "").trim() || p.nome;
 }
 
 const SIZE_KEYWORDS: [RegExp, string][] = [
@@ -51,6 +57,7 @@ function extractFromToolResults(toolResults: ToolResultBlockParam[]): ProductLin
         if (typeof rec["nome"] === "string") {
           out.push({
             nome: rec["nome"],
+            familyName: (rec["familyName"] as string) ?? null,
             precoPix: (rec["precoPix"] as string) ?? null,
             size: (rec["size"] as string) ?? null,
             slug: (rec["slug"] as string) ?? null,
@@ -59,6 +66,7 @@ function extractFromToolResults(toolResults: ToolResultBlockParam[]): ProductLin
           const v = rec["variants"][0] as Record<string, unknown> | undefined;
           out.push({
             nome: rec["name"],
+            familyName: (rec["name"] as string) ?? null,
             precoPix: (v?.["precoPix"] as string) ?? null,
             size: (v?.["size"] as string) ?? null,
             slug: null,
@@ -102,6 +110,7 @@ export async function buildRecommendationFallback(
           : f.variants[0];
         return {
           nome: f.name,
+          familyName: f.name,
           precoPix: variant?.precoPix ?? f.variants[0]?.precoPix ?? null,
           size: variant?.size ?? null,
           slug: null,
@@ -120,7 +129,8 @@ export async function buildRecommendationFallback(
   }
 
   const lines = products.map(p => {
-    const label = p.slug ? `[${p.nome}](/produto/${p.slug})` : `**${p.nome}**`;
+    const displayName = cleanDisplayName(p);
+    const label = p.slug ? `[${displayName}](/produto/${p.slug})` : `**${displayName}**`;
     const sizeLabel = p.size ? ` (${p.size})` : "";
     return `• ${label}${sizeLabel}${p.precoPix ? ` — PIX: ${p.precoPix}` : ""}`;
   });

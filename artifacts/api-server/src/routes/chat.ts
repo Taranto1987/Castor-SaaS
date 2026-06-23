@@ -189,6 +189,11 @@ router.post("/", async (req, res) => {
       });
 
       // Pass 2: stream final answer with tool results injected
+      const formattingReminder: Anthropic.Messages.TextBlockParam = {
+        type: "text",
+        text: "LEMBRETE: ao responder, use 'familyName' (não 'nome') e formate produtos como • [familyName](/produto/slug) (Tamanho) — PIX: R$ X.XXX. Remova 'Colchão Castor' do início. Máximo 3 produtos com bullets (•).",
+      };
+
       let pass2Text = "";
       try {
         const stream2 = client.messages.stream({
@@ -198,7 +203,7 @@ router.post("/", async (req, res) => {
           messages: [
             ...chatMessages,
             { role: "assistant" as const, content: firstResponse.content },
-            { role: "user" as const, content: toolResults },
+            { role: "user" as const, content: [...toolResults, formattingReminder] },
           ],
           // No tools on second call — prevents recursion
         }, { signal: ac.signal });
