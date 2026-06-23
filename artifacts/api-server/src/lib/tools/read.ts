@@ -16,6 +16,7 @@ export interface ProductResult {
   altura: string | null;
   size: string | null;
   familySlug: string | null;
+  familyName: string | null;
   disponivel: boolean;
   encomenda: boolean;
   slug: string | null;
@@ -98,6 +99,7 @@ export async function searchProducts(params: {
     altura: p.altura ?? null,
     size: p.size ?? null,
     familySlug: p.familySlug ?? null,
+    familyName: p.familyName ?? null,
     disponivel: p.disponivel ?? true,
     encomenda: p.encomenda ?? false,
     slug: p.slug ?? null,
