@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
-import { motion } from "framer-motion";
+import { motion, AnimatePresence } from "framer-motion";
 import { Link } from "wouter";
-import { MessageCircle, Star, MapPin, ChevronRight, Moon, Shield, Zap, Wind, RotateCcw, Award, BedDouble, Package, Box, Layers, Tag } from "lucide-react";
+import { MessageCircle, Star, MapPin, ChevronRight, Moon, Shield, Zap, Wind, RotateCcw, Award, BedDouble, Package, Box, Layers, Tag, Brain, CheckCircle2, Sparkles, X, Activity } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import MapaSonoModal from "@/components/MapaSonoModal";
 import { trackWhatsAppClick, trackPageView } from "@/lib/tracking";
@@ -67,6 +67,7 @@ function getBestVariant(variants: CatalogVariant[]): CatalogVariant | null {
 
 export default function Landing() {
   const [showMapa, setShowMapa] = useState(false);
+  const [showCiencia, setShowCiencia] = useState(false);
   const { lojaId, selecionarLoja, detectarPorLocalizacao } = useLoja();
   const waInfo = useWAInfo();
 
@@ -154,9 +155,9 @@ export default function Landing() {
                 </motion.div>
 
               <motion.div {...fade(0.25)} className="flex flex-col sm:flex-row gap-3 justify-center md:justify-start">
-                <button onClick={() => setShowMapa(true)} className="flex items-center justify-center gap-2 bg-red-600 hover:bg-red-500 text-white font-extrabold px-7 py-3.5 rounded-2xl transition-all shadow-xl shadow-red-900/40 active:scale-95 text-sm">
-                  <Moon className="w-5 h-5" />
-                  Descobrir meu colchão ideal
+                <button onClick={() => setShowCiencia(true)} className="flex items-center justify-center gap-2 bg-red-600 hover:bg-red-500 text-white font-extrabold px-7 py-3.5 rounded-2xl transition-all shadow-xl shadow-red-900/40 active:scale-95 text-sm">
+                  <Brain className="w-5 h-5" />
+                  Descobrir meu perfil do sono
                 </button>
                 <Link href="/catalogo" className="flex items-center justify-center gap-2 bg-white/10 hover:bg-white/20 border border-white/20 text-white font-bold px-7 py-3.5 rounded-2xl transition-all text-sm">
                   Ver catálogo <ChevronRight className="w-4 h-4" />
@@ -288,29 +289,39 @@ export default function Landing() {
         </div>
       </section>
 
-      {/* ── MAPA DO SONO CTA ─────────────────────────────────────────────── */}
-      <section className="bg-gradient-to-r from-red-700 to-red-900 text-white py-16">
-        <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex flex-col md:flex-row items-center gap-8">
-            <div className="flex-shrink-0">
-              <div className="w-20 h-20 rounded-2xl overflow-hidden border-2 border-white/20 shadow-xl">
-                <img src={lojaId === 2 ? "/marcela-avatar.webp" : "/thalles-avatar.webp"} alt={waInfo.contato} className="w-full h-full object-cover object-top" loading="lazy" />
-              </div>
-            </div>
+      {/* ── CIÊNCIA DO SONO CTA ─────────────────────────────────────────── */}
+      <section className="bg-gradient-to-br from-slate-900 via-blue-950 to-slate-900 text-white py-16 relative overflow-hidden">
+        <div className="absolute inset-0 opacity-[0.06]" style={{
+          backgroundImage: "radial-gradient(circle at 20% 50%, rgba(59,130,246,0.3) 0%, transparent 50%), radial-gradient(circle at 80% 50%, rgba(139,92,246,0.2) 0%, transparent 50%)"
+        }} />
+        <div className="relative max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="flex flex-col md:flex-row items-center gap-10">
             <div className="flex-1 text-center md:text-left">
-              <motion.p {...fade(0)} className="text-red-200 text-sm font-bold uppercase tracking-wider mb-2">Exclusivo · Castor {waInfo.loja}</motion.p>
+              <motion.div {...fade(0)} className="inline-flex items-center gap-2 bg-blue-500/20 border border-blue-400/30 rounded-full px-4 py-1.5 text-blue-300 text-xs font-bold uppercase tracking-wider mb-4">
+                <Activity className="w-3.5 h-3.5" /> Ciência do Sono
+              </motion.div>
               <motion.h2 {...fade(0.1)} className="text-2xl md:text-3xl font-black leading-tight mb-3">
-                Mapa do Sono com o Especialista {waInfo.contato}
+                Entenda seu sono.<br />
+                <span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-violet-400">Transforme seus dias.</span>
               </motion.h2>
-              <motion.p {...fade(0.2)} className="text-red-100 text-base leading-relaxed max-w-lg">
-                Dormir mal, sentir desconforto ao acordar ou ter calor à noite são sinais de desalinhamento entre seu corpo e o colchão.
-                <br /><br />
-                Este diagnóstico de engenharia do sono analisa seu perfil e determina com precisão o colchão ideal — promovendo alinhamento da coluna, redistribuição de pressão e conforto térmico.
+              <motion.p {...fade(0.15)} className="text-slate-300 text-base leading-relaxed max-w-lg mb-4">
+                Seu corpo é único. Seu sono também. Nossa inteligência analisa seu biotipo, postura, peso, dores e hábitos de descanso para identificar a solução mais compatível com você.
               </motion.p>
+              <motion.div {...fade(0.2)} className="flex flex-wrap gap-3 justify-center md:justify-start text-sm">
+                {[
+                  "Personalização inteligente",
+                  "Baseado em evidências",
+                  "Resultado em 2 min",
+                ].map(item => (
+                  <span key={item} className="flex items-center gap-1.5 text-blue-200/80">
+                    <CheckCircle2 className="w-4 h-4 text-blue-400" /> {item}
+                  </span>
+                ))}
+              </motion.div>
             </div>
-            <motion.div {...fade(0.3)} className="flex-shrink-0">
-              <button onClick={() => setShowMapa(true)} className="flex items-center gap-2 bg-white text-red-700 font-extrabold px-7 py-4 rounded-2xl shadow-xl hover:bg-red-50 transition-all active:scale-95 text-base whitespace-nowrap">
-                <Moon className="w-5 h-5" /> Fazer o mapa agora
+            <motion.div {...fade(0.25)} className="flex-shrink-0">
+              <button onClick={() => setShowCiencia(true)} className="flex items-center gap-2 bg-white text-slate-900 font-extrabold px-7 py-4 rounded-2xl shadow-xl hover:bg-blue-50 transition-all active:scale-95 text-base whitespace-nowrap">
+                <Sparkles className="w-5 h-5 text-blue-600" /> Começar avaliação gratuita
               </button>
             </motion.div>
           </div>
@@ -514,6 +525,111 @@ export default function Landing() {
           </div>
         </div>
       </section>
+
+      {/* ── MODAL CIÊNCIA DO SONO (intro) ───────────────────────────────── */}
+      <AnimatePresence>
+        {showCiencia && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm"
+            onClick={() => setShowCiencia(false)}
+          >
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 20 }}
+              transition={{ duration: 0.3 }}
+              className="relative bg-white rounded-3xl max-w-lg w-full max-h-[90vh] overflow-y-auto shadow-2xl"
+              onClick={e => e.stopPropagation()}
+            >
+              <button
+                onClick={() => setShowCiencia(false)}
+                className="absolute top-4 right-4 z-10 w-8 h-8 rounded-full bg-slate-100 hover:bg-slate-200 flex items-center justify-center transition-colors"
+              >
+                <X className="w-4 h-4 text-slate-500" />
+              </button>
+
+              {/* Header */}
+              <div className="bg-gradient-to-br from-slate-900 via-blue-950 to-slate-900 rounded-t-3xl px-6 pt-8 pb-6 text-center">
+                <div className="inline-flex items-center gap-2 bg-blue-500/20 border border-blue-400/30 rounded-full px-4 py-1.5 text-blue-300 text-xs font-bold uppercase tracking-wider mb-4">
+                  <Activity className="w-3.5 h-3.5" /> Ciência do Sono
+                </div>
+                <h2 className="text-2xl font-black text-white leading-tight mb-2">
+                  Entenda seu sono.<br />
+                  <span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-violet-400">Transforme seus dias.</span>
+                </h2>
+                <p className="text-slate-400 text-sm">Seu corpo é único. Seu sono também.</p>
+              </div>
+
+              <div className="px-6 py-6 space-y-4">
+                {/* Card 1 — Descoberta */}
+                <div className="bg-gradient-to-br from-blue-50 to-violet-50 border border-blue-100 rounded-2xl p-5">
+                  <div className="flex items-center gap-2 mb-3">
+                    <div className="w-8 h-8 rounded-xl bg-blue-100 flex items-center justify-center">
+                      <Brain className="w-4.5 h-4.5 text-blue-600" />
+                    </div>
+                    <span className="text-xs font-bold text-blue-600 uppercase tracking-wider">Descoberta</span>
+                  </div>
+                  <p className="text-slate-800 text-sm leading-relaxed mb-3">
+                    Nossa inteligência analisa seu <strong>biotipo, postura, peso, dores, temperatura corporal</strong> e hábitos de descanso para identificar a solução mais compatível com você.
+                  </p>
+                  <div className="flex flex-wrap gap-2 text-xs text-slate-500">
+                    {["Análise personalizada", "Biotipo e medidas", "Dores e desconfortos", "Hábitos e qualidade do sono"].map(item => (
+                      <span key={item} className="flex items-center gap-1 bg-white/80 border border-blue-100 px-2 py-1 rounded-lg">
+                        <CheckCircle2 className="w-3 h-3 text-blue-500" /> {item}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Card 2 — Autoridade */}
+                <div className="bg-slate-50 border border-slate-200 rounded-2xl p-5">
+                  <div className="flex items-center gap-2 mb-3">
+                    <div className="w-8 h-8 rounded-xl bg-violet-100 flex items-center justify-center">
+                      <Sparkles className="w-4.5 h-4.5 text-violet-600" />
+                    </div>
+                    <span className="text-xs font-bold text-violet-600 uppercase tracking-wider">Recomendação inteligente</span>
+                  </div>
+                  <p className="text-slate-700 text-sm leading-relaxed mb-3">
+                    Não mostramos primeiro um colchão. <strong>Primeiro entendemos você.</strong> Depois nossa IA cruza dezenas de variáveis para indicar a solução mais adequada ao seu perfil.
+                  </p>
+                  <div className="space-y-2">
+                    {[
+                      "Personalização inteligente",
+                      "Baseado em evidências",
+                      "Resultado em menos de 2 minutos",
+                      "Recomendação imparcial",
+                    ].map(item => (
+                      <div key={item} className="flex items-center gap-2 text-sm text-slate-600">
+                        <CheckCircle2 className="w-4 h-4 text-green-500 shrink-0" />
+                        {item}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                {/* CTA */}
+                <button
+                  onClick={() => {
+                    setShowCiencia(false);
+                    setShowMapa(true);
+                  }}
+                  className="w-full flex items-center justify-center gap-2 bg-gradient-to-r from-blue-600 to-violet-600 hover:from-blue-500 hover:to-violet-500 text-white font-extrabold py-4 rounded-2xl shadow-lg shadow-blue-500/25 transition-all active:scale-[0.98] text-base"
+                >
+                  <Sparkles className="w-5 h-5" />
+                  Começar avaliação gratuita
+                </button>
+
+                <p className="text-center text-xs text-slate-400">
+                  Tudo começa com o autoconhecimento. Sem compromisso.
+                </p>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* ── MODAL MAPA DO SONO ─────────────────────────────────────────────── */}
       <MapaSonoModal open={showMapa} onClose={() => setShowMapa(false)} />
