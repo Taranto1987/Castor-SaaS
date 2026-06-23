@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo, Fragment } from "react";
-import { Search, Loader2, PackageX, MessageCircle, Moon, Tag, X } from "lucide-react";
+import { Search, PackageX, MessageCircle, Moon, Tag, X } from "lucide-react";
 import { useLocation, useSearch } from "wouter";
 import { motion, AnimatePresence } from "framer-motion";
 import { useQuery } from "@tanstack/react-query";
@@ -13,6 +13,7 @@ import type { ProductSize } from "@/utils/normalizeSize";
 import { groupProducts } from "@/utils/groupProducts";
 import type { ProductGroup, Variant, CatalogoProduto } from "@/utils/groupProducts";
 import { trackPageView, trackCatalogoWhatsApp, trackCatalogoView } from "@/lib/tracking";
+import { CatalogFilters } from "@/components/CatalogFilters";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -92,7 +93,18 @@ function toProductGroup(family: CatalogFamily): ProductGroup {
     categoria: family.category,
     variants,
     hasSizes: variants.length > 1,
+    ranking: family.ranking,
   };
+}
+
+function parseMinPrice(variants: CatalogVariant[]): number {
+  for (const v of variants) {
+    if (v.precoPix) {
+      const num = parseFloat(v.precoPix.replace(/[^0-9,]/g, "").replace(",", "."));
+      if (!isNaN(num)) return num;
+    }
+  }
+  return Infinity;
 }
 
 // ── Page ──────────────────────────────────────────────────────────────────────
@@ -105,6 +117,10 @@ export default function Catalogo() {
   const waInfo = useWAInfo();
   const { lojaId } = useLoja();
   const avatarSrc = lojaId === 2 ? "/marcela-avatar.webp" : "/thalles-avatar.webp";
+
+  const [filterSize, setFilterSize] = useState<ProductSize | null>(null);
+  const [filterAvailability, setFilterAvailability] = useState<"all" | "disponivel" | "encomenda">("all");
+  const [sortBy, setSortBy] = useState<"ranking" | "price-asc" | "price-desc">("ranking");
 
   const [nudge, setNudge] = useState<"outlet" | "mapa" | null>(null);
 
@@ -184,7 +200,7 @@ export default function Catalogo() {
     return [...ordered, ...others, "outlet", "Todas"];
   }, [allFamilies]);
 
-  // ── Client-side filter: category + search ────────────────────────────────
+  // ── Client-side filter: category + search + advanced filters ─────────────
   const groups = useMemo<ProductGroup[]>(() => {
     if (activeCategory === "outlet") {
       return groupProducts(outletProducts);
@@ -201,8 +217,29 @@ export default function Catalogo() {
       filtered = filtered.filter(f => f.name.toLowerCase().includes(q));
     }
 
-    return filtered.map(toProductGroup);
-  }, [allFamilies, activeCategory, debouncedSearch, outletProducts]);
+    if (filterSize) {
+      filtered = filtered.filter(f => f.availableSizes.includes(filterSize));
+    }
+
+    if (filterAvailability === "disponivel") {
+      filtered = filtered.filter(f => f.variants.some(v => v.disponivel && !v.encomenda));
+    } else if (filterAvailability === "encomenda") {
+      filtered = filtered.filter(f => f.variants.some(v => v.encomenda));
+    }
+
+    let sorted = [...filtered];
+    if (sortBy === "ranking") {
+      sorted.sort((a, b) => a.ranking - b.ranking);
+    } else {
+      sorted.sort((a, b) => {
+        const priceA = parseMinPrice(a.variants);
+        const priceB = parseMinPrice(b.variants);
+        return sortBy === "price-asc" ? priceA - priceB : priceB - priceA;
+      });
+    }
+
+    return sorted.map(toProductGroup);
+  }, [allFamilies, activeCategory, debouncedSearch, outletProducts, filterSize, filterAvailability, sortBy]);
 
   const effectiveIsLoading = activeCategory === "outlet" ? isLoadingOutlet : isLoading;
 
@@ -275,6 +312,18 @@ export default function Catalogo() {
         </div>
       )}
 
+      {/* Advanced filters */}
+      {activeCategory !== "outlet" && (
+        <CatalogFilters
+          filterSize={filterSize}
+          setFilterSize={setFilterSize}
+          filterAvailability={filterAvailability}
+          setFilterAvailability={setFilterAvailability}
+          sortBy={sortBy}
+          setSortBy={setSortBy}
+        />
+      )}
+
       {/* Products grid */}
       {effectiveIsLoading ? (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
@@ -309,6 +358,7 @@ export default function Catalogo() {
           <p className="text-xs text-slate-400 font-medium">
             {groups.length} modelo{groups.length !== 1 ? "s" : ""} disponíveis
             {activeCategory !== "Todas" ? ` em ${CATEGORY_LABELS[activeCategory] ?? activeCategory}` : ""}
+            {(filterSize || filterAvailability !== "all" || sortBy !== "ranking") ? " (filtrado)" : ""}
           </p>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
             {groups.map((group, index) => (
@@ -339,7 +389,7 @@ export default function Catalogo() {
                   animate={{ opacity: 1, scale: 1, y: 0 }}
                   transition={{ duration: 0.3, delay: Math.min(index * 0.04, 0.4) }}
                 >
-                  <ProductCardGrouped group={group} waInfo={waInfo} isOutlet={activeCategory === "outlet"} />
+                  <ProductCardGrouped group={group} waInfo={waInfo} isOutlet={activeCategory === "outlet"} ranking={group.ranking} />
                 </motion.div>
               </Fragment>
             ))}

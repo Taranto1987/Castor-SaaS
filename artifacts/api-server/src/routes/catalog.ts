@@ -132,7 +132,7 @@ async function deriveFamiliesFromProdutos(lojaId: number): Promise<CatalogFamily
   }
 
   const all = [
-    ...grouped.sort((a, b) => a.name.localeCompare(b.name, "pt-BR")),
+    ...grouped.sort((a, b) => (a.ranking - b.ranking) || a.name.localeCompare(b.name, "pt-BR")),
     ...standalone.sort((a, b) => a.name.localeCompare(b.name, "pt-BR")),
   ];
   return all;

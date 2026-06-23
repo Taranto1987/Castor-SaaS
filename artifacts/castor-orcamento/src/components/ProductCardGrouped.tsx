@@ -12,13 +12,15 @@ interface Props {
   waInfo: WAInfo;
   className?: string;
   isOutlet?: boolean;
+  ranking?: number;
 }
 
 function isOutOfStock(v: Variant): boolean {
   return v.disponivel === false || (v.estoque !== null && v.estoque !== undefined && v.estoque === 0);
 }
 
-export function ProductCardGrouped({ group, waInfo, className, isOutlet }: Props) {
+export function ProductCardGrouped({ group, waInfo, className, isOutlet, ranking }: Props) {
+  const isTopRanked = ranking !== undefined && ranking >= 1 && ranking <= 3;
   const defaultIdx = group.hasSizes
     ? Math.max(0, group.variants.findIndex(v => v.size === "King"))
     : 0;
@@ -39,9 +41,10 @@ export function ProductCardGrouped({ group, waInfo, className, isOutlet }: Props
   return (
     <div
       className={cn(
-        "group/card relative bg-card rounded-2xl border border-border/50 overflow-hidden flex flex-col",
+        "group/card relative bg-card rounded-2xl border overflow-hidden flex flex-col",
         "shadow-sm hover:shadow-xl hover:-translate-y-1 hover:border-primary/20",
         "transition-all duration-300 ease-out",
+        isTopRanked ? "border-amber-300 shadow-amber-100/50" : "border-border/50",
         className
       )}
     >
@@ -58,6 +61,11 @@ export function ProductCardGrouped({ group, waInfo, className, isOutlet }: Props
           <span className="bg-white/90 backdrop-blur text-xs font-semibold px-2.5 py-1 rounded-full text-slate-800 shadow-sm border border-white/20">
             {v.categoria}
           </span>
+          {isTopRanked && (
+            <span className="bg-amber-500/95 backdrop-blur text-xs font-bold px-2.5 py-1 rounded-full text-white shadow-sm">
+              ⭐ Destaque
+            </span>
+          )}
           {isOutlet && (
             <span className="bg-orange-500/95 backdrop-blur text-xs font-bold px-2.5 py-1 rounded-full text-white shadow-sm">
               🔥 Outlet
