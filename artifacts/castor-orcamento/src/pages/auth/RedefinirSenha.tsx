@@ -57,7 +57,7 @@ export default function RedefinirSenha() {
       setStatus("ok");
       setMensagem(data.message ?? "Senha redefinida com sucesso!");
       const emailParam = data.email ? `?email=${encodeURIComponent(data.email)}` : "";
-      setTimeout(() => navigate(`/login${emailParam}`), 4000);
+      setTimeout(() => navigate(`/equipe${emailParam}`), 4000);
     } catch (err) {
       setStatus("error");
       setMensagem(err instanceof Error ? err.message : "Erro inesperado");
