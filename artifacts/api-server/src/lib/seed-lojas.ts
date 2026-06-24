@@ -28,18 +28,15 @@ const LOJAS_SEED = [
 
 export async function seedLojas(): Promise<void> {
   try {
-    // Use OVERRIDING SYSTEM VALUE so explicit serial IDs (1, 2) are accepted.
-    // ON CONFLICT DO NOTHING means this is idempotent — safe to run on every startup.
     for (const loja of LOJAS_SEED) {
       await db.execute(
         sql`INSERT INTO lojas (id, slug, nome, operacao, responsavel, whatsapp_numero, whatsapp_display, cidade, ativa)
             OVERRIDING SYSTEM VALUE
             VALUES (${loja.id}, ${loja.slug}, ${loja.nome}, ${loja.operacao}, ${loja.responsavel ?? null},
                     ${loja.whatsappNumero ?? null}, ${loja.whatsappDisplay ?? null}, ${loja.cidade ?? null}, ${loja.ativa})
-            ON CONFLICT (id) DO NOTHING`,
+            ON CONFLICT (id) DO UPDATE SET ativa = EXCLUDED.ativa, slug = EXCLUDED.slug, operacao = EXCLUDED.operacao`,
       );
     }
-    // Advance the serial sequence past the seeded IDs to avoid future conflicts.
     await db.execute(
       sql`SELECT setval(pg_get_serial_sequence('lojas', 'id'), GREATEST((SELECT MAX(id) FROM lojas), 1))`,
     );
