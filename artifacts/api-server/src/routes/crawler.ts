@@ -1,20 +1,10 @@
-import { Router, type IRouter, type Request, type Response, type NextFunction } from "express";
+import { Router, type IRouter } from "express";
 import { db, extractFamilyInfo } from "@workspace/db";
 import { produtosTable, crawlerStatusTable, lojasTable } from "@workspace/db/schema";
 import { eq, lt, and, sql } from "drizzle-orm";
 import axios from "axios";
-import { getSession, isDono } from "../lib/sessions";
-
-const router: IRouter = Router();
-
-function requireDono(req: Request, res: Response, next: NextFunction) {
-  const token = (req.headers["x-session-token"] || "") as string;
-  if (!token) { res.status(401).json({ error: "Sessão não encontrada" }); return; }
-  const session = getSession(token);
-  if (!session) { res.status(401).json({ error: "Sessão inválida ou expirada" }); return; }
-  if (!isDono(session)) { res.status(403).json({ error: "Acesso restrito ao dono" }); return; }
-  next();
-}
+import { requireDono } from "../middlewares/auth";
+import { formatBRL } from "../services/shared/currency";
 
 let crawlerRunning = false;
 
@@ -46,10 +36,6 @@ interface GqlProduct {
   meta_title?: string | null;
   meta_description?: string | null;
   custom_attributes?: Array<{ attribute_code: string; value: string }> | null;
-}
-
-function formatBRL(value: number): string {
-  return `R$ ${value.toFixed(2).replace(".", ",").replace(/\B(?=(\d{3})+(?!\d))/g, ".")}`;
 }
 
 // Strip HTML para texto legível (reaproveitado na extração de medidas/altura e ficha).

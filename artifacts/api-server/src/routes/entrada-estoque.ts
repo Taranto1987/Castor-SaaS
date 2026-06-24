@@ -1,25 +1,13 @@
-import { Router, type IRouter, type Request, type Response, type NextFunction } from "express";
+import { Router, type IRouter, type Request, type Response } from "express";
 import multer from "multer";
 import { db } from "@workspace/db";
 import { produtosTable, entradasEstoqueTable, itensEntradaEstoqueTable } from "@workspace/db/schema";
 import { eq, ilike, or, desc, and } from "drizzle-orm";
-import { getSession, isDono } from "../lib/sessions";
+import { requireDono, type AuthRequest } from "../middlewares/auth";
 import { parseNFe } from "../lib/nfe-parser";
 import { suggestMarkup } from "../lib/markup-engine";
 
 const router: IRouter = Router();
-
-// ── Auth ───────────────────────────────────────────────────────────────────────
-
-function requireDono(req: Request, res: Response, next: NextFunction) {
-  const token = (req.headers["x-session-token"] || "") as string;
-  if (!token) { res.status(401).json({ error: "Não autenticado" }); return; }
-  const session = getSession(token);
-  if (!session) { res.status(401).json({ error: "Sessão inválida" }); return; }
-  if (!isDono(session)) { res.status(403).json({ error: "Acesso restrito ao proprietário" }); return; }
-  (req as Request & { lojaId: number }).lojaId = session.lojaId;
-  next();
-}
 
 router.use(requireDono);
 
@@ -168,7 +156,7 @@ router.post("/extrair-xml", uploadXml.single("arquivo"), async (req, res) => {
 // ── /match — fuzzy matching + markup suggestion ───────────────────────────────
 
 router.post("/match", async (req, res) => {
-  const lojaId = (req as Request & { lojaId: number }).lojaId;
+  const lojaId = (req as AuthRequest).session!.lojaId;
   try {
     const { itens } = req.body as { itens: ItemExtraido[] };
     if (!itens || !Array.isArray(itens)) { res.status(400).json({ error: "Lista de itens é obrigatória" }); return; }
@@ -235,7 +223,7 @@ router.post("/match", async (req, res) => {
 // ── /confirmar — registra entrada + atualiza estoque + pricing ────────────────
 
 router.post("/confirmar", async (req, res) => {
-  const lojaId = (req as Request & { lojaId?: number }).lojaId ?? 1;
+  const lojaId = (req as AuthRequest).session!.lojaId;
 
   try {
     const { fornecedor, numeroNF, cnpjFornecedor, itens } = req.body as {
@@ -329,7 +317,7 @@ router.post("/confirmar", async (req, res) => {
 // ── /historico ────────────────────────────────────────────────────────────────
 
 router.get("/historico", async (req, res) => {
-  const lojaId = (req as Request & { lojaId: number }).lojaId;
+  const lojaId = (req as AuthRequest).session!.lojaId;
   try {
     const entradas = await db
       .select()
@@ -355,7 +343,7 @@ router.get("/historico", async (req, res) => {
 // ── /produtos/buscar ──────────────────────────────────────────────────────────
 
 router.get("/produtos/buscar", async (req, res) => {
-  const lojaId = (req as Request & { lojaId: number }).lojaId;
+  const lojaId = (req as AuthRequest).session!.lojaId;
   try {
     const { q } = req.query;
     if (!q || typeof q !== "string") { res.status(400).json({ error: "Parâmetro q obrigatório" }); return; }

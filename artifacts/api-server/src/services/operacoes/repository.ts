@@ -11,17 +11,7 @@ import {
 import { and, eq, desc, ne, sql, lte } from "drizzle-orm";
 import { resolveOrCreateCustomerByPhone } from "../memory/identity";
 import { logEvent } from "../../lib/log-event";
-
-/** Parse a pt-BR formatted currency string ("R$ 4.699,00") into a number. */
-export function parseBRL(v?: string | null): number {
-  if (!v) return 0;
-  const cleaned = v
-    .replace(/[^0-9,.-]/g, "")
-    .replace(/\.(?=\d{3})/g, "") // drop thousands separators
-    .replace(",", ".");
-  const n = parseFloat(cleaned);
-  return isNaN(n) ? 0 : n;
-}
+import { parseBRL } from "../shared/currency";
 
 function deriveProximaAcao(score: number, status: string): string {
   if (status === "GANHO" || status === "PERDIDO") return "Concluído";

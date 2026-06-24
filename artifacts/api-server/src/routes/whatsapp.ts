@@ -22,7 +22,7 @@ const router = Router();
 // In-memory mutex: prevents concurrent /connect calls for the same tenant
 const pendingConnects = new Set<number>();
 
-function requireDono(req: Request, res: Response): Session | null {
+function requireDonoSession(req: Request, res: Response): Session | null {
   const token = (req.headers["x-session-token"] ?? "") as string;
   if (!token) {
     res.status(401).json({ error: "Não autenticado" });
@@ -51,7 +51,7 @@ async function getLojaSlug(lojaId: number): Promise<string | null> {
 
 // POST /api/whatsapp/connect — start connection, return QR code
 router.post("/connect", async (req: Request, res: Response) => {
-  const session = requireDono(req, res);
+  const session = requireDonoSession(req, res);
   if (!session) return;
 
   const { lojaId } = session;
@@ -92,7 +92,7 @@ router.post("/connect", async (req: Request, res: Response) => {
 
 // GET /api/whatsapp/status — returns DB status, polls Evolution if active
 router.get("/status", async (req: Request, res: Response) => {
-  const session = requireDono(req, res);
+  const session = requireDonoSession(req, res);
   if (!session) return;
 
   const { lojaId } = session;
@@ -127,7 +127,7 @@ router.get("/status", async (req: Request, res: Response) => {
 
 // DELETE /api/whatsapp/disconnect — graceful logout, keeps instance for reconnect
 router.delete("/disconnect", async (req: Request, res: Response) => {
-  const session = requireDono(req, res);
+  const session = requireDonoSession(req, res);
   if (!session) return;
 
   const { lojaId } = session;
