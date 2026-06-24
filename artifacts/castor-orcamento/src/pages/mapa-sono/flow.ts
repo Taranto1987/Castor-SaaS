@@ -52,10 +52,10 @@ export const OPCOES_SIM_NAO: Opt[] = [
 ];
 
 export const OPCOES_POSICAO: Opt[] = [
-  { value: "lado",   label: "De lado",          Icon: Activity },
-  { value: "costas", label: "De costas",        Icon: User },
-  { value: "brucos", label: "De bruços",        Icon: Heart },
-  { value: "varia",  label: "Varia de posição", Icon: RefreshCw },
+  { value: "lado",   label: "DE LADO",           Icon: Activity,  subtitulo: "Side Sleeper" },
+  { value: "brucos", label: "DE BRUÇOS",          Icon: Heart,     subtitulo: "Prone / Belly Sleeper" },
+  { value: "costas", label: "DE COSTAS",          Icon: User,      subtitulo: "Back Sleeper" },
+  { value: "varia",  label: "VARIA DE POSIÇÃO",   Icon: RefreshCw, subtitulo: "Dynamic Adjust" },
 ];
 
 // "nenhuma" é exclusiva (limpa as demais).
