@@ -14,9 +14,7 @@ import {
   LineChart, Line, Legend
 } from "recharts";
 
-function formatBRL(val: number) {
-  return val.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
-}
+import { formatBRL } from "@/utils/currency";
 
 function finGet(url: string, token: string) {
   return fetch(url, {

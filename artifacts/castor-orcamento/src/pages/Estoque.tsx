@@ -40,9 +40,7 @@ interface PricingConfig {
   outletMarkupPercent: number;
 }
 
-function formatBRL(v: number) {
-  return `R$ ${v.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
-}
+import { formatBRL } from "@/utils/currency";
 
 function calcPreview(precoBase: number, supplierDiscount: number, markup: number) {
   const factoryCost = precoBase * (1 - supplierDiscount / 100);

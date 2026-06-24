@@ -20,14 +20,7 @@ interface RankedProduct {
   ultimoInteresse: string | null;
 }
 
-function parseBRL(str?: string | null): number {
-  if (!str) return 0;
-  return parseFloat(str.replace(/[R$\s]/g, "").replace(/\./g, "").replace(",", ".")) || 0;
-}
-
-function formatBRL(val: number) {
-  return val.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
-}
+import { formatBRL, parseBRL } from "@/utils/currency";
 
 function formatDate(d: string | null): string {
   if (!d) return "—";

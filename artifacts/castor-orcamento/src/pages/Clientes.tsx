@@ -108,14 +108,7 @@ function diasBadge(dias: number) {
   return { text: `${dias}d`, cls: "bg-red-50 text-red-700 border-red-200" };
 }
 
-function formatBRL(val: number) {
-  return val.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
-}
-
-function parseBRL(str?: string | null): number {
-  if (!str) return 0;
-  return parseFloat(str.replace(/[R$\s]/g, "").replace(/\./g, "").replace(",", ".")) || 0;
-}
+import { formatBRL, parseBRL } from "@/utils/currency";
 
 function makeWaUrl(whatsapp: string, nome: string): string {
   const digits = whatsapp.replace(/\D/g, "");
