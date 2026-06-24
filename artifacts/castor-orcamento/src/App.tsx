@@ -115,7 +115,7 @@ function AppRoutes() {
           <PublicLayout><Catalogo /></PublicLayout>
         </Route>
         <Route path="/mapa-sono">
-          <PublicLayout><MapaSono /></PublicLayout>
+          <MapaSono />
         </Route>
         <Route path="/produto/:slug">
           <ProdutoDetalhe />

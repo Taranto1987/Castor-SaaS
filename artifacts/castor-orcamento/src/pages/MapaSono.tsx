@@ -248,45 +248,6 @@ function Wordmark({ compact = false }: { compact?: boolean }) {
   );
 }
 
-// Boneco biomecânico — silhueta reclinada, coluna em vermelho, pontos de pressão azuis.
-function BiomechanicalFigure() {
-  return (
-    <svg viewBox="0 0 220 90" className="w-full h-auto" aria-hidden>
-      <defs>
-        <linearGradient id="bf-spine" x1="0" y1="0" x2="1" y2="0">
-          <stop offset="0" stopColor={RED} stopOpacity="0.4" />
-          <stop offset="0.5" stopColor={RED} />
-          <stop offset="1" stopColor={RED} stopOpacity="0.4" />
-        </linearGradient>
-      </defs>
-      {/* linha de base / colchão */}
-      <line x1="6" y1="78" x2="214" y2="78" stroke="rgba(255,255,255,0.10)" strokeWidth="1.5" />
-      {/* silhueta reclinada (cabeça → tronco → pernas) */}
-      <path
-        d="M22 58 a9 9 0 1 1 0.1 0 M31 62 C46 56 62 60 86 58 C104 56 120 60 142 60 C168 60 188 64 204 70"
-        fill="none" stroke="rgba(255,255,255,0.85)" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"
-      />
-      {/* contorno inferior do corpo */}
-      <path
-        d="M31 70 C52 70 70 70 92 70 C116 70 138 70 160 72 C178 73 192 74 204 76"
-        fill="none" stroke="rgba(255,255,255,0.30)" strokeWidth="1.6" strokeLinecap="round"
-      />
-      {/* coluna destacada */}
-      <path
-        d="M34 60 C58 53 80 56 104 55 C128 54 150 57 172 62"
-        fill="none" stroke="url(#bf-spine)" strokeWidth="3.4" strokeLinecap="round"
-        style={{ filter: `drop-shadow(0 0 5px ${RED}aa)` }}
-      />
-      {/* pontos de pressão (ombro / quadril) */}
-      {[[60, 56], [120, 55]].map(([cx, cy], i) => (
-        <g key={i}>
-          <circle cx={cx} cy={cy} r="6" fill="none" stroke={BLUE} strokeWidth="1.4" opacity="0.5" />
-          <circle cx={cx} cy={cy} r="2.6" fill={BLUE} style={{ filter: `drop-shadow(0 0 4px ${BLUE})` }} />
-        </g>
-      ))}
-    </svg>
-  );
-}
 
 // Matriz 2×2 de conflitos biomecânicos com mira-laser azul posicionada pelo perfil.
 function QuadrantMatrix({ r }: { r: Respostas }) {
@@ -762,8 +723,7 @@ function DiagnosticoPanel({ r }: { r: Respostas }) {
   );
 }
 
-// ── Biometria — DASHBOARD analítico (mockup: análise + prioridades + sliders) ───
-// Os painéis recalculam ao vivo conforme os sliders mudam (merge respostas + estado local).
+// ── Biometria — sliders compactos com indicador de IMC ──────────────────────────
 function Biometria({ pessoa, respostas, onContinuar }: {
   pessoa: "A" | "B"; respostas: Respostas; onContinuar: (patch: Partial<Respostas>) => void;
 }) {
@@ -771,32 +731,22 @@ function Biometria({ pessoa, respostas, onContinuar }: {
   const [peso, setPeso]     = useState(pessoa === "A" ? respostas.pesoA : respostas.pesoB);
   const [altura, setAltura] = useState(pessoa === "A" ? respostas.alturaA : respostas.alturaB);
   const imcVal = peso / Math.pow((altura || 170) / 100, 2);
-
-  // Perfil "ao vivo" para os gráficos refletirem o que está sendo arrastado agora.
-  const liveR: Respostas = pessoa === "A"
-    ? { ...respostas, idadeA: idade, pesoA: peso, alturaA: altura }
-    : { ...respostas, idadeB: idade, pesoB: peso, alturaB: altura };
+  const imcFaixa = imcVal < 18.5 ? "Leve" : imcVal < 25 ? "Normal" : imcVal < 30 ? "Elevado" : "Alto";
 
   return (
     <>
-      {/* boneco biomecânico + leitura de IMC */}
-      <GlassCard className="px-5 py-4 mb-4" accent="blue">
-        <div className="flex items-center justify-between mb-1">
-          <span className="text-[10px] font-bold uppercase tracking-[0.18em]" style={{ color: "rgba(255,255,255,0.55)" }}>Mapa biomecânico</span>
-          <span className="text-[10px] font-bold tabular-nums px-2 py-0.5 rounded-md"
-            style={{ color: BLUE, background: `${BLUE}1f`, border: `1px solid ${BLUE}3a` }}>IMC {imcVal.toFixed(1)}</span>
+      {/* Indicador compacto de IMC */}
+      <div className="flex items-center justify-center gap-3 mb-5">
+        <div className="flex items-center gap-2 px-3 py-1.5 rounded-full"
+          style={{ background: `${BLUE}12`, border: `1px solid ${BLUE}25` }}>
+          <span className="text-[11px] font-bold uppercase tracking-widest" style={{ color: "rgba(255,255,255,0.55)" }}>IMC</span>
+          <span className="text-sm font-bold tabular-nums" style={{ color: BLUE }}>{imcVal.toFixed(1)}</span>
+          <span className="text-[10px] font-medium" style={{ color: MUTED }}>· {imcFaixa}</span>
         </div>
-        <BiomechanicalFigure />
-      </GlassCard>
+      </div>
 
-      {/* painéis analíticos ao vivo */}
-      <ConflitoPanel r={liveR} />
-      <PrioridadesPanel r={liveR} />
-      <DiagnosticoPanel r={liveR} />
-
-      {/* inputs biométricos */}
+      {/* Sliders */}
       <GlassCard className="px-5 py-5 mb-1">
-        <PanelHead>Biometria</PanelHead>
         <NumberPicker label="Idade"  value={idade}  min={15}  max={90}  format={v => `${v} anos`} onChange={setIdade} />
         <NumberPicker label="Peso"   value={peso}   min={40}  max={180} format={v => `${v} kg`}   onChange={setPeso} />
         <NumberPicker label="Altura" value={altura} min={140} max={210} format={v => `${v} cm`}   onChange={setAltura} />
