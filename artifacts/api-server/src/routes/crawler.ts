@@ -6,6 +6,8 @@ import axios from "axios";
 import { requireDono } from "../middlewares/auth";
 import { formatBRL } from "../services/shared/currency";
 
+const router: IRouter = Router();
+
 let crawlerRunning = false;
 
 const gql = axios.create({
