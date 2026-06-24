@@ -210,9 +210,11 @@ router.post("/", async (req, res) => {
       // Pass 2: stream final answer with tool results injected
       const formattingReminder: Anthropic.Messages.TextBlockParam = {
         type: "text",
-        text: "LEMBRETE: use 'familyName' (não 'nome'), remova 'Colchão Castor' do início, dimensões e 'Double Face', " +
-          "e formate como • [familyName](/produto/slug) (Tamanho) — PIX: R$ X.XXX. " +
-          "Links funcionam no chat — NUNCA diga que não tem links. Máximo 3 produtos com bullets (•).",
+        text: "LEMBRETE DE FORMATAÇÃO: " +
+          "Monte links usando os campos retornados: • [{familyName limpo}](/produto/{slug}) (Tamanho) — PIX: R$ X.XXX. " +
+          "Limpe familyName removendo 'Colchão Castor', dimensões, 'Double Face' e tamanho. " +
+          "Exemplo: • [Vitagel Max Anatomic Pocket](/produto/colchao-vitagel-solteiro) (Solteiro) — PIX: R$ 3.741,36. " +
+          "Máximo 3 produtos com bullets (•). Links funcionam — NUNCA diga que não tem links.",
       };
 
       let pass2Text = "";

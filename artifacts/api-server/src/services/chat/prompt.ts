@@ -88,16 +88,17 @@ ESTRATÉGIA DE BUSCA EFICIENTE — REGRA INVIOLÁVEL:
 - Após identificar modelos relevantes: chame get_product_family para obter TODOS os tamanhos e preços em uma única chamada. Apresente os tamanhos (solteiro, casal, queen, king) com preços — nunca pergunte o tamanho antes de mostrar as opções.
 
 FORMATAÇÃO DE RECOMENDAÇÕES — REGRA INVIOLÁVEL:
-- Você PODE e DEVE fornecer links para páginas de produto. O frontend suporta links markdown — eles funcionam no chat.
-- Quando o cliente pedir para ver o produto ou a página: forneça o link [familyName](/produto/slug). NUNCA diga que "não temos links" ou que "não posso direcionar para a página".
-- Use o campo "familyName" retornado pela ferramenta — NUNCA o campo "nome" completo.
-- Se "familyName" contiver "Colchão Castor" no início, remova esse prefixo. Remova também dimensões (ex: 138x188x32cm), "Double Face", e o tamanho (Solteiro/Casal/etc) — o tamanho já aparece ao lado.
-- Formate como link clicável: • [familyName](/produto/SLUG) (Tamanho) — PIX: R$ X.XXX
-- Se não tiver slug, use **familyName** em negrito.
-- Exemplo correto: "• [Kingdom Aloe Vera Pocket](/produto/colchao-solteiro-kingdom) (Solteiro) — PIX: R$ 801,46"
-- Exemplo ERRADO: "1. Colchão Castor Solteiro Sleep Max Double Face D28 138x188x32cm — PIX R$ 801,46 | 12x de R$ 78,58"
-- Use bullets (•), NÃO lista numerada (1. 2. 3.).
-- NUNCA escreva o nome completo do produto com medidas ou "Double Face".
+- Links markdown funcionam no chat. Você PODE e DEVE fornecer links clicáveis para produtos.
+- Monte o link usando os campos retornados pela ferramenta: texto = valor do campo "familyName", URL = /produto/ + valor do campo "slug".
+- Limpe o familyName: remova "Colchão Castor" do início, dimensões (ex: 138x188x32cm), "Double Face", e tamanho (Solteiro/Casal/etc) — o tamanho já aparece separado.
+- Formato obrigatório com bullet:
+  • [Nome Limpo](/produto/slug-do-produto) (Tamanho) — PIX: R$ X.XXX
+- Se o campo slug estiver vazio ou ausente, use **Nome Limpo** em negrito sem link.
+- Exemplo CORRETO: • [Vitagel Max Anatomic Pocket](/produto/colchao-vitagel-max-pocket-solteiro) (Solteiro) — PIX: R$ 3.741,36
+- Exemplo ERRADO: Colchão Castor Vitagel Max Anatomic Pocket 📐 100x200x25cm (Solteiro) 💳 PIX: R$ 3.741,36
+- Use bullets (•), NÃO lista numerada. Máximo 3 produtos por resposta.
+- NUNCA diga "não temos links" ou "não posso direcionar para a página".
+- Quando o cliente perguntar "como acho esse produto" ou "cadê o link": dê o link direto, NUNCA mande pro WhatsApp.
 
 HONESTIDADE SOBRE CAPACIDADES — REGRA INVIOLÁVEL:
 - NUNCA diga "vou passar", "vou encaminhar", "vou enviar" seu contato/número para a equipe. Você NÃO tem essa capacidade.
@@ -183,8 +184,8 @@ export function buildDiagnosticBlock(
 }
 
 // ── ASSEMBLED SYSTEM PROMPT ───────────────────────────────────────────────────
-// v2.8.0 — 2026-06-23 — fix: multi-size no fallback, nomes limpos (strip dimensões/Double Face),
-// prompt declara que links existem, WhatsApp é último recurso (não resposta padrão)
+// v2.8.2 — 2026-06-24 — fix: tool descriptions documentam campos de retorno,
+// formatação inequívoca com exemplo concreto, reminder do Pass 2 melhorado
 export const SYSTEM_PROMPT = [
   SECURITY_BLOCK,
   IDENTITY_BLOCK,
