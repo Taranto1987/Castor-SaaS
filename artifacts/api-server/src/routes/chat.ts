@@ -31,6 +31,34 @@ function extractPhoneFromText(text: string): string | null {
   return digits ? digits[1] : null;
 }
 
+interface ToolProduct {
+  familyName: string | null;
+  slug: string | null;
+  precoPix: string | null;
+  size: string | null;
+}
+
+function cleanProductName(raw: string): string {
+  return raw
+    .replace(/^Colch[aã]o\s+Castor\s*/i, "")
+    .replace(/\s*\d+x\d+(?:x\d+)?(?:\s*cm)?/i, "")
+    .replace(/\s+Double\s+Face/i, "")
+    .replace(/\b(Solteiro|Solteir[aã]o|Casal|Queen|King)\b/gi, "")
+    .replace(/\s{2,}/g, " ")
+    .trim();
+}
+
+function formatProductLine(p: ToolProduct): string {
+  const name = cleanProductName(p.familyName ?? "");
+  if (!name) return "";
+  const sizeLabel = p.size ? ` (${p.size})` : "";
+  const price = p.precoPix ? ` — PIX: ${p.precoPix}` : "";
+  if (p.slug) {
+    return `• [${name}](/produto/${p.slug})${sizeLabel}${price}`;
+  }
+  return `• **${name}**${sizeLabel}${price}`;
+}
+
 function getAnthropicClient(): Anthropic | null {
   const apiKey = process.env.ANTHROPIC_API_KEY?.trim();
   if (!apiKey) return null;
@@ -196,25 +224,48 @@ router.post("/", async (req, res) => {
         requestId: (res.locals as Record<string, unknown>)["requestId"] as string | undefined,
       });
 
+      const toolProducts: ToolProduct[] = [];
       for (const tr of toolResults) {
         if (typeof tr.content !== "string") continue;
         try {
           const data = JSON.parse(tr.content);
           const items = Array.isArray(data) ? data : [data];
           for (const item of items) {
-            if (item?.id && typeof item.id === "number") toolProductIds.push(item.id);
+            if (!item || typeof item !== "object") continue;
+            if (item.id && typeof item.id === "number") toolProductIds.push(item.id);
+            if (item.familyName || item.nome) {
+              toolProducts.push({
+                familyName: item.familyName ?? item.nome ?? null,
+                slug: item.slug ?? null,
+                precoPix: item.precoPix ?? null,
+                size: item.size ?? null,
+              });
+            }
           }
         } catch { /* skip non-JSON */ }
       }
 
       // Pass 2: stream final answer with tool results injected
+      const formattedLines = toolProducts
+        .slice(0, 5)
+        .map(formatProductLine)
+        .filter(Boolean);
+
+      const reminderParts = [
+        "LEMBRETE — OBRIGATÓRIO:",
+        "Links markdown funcionam no chat. NUNCA diga que não tem links.",
+        "NUNCA diga 'vou passar para a equipe' ou 'vou encaminhar'. Você NÃO tem essa capacidade.",
+      ];
+      if (formattedLines.length > 0) {
+        reminderParts.push(
+          "Use EXATAMENTE este formato para os produtos (copie as linhas, escolha até 3):",
+          ...formattedLines,
+        );
+      }
+
       const formattingReminder: Anthropic.Messages.TextBlockParam = {
         type: "text",
-        text: "LEMBRETE DE FORMATAÇÃO: " +
-          "Monte links usando os campos retornados: • [{familyName limpo}](/produto/{slug}) (Tamanho) — PIX: R$ X.XXX. " +
-          "Limpe familyName removendo 'Colchão Castor', dimensões, 'Double Face' e tamanho. " +
-          "Exemplo: • [Vitagel Max Anatomic Pocket](/produto/colchao-vitagel-solteiro) (Solteiro) — PIX: R$ 3.741,36. " +
-          "Máximo 3 produtos com bullets (•). Links funcionam — NUNCA diga que não tem links.",
+        text: reminderParts.join("\n"),
       };
 
       let pass2Text = "";
