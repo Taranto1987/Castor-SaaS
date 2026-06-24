@@ -9,7 +9,9 @@ export const CASTOR_READ_TOOLS: Anthropic.Messages.Tool[] = [
     description:
       "Busca produtos do catálogo Castor por tecnologia, nome de modelo ou tamanho. " +
       "Use termos de tecnologia (pocket, bonnel, ensacadas, espuma, látex, gel) — o catálogo NÃO contém termos como 'médio', 'firme' ou 'macio'. " +
-      "Se retornar lista vazia: chame imediatamente get_catalog com category='colchoes' como fallback.",
+      "Se retornar lista vazia: chame imediatamente get_catalog com category='colchoes' como fallback. " +
+      "Retorna array com campos: familyName (nome limpo da família — use para exibição), " +
+      "slug (para montar link clicável: /produto/{slug}), precoPix, preco, parcelamento, size, medidas, id.",
     input_schema: {
       type: "object" as const,
       properties: {
@@ -30,7 +32,9 @@ export const CASTOR_READ_TOOLS: Anthropic.Messages.Tool[] = [
     name: "get_catalog",
     description:
       "Retorna o catálogo completo da loja agrupado por família de produto com preços atualizados. " +
-      "Use para mostrar todas as opções disponíveis ou filtrar por categoria.",
+      "Use para mostrar todas as opções disponíveis ou filtrar por categoria. " +
+      "Retorna famílias com campos: name (nome da família), variants[{size, precoPix, preco, parcelamento}]. " +
+      "Sem slug — use search_products se precisar de link para o produto.",
     input_schema: {
       type: "object" as const,
       properties: {
@@ -47,7 +51,8 @@ export const CASTOR_READ_TOOLS: Anthropic.Messages.Tool[] = [
     name: "get_product_family",
     description:
       "Retorna detalhes completos de uma família de produto: todos os tamanhos disponíveis, " +
-      "preços, disponibilidade e dimensões. Use quando o cliente quiser saber mais sobre um modelo específico.",
+      "preços, disponibilidade e dimensões. Use quando o cliente quiser saber mais sobre um modelo específico. " +
+      "Retorna: name, variants[{size, precoPix, preco, parcelamento, medidas, disponivel}].",
     input_schema: {
       type: "object" as const,
       properties: {
