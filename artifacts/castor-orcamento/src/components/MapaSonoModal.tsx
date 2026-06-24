@@ -52,29 +52,33 @@ export default function MapaSonoModal({ open, onClose }: Props) {
             animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.94, y: 24 }}
             transition={{ type: "spring", stiffness: 340, damping: 32 }}
-            className="relative z-10 w-full max-w-[420px] max-h-[88vh] bg-white rounded-3xl shadow-2xl flex flex-col outline-none overflow-hidden"
+            className="relative z-10 w-full max-w-[420px] max-h-[88vh] rounded-3xl shadow-2xl flex flex-col outline-none overflow-hidden"
+            style={{ background: "#0d0d0d" }}
             onClick={e => e.stopPropagation()}
           >
-            {/* Header fixo */}
-            <div className="flex items-center justify-between px-5 py-3.5 border-b border-slate-100 bg-white shrink-0">
+            {/* Header fixo — dark theme */}
+            <div className="flex items-center justify-between px-5 py-3.5 shrink-0"
+              style={{ borderBottom: "1px solid rgba(255,255,255,0.08)", background: "rgba(13,13,13,0.95)" }}>
               <div className="flex items-center gap-3">
                 <div className="relative shrink-0">
                   <img
                     src="/thalles-avatar.webp"
                     alt="Especialista"
-                    className="w-9 h-9 rounded-full object-cover object-top border-2 border-red-100"
+                    className="w-9 h-9 rounded-full object-cover object-top"
+                    style={{ border: "2px solid rgba(230,51,41,0.3)" }}
                   />
-                  <span className="absolute bottom-0 right-0 w-2.5 h-2.5 bg-green-500 border-2 border-white rounded-full" />
+                  <span className="absolute bottom-0 right-0 w-2.5 h-2.5 bg-green-500 rounded-full" style={{ border: "2px solid #0d0d0d" }} />
                 </div>
                 <div>
-                  <p className="text-sm font-extrabold text-slate-900 leading-tight">Mapa do Sono · Castor</p>
-                  <p className="text-[10px] text-green-600 font-bold">● Online agora · Diagnóstico gratuito</p>
+                  <p className="text-sm font-extrabold text-white leading-tight">Mapa do Sono · Castor</p>
+                  <p className="text-[10px] text-green-400 font-bold">● Online agora · Diagnóstico gratuito</p>
                 </div>
               </div>
               <button
                 onClick={onClose}
                 aria-label="Fechar"
-                className="w-8 h-8 flex items-center justify-center rounded-xl bg-slate-100 hover:bg-red-50 hover:text-red-600 text-slate-500 transition-all active:scale-90"
+                className="w-8 h-8 flex items-center justify-center rounded-xl transition-all active:scale-90"
+                style={{ background: "rgba(255,255,255,0.06)", color: "rgba(255,255,255,0.5)" }}
               >
                 <X className="w-4 h-4" />
               </button>

@@ -1155,6 +1155,8 @@ export default function MapaSono({ embedded = false }: MapaSonoProps) {
   const [mostrarWelcome, setMostrarWelcome] = useState(!embedded);
   const [state, dispatch] = useReducer(engineReducer, undefined, estadoInicial);
 
+  const topRef = useRef<HTMLDivElement>(null);
+
   const sessionId = useRef<string>(
     typeof crypto !== "undefined" && "randomUUID" in crypto
       ? crypto.randomUUID()
@@ -1170,6 +1172,12 @@ export default function MapaSono({ embedded = false }: MapaSonoProps) {
 
   const emitir = (evento: EventoFunil, payload?: Record<string, unknown>) =>
     emitirEventoFunil(evento, lojaId, sessionId.current, payload);
+
+  // Scroll to top on step change (works in both modal and full-page)
+  useEffect(() => {
+    if (mostrarWelcome) return;
+    topRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+  }, [state.nodeId, state.fase, mostrarWelcome]);
 
   // step_view a cada transição visível
   useEffect(() => {
@@ -1251,6 +1259,7 @@ export default function MapaSono({ embedded = false }: MapaSonoProps) {
 
   return (
     <div className={outerClass} style={{ background: BG }}>
+      <div ref={topRef} />
       <BackdropFX />
       <div className="relative z-10 flex-1 flex flex-col">
         <AnimatePresence mode="wait">
