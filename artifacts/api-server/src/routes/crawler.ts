@@ -340,8 +340,9 @@ async function executarCrawler() {
           sincronizadoEm: syncStart,
         };
 
-        try {
-          for (const lid of lojaIds) {
+        let savedAtLeastOne = false;
+        for (const lid of lojaIds) {
+          try {
             await db.insert(produtosTable).values({
               lojaId: lid,
               ...productValues,
@@ -350,10 +351,14 @@ async function executarCrawler() {
               targetWhere: sql`${produtosTable.sku} IS NOT NULL`,
               set: productValues,
             });
+            savedAtLeastOne = true;
+          } catch (err) {
+            console.error(`[Crawler] Erro ao salvar ${item.name} para loja ${lid}:`, err);
           }
+        }
+        if (savedAtLeastOne) {
           produtosColetados++;
-        } catch (err) {
-          console.error(`[Crawler] Erro ao salvar ${item.name}:`, err);
+        } else {
           erros++;
         }
 
@@ -370,12 +375,22 @@ async function executarCrawler() {
     // (ex.: coluna ausente, GraphQL fora do ar) todos os inserts falham e produtosColetados=0;
     // sem este guard, o soft-delete marcaria TODO o catálogo como indisponível.
     if (produtosColetados > 0) {
-      const softDeleted = await db
-        .update(produtosTable)
-        .set({ disponivel: false })
-        .where(lt(produtosTable.sincronizadoEm, syncStart) as ReturnType<typeof lt>)
-        .returning({ id: produtosTable.id });
-      console.log(`[Crawler] Soft-deleted ${softDeleted.length} products not seen in this sync.`);
+      let totalSoftDeleted = 0;
+      for (const lid of lojaIds) {
+        const softDeleted = await db
+          .update(produtosTable)
+          .set({ disponivel: false })
+          .where(and(
+            lt(produtosTable.sincronizadoEm, syncStart) as ReturnType<typeof lt>,
+            eq(produtosTable.lojaId, lid),
+          ))
+          .returning({ id: produtosTable.id });
+        totalSoftDeleted += softDeleted.length;
+        if (softDeleted.length > 0) {
+          console.log(`[Crawler] Soft-deleted ${softDeleted.length} products for loja ${lid}.`);
+        }
+      }
+      console.log(`[Crawler] Total soft-deleted: ${totalSoftDeleted} products.`);
     } else {
       console.error(`[Crawler] Nenhum produto salvo (erros=${erros}) — soft-delete PULADO para não zerar o catálogo.`);
     }
