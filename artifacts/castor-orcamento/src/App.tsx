@@ -40,7 +40,7 @@ const Logistica     = lazy(() => import("@/pages/Logistica"));
 const Crawler       = lazy(() => import("@/pages/Crawler"));
 const Clientes      = lazy(() => import("@/pages/Clientes"));
 const Outlet        = lazy(() => import("@/pages/Outlet"));
-const Estoque       = lazy(() => import("@/pages/Estoque"));
+const Estoque       = lazy(() => import("@/pages/estoque"));
 const RankingOutlet = lazy(() => import("@/pages/RankingOutlet"));
 const EntradaEstoque= lazy(() => import("@/pages/EntradaEstoque"));
 const Financeiro      = lazy(() => import("@/pages/Financeiro"));
