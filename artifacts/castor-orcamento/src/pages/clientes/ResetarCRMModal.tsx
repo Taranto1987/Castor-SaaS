@@ -56,7 +56,7 @@ export function ResetarCRMModal({
           {!tudo ? (
             <p className="text-sm text-slate-600">
               Arquiva <strong>{activeCount} lead{activeCount !== 1 ? "s" : ""}</strong> em estágio ativo
-              (Novo, Contato, Proposta, Negociação). Nenhum dado é apagado.
+              (Novo, Contato, Proposta, Negociação, Ganho). Nenhum dado é apagado.
             </p>
           ) : (
             <p className="text-sm text-slate-600">

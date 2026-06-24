@@ -58,6 +58,7 @@ export default function Clientes() {
 
   const activeLeadsCount     = kpis.activeCount;
   const archivedLeads        = leads.filter((l) => ARCHIVED_STAGES.includes(l.estagio));
+  const resetableCount       = leads.filter((l) => ["novo", "contato", "proposta", "negociacao", "ganho"].includes(l.estagio)).length;
   const totalResettableCount = leads.filter((l) => !ARCHIVED_STAGES.includes(l.estagio)).length;
 
   function applyFilter(list: Lead[]) {
@@ -256,7 +257,7 @@ export default function Clientes() {
       {cancelLead && <CancelarLeadModal lead={cancelLead} onClose={() => setCancelLead(null)} />}
       {showResetModal && (
         <ResetarCRMModal
-          activeCount={activeLeadsCount}
+          activeCount={resetableCount}
           totalResettableCount={totalResettableCount}
           onClose={() => setShowResetModal(false)}
         />

@@ -186,7 +186,7 @@ export async function resetLeads(
 ) {
   const ESTAGIOS_ATIVOS = tudo
     ? ["novo", "contato", "proposta", "negociacao", "ganho", "perdido"]
-    : ["novo", "contato", "proposta", "negociacao"];
+    : ["novo", "contato", "proposta", "negociacao", "ganho"];
 
   const arquivados = await db
     .update(leadsTable)
