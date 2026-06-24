@@ -38,12 +38,12 @@ const Historico     = lazy(() => import("@/pages/Historico"));
 const Dashboard     = lazy(() => import("@/pages/Dashboard"));
 const Logistica     = lazy(() => import("@/pages/Logistica"));
 const Crawler       = lazy(() => import("@/pages/Crawler"));
-const Clientes      = lazy(() => import("@/pages/Clientes"));
+const Clientes      = lazy(() => import("@/pages/clientes"));
 const Outlet        = lazy(() => import("@/pages/Outlet"));
-const Estoque       = lazy(() => import("@/pages/Estoque"));
+const Estoque       = lazy(() => import("@/pages/estoque"));
 const RankingOutlet = lazy(() => import("@/pages/RankingOutlet"));
 const EntradaEstoque= lazy(() => import("@/pages/EntradaEstoque"));
-const Financeiro      = lazy(() => import("@/pages/Financeiro"));
+const Financeiro      = lazy(() => import("@/pages/financeiro"));
 const Usuarios        = lazy(() => import("@/pages/Usuarios"));
 const ClienteDetalhe  = lazy(() => import("@/pages/ClienteDetalhe"));
 const Outcomes        = lazy(() => import("@/pages/Outcomes"));
@@ -115,7 +115,7 @@ function AppRoutes() {
           <PublicLayout><Catalogo /></PublicLayout>
         </Route>
         <Route path="/mapa-sono">
-          <PublicLayout><MapaSono /></PublicLayout>
+          <MapaSono />
         </Route>
         <Route path="/produto/:slug">
           <ProdutoDetalhe />

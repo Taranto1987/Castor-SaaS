@@ -1,7 +1,7 @@
 import { useEffect, useReducer, useRef, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
-  ChevronLeft, Plus, Minus, Check, MessageCircle, BedDouble, AlertTriangle,
+  ChevronLeft, ChevronRight, Plus, Minus, Check, MessageCircle, BedDouble, AlertTriangle,
   Activity, ArrowRight, ShieldCheck, Wind,
 } from "lucide-react";
 import { trackWhatsAppClick } from "@/lib/tracking";
@@ -242,45 +242,6 @@ function Wordmark({ compact = false }: { compact?: boolean }) {
   );
 }
 
-// Boneco biomecânico — silhueta reclinada, coluna em vermelho, pontos de pressão azuis.
-function BiomechanicalFigure() {
-  return (
-    <svg viewBox="0 0 220 90" className="w-full h-auto" aria-hidden>
-      <defs>
-        <linearGradient id="bf-spine" x1="0" y1="0" x2="1" y2="0">
-          <stop offset="0" stopColor={RED} stopOpacity="0.4" />
-          <stop offset="0.5" stopColor={RED} />
-          <stop offset="1" stopColor={RED} stopOpacity="0.4" />
-        </linearGradient>
-      </defs>
-      {/* linha de base / colchão */}
-      <line x1="6" y1="78" x2="214" y2="78" stroke="rgba(255,255,255,0.10)" strokeWidth="1.5" />
-      {/* silhueta reclinada (cabeça → tronco → pernas) */}
-      <path
-        d="M22 58 a9 9 0 1 1 0.1 0 M31 62 C46 56 62 60 86 58 C104 56 120 60 142 60 C168 60 188 64 204 70"
-        fill="none" stroke="rgba(255,255,255,0.85)" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"
-      />
-      {/* contorno inferior do corpo */}
-      <path
-        d="M31 70 C52 70 70 70 92 70 C116 70 138 70 160 72 C178 73 192 74 204 76"
-        fill="none" stroke="rgba(255,255,255,0.30)" strokeWidth="1.6" strokeLinecap="round"
-      />
-      {/* coluna destacada */}
-      <path
-        d="M34 60 C58 53 80 56 104 55 C128 54 150 57 172 62"
-        fill="none" stroke="url(#bf-spine)" strokeWidth="3.4" strokeLinecap="round"
-        style={{ filter: `drop-shadow(0 0 5px ${RED}aa)` }}
-      />
-      {/* pontos de pressão (ombro / quadril) */}
-      {[[60, 56], [120, 55]].map(([cx, cy], i) => (
-        <g key={i}>
-          <circle cx={cx} cy={cy} r="6" fill="none" stroke={BLUE} strokeWidth="1.4" opacity="0.5" />
-          <circle cx={cx} cy={cy} r="2.6" fill={BLUE} style={{ filter: `drop-shadow(0 0 4px ${BLUE})` }} />
-        </g>
-      ))}
-    </svg>
-  );
-}
 
 // Matriz 2×2 de conflitos biomecânicos com mira-laser azul posicionada pelo perfil.
 function QuadrantMatrix({ r }: { r: Respostas }) {
@@ -372,25 +333,6 @@ function RadarChart({ r }: { r: Respostas }) {
   );
 }
 
-const PRESSURE_PATHS: Record<string, string> = {
-  lado:   "M2,30 C12,30 14,9 24,9 C34,9 34,30 44,30 C54,30 54,11 64,11 C74,11 76,30 98,28",
-  costas: "M2,26 C20,22 32,18 50,18 C68,18 80,22 98,26",
-  brucos: "M2,30 C20,30 30,7 50,7 C70,7 80,30 98,30",
-  varia:  "M2,28 C14,17 22,26 34,13 C46,24 54,11 66,22 C78,13 88,26 98,18",
-};
-
-// Mini-spline de distribuição de pressão por postura.
-function PressureLine({ variant, active }: { variant: string; active: boolean }) {
-  const d = PRESSURE_PATHS[variant] ?? PRESSURE_PATHS.varia;
-  const cor = active ? BLUE : "rgba(255,255,255,0.35)";
-  return (
-    <svg viewBox="0 0 100 40" className="w-16 h-7 shrink-0" preserveAspectRatio="none" aria-hidden>
-      <line x1="2" y1="34" x2="98" y2="34" stroke="rgba(255,255,255,0.08)" strokeWidth="1" />
-      <path d={d} fill="none" stroke={cor} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"
-        style={active ? { filter: `drop-shadow(0 0 4px ${BLUE}88)` } : undefined} />
-    </svg>
-  );
-}
 
 // Anel de progresso (validação final).
 function CircularProgress({ value, label, color }: { value: number; label: string; color: string }) {
@@ -538,7 +480,103 @@ function OpcoesUnicas({
   );
 }
 
-// Postura com mini-spline de pressão (substitui ícone genérico no nó "posicao").
+// Ilustração holográfica de cama + pessoa por posição de dormir.
+function SleepPositionSVG({ variant, active }: { variant: string; active: boolean }) {
+  const op = active ? 1 : 0.7;
+  const sc = active ? BLUE : `${BLUE}bb`;
+  const glow = active ? `drop-shadow(0 0 6px ${BLUE}66)` : "none";
+
+  const bed = (
+    <>
+      {/* Headboard */}
+      <path d="M18 60 L18 22 C18 17 22 14 28 14 L40 14 C46 14 48 17 48 22 L48 46"
+        fill="none" stroke={sc} strokeWidth="1.2" opacity={0.5 * op} />
+      {/* Mattress */}
+      <rect x="18" y="46" width="174" height="14" rx="3"
+        fill={`${BLUE}0a`} stroke={sc} strokeWidth="1" opacity={0.45 * op} />
+      {/* Bed frame */}
+      <rect x="18" y="60" width="174" height="16" rx="2"
+        fill="none" stroke={sc} strokeWidth="0.8" opacity={0.3 * op} />
+      {/* Pillow */}
+      <ellipse cx="50" cy="44" rx="15" ry="5"
+        fill={`${BLUE}12`} stroke={sc} strokeWidth="0.7" opacity={0.5 * op} />
+      {/* Legs */}
+      <line x1="23" y1="76" x2="23" y2="82" stroke={sc} strokeWidth="1" opacity={0.25 * op} />
+      <line x1="187" y1="76" x2="187" y2="82" stroke={sc} strokeWidth="1" opacity={0.25 * op} />
+    </>
+  );
+
+  const persons: Record<string, React.ReactNode> = {
+    lado: (
+      <g style={{ filter: glow }}>
+        <circle cx="53" cy="36" r="8" fill="none" stroke={sc} strokeWidth="1.6" opacity={0.85 * op} />
+        <path d="M61 38 C74 34 90 32 108 31 C124 31 136 34 146 38"
+          fill="none" stroke={sc} strokeWidth="2" strokeLinecap="round" opacity={0.85 * op} />
+        <path d="M146 38 C150 36 156 32 163 30 C170 30 173 34 173 40"
+          fill="none" stroke={sc} strokeWidth="1.6" strokeLinecap="round" opacity={0.75 * op} />
+        <path d="M61 44 C78 44 95 44 112 44 C128 44 140 44 146 44"
+          fill="none" stroke={sc} strokeWidth="1" strokeLinecap="round" opacity={0.3 * op} />
+        <circle cx="92" cy="31" r="3" fill={BLUE} opacity={0.55 * op} style={{ filter: `drop-shadow(0 0 5px ${BLUE})` }} />
+        <circle cx="138" cy="36" r="3" fill={BLUE} opacity={0.55 * op} style={{ filter: `drop-shadow(0 0 5px ${BLUE})` }} />
+      </g>
+    ),
+    brucos: (
+      <g style={{ filter: glow }}>
+        <circle cx="53" cy="36" r="8" fill="none" stroke={sc} strokeWidth="1.6" opacity={0.85 * op} />
+        <path d="M61 39 C80 40 100 42 120 43 C140 43 158 42 178 41"
+          fill="none" stroke={sc} strokeWidth="2" strokeLinecap="round" opacity={0.85 * op} />
+        <path d="M61 45 C80 46 100 47 120 47 C140 47 158 46 178 45"
+          fill="none" stroke={sc} strokeWidth="1.1" strokeLinecap="round" opacity={0.4 * op} />
+        <path d="M60 32 L52 28" fill="none" stroke={sc} strokeWidth="1.2" strokeLinecap="round" opacity={0.5 * op} />
+        <circle cx="88" cy="42" r="3" fill={BLUE} opacity={0.55 * op} style={{ filter: `drop-shadow(0 0 5px ${BLUE})` }} />
+        <circle cx="148" cy="43" r="3" fill={BLUE} opacity={0.55 * op} style={{ filter: `drop-shadow(0 0 5px ${BLUE})` }} />
+      </g>
+    ),
+    costas: (
+      <g style={{ filter: glow }}>
+        <circle cx="53" cy="36" r="8" fill="none" stroke={sc} strokeWidth="1.6" opacity={0.85 * op} />
+        <circle cx="53" cy="34" r="1.8" fill={sc} opacity={0.5 * op} />
+        <path d="M61 36 C80 32 100 30 120 30 C140 31 158 33 178 36"
+          fill="none" stroke={sc} strokeWidth="2" strokeLinecap="round" opacity={0.85 * op} />
+        <path d="M61 44 C80 44 100 45 120 45 C140 45 158 44 178 44"
+          fill="none" stroke={sc} strokeWidth="1.1" strokeLinecap="round" opacity={0.4 * op} />
+        <circle cx="82" cy="32" r="3" fill={BLUE} opacity={0.55 * op} style={{ filter: `drop-shadow(0 0 5px ${BLUE})` }} />
+        <circle cx="135" cy="30" r="3" fill={BLUE} opacity={0.55 * op} style={{ filter: `drop-shadow(0 0 5px ${BLUE})` }} />
+      </g>
+    ),
+    varia: (
+      <g style={{ filter: glow }}>
+        <circle cx="53" cy="36" r="8" fill="none" stroke={sc} strokeWidth="1.6" opacity={0.85 * op} />
+        <path d="M61 38 C80 34 100 32 120 31 C140 32 158 34 175 38"
+          fill="none" stroke={sc} strokeWidth="1.3" strokeLinecap="round" opacity={0.35 * op} strokeDasharray="4 3" />
+        <path d="M61 37 C80 37 100 37 120 37 C140 37 158 37 175 37"
+          fill="none" stroke={sc} strokeWidth="2" strokeLinecap="round" opacity={0.8 * op} />
+        <path d="M61 36 C80 40 100 42 120 42 C140 41 158 38 175 36"
+          fill="none" stroke={sc} strokeWidth="1.3" strokeLinecap="round" opacity={0.35 * op} strokeDasharray="4 3" />
+        <path d="M118 23 C123 20 130 20 135 23" fill="none" stroke={BLUE} strokeWidth="1" opacity={0.6 * op} strokeLinecap="round" />
+        <path d="M133 21 L135 23 L132 24.5" fill="none" stroke={BLUE} strokeWidth="1" opacity={0.6 * op} strokeLinecap="round" />
+        <circle cx="100" cy="37" r="3" fill={BLUE} opacity={0.45 * op} style={{ filter: `drop-shadow(0 0 5px ${BLUE})` }} />
+        <circle cx="150" cy="37" r="3" fill={BLUE} opacity={0.45 * op} style={{ filter: `drop-shadow(0 0 5px ${BLUE})` }} />
+      </g>
+    ),
+  };
+
+  return (
+    <svg viewBox="0 0 210 88" className="w-full h-full" preserveAspectRatio="xMidYMid meet" aria-hidden>
+      <defs>
+        <linearGradient id={`bed-bg-${variant}`} x1="0" y1="0" x2="0.2" y2="1">
+          <stop offset="0" stopColor={BLUE} stopOpacity="0.08" />
+          <stop offset="1" stopColor={BLUE} stopOpacity="0" />
+        </linearGradient>
+      </defs>
+      <rect x="0" y="0" width="210" height="88" fill={`url(#bed-bg-${variant})`} />
+      {bed}
+      {persons[variant] ?? persons.varia}
+    </svg>
+  );
+}
+
+// Cards de posição de dormir — layout holográfico com ilustrações de cama.
 function OpcoesPostura({ opcoes, selecionada, onSelect }: {
   opcoes: Opt[]; selecionada?: string; onSelect: (v: string) => void;
 }) {
@@ -548,16 +586,34 @@ function OpcoesPostura({ opcoes, selecionada, onSelect }: {
         const ativo = selecionada === opt.value;
         return (
           <motion.button key={opt.value} whileTap={{ scale: 0.97 }} onClick={() => onSelect(opt.value)}
-            className="flex items-center gap-3 p-4 rounded-xl text-left transition-all duration-300"
+            className="relative flex items-center rounded-xl overflow-hidden text-left transition-all duration-300"
             style={{
-              background: ativo ? "rgba(230,51,41,0.10)" : GLASS,
-              backdropFilter: "blur(24px)", WebkitBackdropFilter: "blur(24px)",
-              border: `1px solid ${ativo ? RED : GLASS_BD}`,
-              boxShadow: ativo ? `0 0 0 1px ${RED}55, 0 8px 24px ${RED}1f` : GLASS_SHADOW,
+              background: ativo ? "rgba(230,51,41,0.06)" : "rgba(0,145,255,0.03)",
+              border: `1px solid ${ativo ? RED : `${BLUE}30`}`,
+              boxShadow: ativo
+                ? `0 0 0 1px ${RED}44, 0 8px 24px ${RED}18`
+                : `inset 0 1px 0 ${BLUE}0a, 0 4px 20px rgba(0,0,0,0.3)`,
+              minHeight: "88px",
             }}>
-            <span className="text-white font-semibold text-sm flex-1 tracking-tight">{opt.label}</span>
-            <PressureLine variant={opt.value} active={ativo} />
-            {ativo && <Check className="w-4 h-4 shrink-0" style={{ color: RED }} />}
+            {/* Text */}
+            <div className="relative z-10 pl-5 py-3 shrink-0 min-w-[42%]">
+              <span className="text-white font-bold text-[15px] uppercase tracking-wide block leading-tight">{opt.label}</span>
+              {opt.subtitulo && (
+                <span className="text-[10px] block mt-1 font-medium" style={{ color: `${BLUE}88` }}>
+                  ({opt.subtitulo})
+                </span>
+              )}
+            </div>
+            {/* SVG illustration */}
+            <div className="flex-1 h-[88px] flex items-center pr-8">
+              <SleepPositionSVG variant={opt.value} active={ativo} />
+            </div>
+            {/* Chevrons */}
+            <div className="absolute right-3 top-1/2 -translate-y-1/2 flex items-center z-10">
+              <ChevronRight className="w-4 h-4 -mr-2.5" style={{ color: ativo ? RED : `${BLUE}55`, opacity: 0.5 }} />
+              <ChevronRight className="w-4 h-4 -mr-2.5" style={{ color: ativo ? RED : `${BLUE}66`, opacity: 0.7 }} />
+              <ChevronRight className="w-4 h-4" style={{ color: ativo ? RED : `${BLUE}88` }} />
+            </div>
           </motion.button>
         );
       })}
@@ -661,8 +717,7 @@ function DiagnosticoPanel({ r }: { r: Respostas }) {
   );
 }
 
-// ── Biometria — DASHBOARD analítico (mockup: análise + prioridades + sliders) ───
-// Os painéis recalculam ao vivo conforme os sliders mudam (merge respostas + estado local).
+// ── Biometria — sliders compactos com indicador de IMC ──────────────────────────
 function Biometria({ pessoa, respostas, onContinuar }: {
   pessoa: "A" | "B"; respostas: Respostas; onContinuar: (patch: Partial<Respostas>) => void;
 }) {
@@ -670,32 +725,22 @@ function Biometria({ pessoa, respostas, onContinuar }: {
   const [peso, setPeso]     = useState(pessoa === "A" ? respostas.pesoA : respostas.pesoB);
   const [altura, setAltura] = useState(pessoa === "A" ? respostas.alturaA : respostas.alturaB);
   const imcVal = peso / Math.pow((altura || 170) / 100, 2);
-
-  // Perfil "ao vivo" para os gráficos refletirem o que está sendo arrastado agora.
-  const liveR: Respostas = pessoa === "A"
-    ? { ...respostas, idadeA: idade, pesoA: peso, alturaA: altura }
-    : { ...respostas, idadeB: idade, pesoB: peso, alturaB: altura };
+  const imcFaixa = imcVal < 18.5 ? "Leve" : imcVal < 25 ? "Normal" : imcVal < 30 ? "Elevado" : "Alto";
 
   return (
     <>
-      {/* boneco biomecânico + leitura de IMC */}
-      <GlassCard className="px-5 py-4 mb-4" accent="blue">
-        <div className="flex items-center justify-between mb-1">
-          <span className="text-[10px] font-bold uppercase tracking-[0.18em]" style={{ color: "rgba(255,255,255,0.55)" }}>Mapa biomecânico</span>
-          <span className="text-[10px] font-bold tabular-nums px-2 py-0.5 rounded-md"
-            style={{ color: BLUE, background: `${BLUE}1f`, border: `1px solid ${BLUE}3a` }}>IMC {imcVal.toFixed(1)}</span>
+      {/* Indicador compacto de IMC */}
+      <div className="flex items-center justify-center gap-3 mb-5">
+        <div className="flex items-center gap-2 px-3 py-1.5 rounded-full"
+          style={{ background: `${BLUE}12`, border: `1px solid ${BLUE}25` }}>
+          <span className="text-[11px] font-bold uppercase tracking-widest" style={{ color: "rgba(255,255,255,0.55)" }}>IMC</span>
+          <span className="text-sm font-bold tabular-nums" style={{ color: BLUE }}>{imcVal.toFixed(1)}</span>
+          <span className="text-[10px] font-medium" style={{ color: MUTED }}>· {imcFaixa}</span>
         </div>
-        <BiomechanicalFigure />
-      </GlassCard>
+      </div>
 
-      {/* painéis analíticos ao vivo */}
-      <ConflitoPanel r={liveR} />
-      <PrioridadesPanel r={liveR} />
-      <DiagnosticoPanel r={liveR} />
-
-      {/* inputs biométricos */}
+      {/* Sliders */}
       <GlassCard className="px-5 py-5 mb-1">
-        <PanelHead>Biometria</PanelHead>
         <NumberPicker label="Idade"  value={idade}  min={15}  max={90}  format={v => `${v} anos`} onChange={setIdade} />
         <NumberPicker label="Peso"   value={peso}   min={40}  max={180} format={v => `${v} kg`}   onChange={setPeso} />
         <NumberPicker label="Altura" value={altura} min={140} max={210} format={v => `${v} cm`}   onChange={setAltura} />
@@ -796,17 +841,11 @@ function RenderNo({ node, respostas, onResponder }: {
     onResponder({ [node.campo!]: valor } as Partial<Respostas>);
   };
 
-  // Nó de postura ganha a matriz de conflitos + splines de pressão.
+  // Nó de postura — cards holográficos com ilustrações de cama.
   if (node.id === "posicao") {
     return (
       <>
         <CabecalhoPergunta Icon={node.Icon} titulo={titulo} subtitulo={subtitulo} />
-        <GlassCard className="px-5 pt-4 pb-3 mb-5" accent="blue">
-          <span className="text-[11px] font-bold uppercase tracking-widest block mb-1" style={{ color: MUTED }}>
-            Análise de conflitos biomecânicos
-          </span>
-          <QuadrantMatrix r={respostas} />
-        </GlassCard>
         <OpcoesPostura opcoes={resolverOpcoes(node, respostas)}
           selecionada={selecionada === undefined ? undefined : String(selecionada)} onSelect={onSelect} />
       </>
@@ -1110,6 +1149,8 @@ export default function MapaSono({ embedded = false }: MapaSonoProps) {
   const [mostrarWelcome, setMostrarWelcome] = useState(!embedded);
   const [state, dispatch] = useReducer(engineReducer, undefined, estadoInicial);
 
+  const topRef = useRef<HTMLDivElement>(null);
+
   const sessionId = useRef<string>(
     typeof crypto !== "undefined" && "randomUUID" in crypto
       ? crypto.randomUUID()
@@ -1125,6 +1166,12 @@ export default function MapaSono({ embedded = false }: MapaSonoProps) {
 
   const emitir = (evento: EventoFunil, payload?: Record<string, unknown>) =>
     emitirEventoFunil(evento, lojaId, sessionId.current, payload);
+
+  // Scroll to top on step change (works in both modal and full-page)
+  useEffect(() => {
+    if (mostrarWelcome) return;
+    topRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+  }, [state.nodeId, state.fase, mostrarWelcome]);
 
   // step_view a cada transição visível
   useEffect(() => {
@@ -1206,6 +1253,7 @@ export default function MapaSono({ embedded = false }: MapaSonoProps) {
 
   return (
     <div className={outerClass} style={{ background: BG }}>
+      <div ref={topRef} />
       <BackdropFX />
       <div className="relative z-10 flex-1 flex flex-col">
         <AnimatePresence mode="wait">

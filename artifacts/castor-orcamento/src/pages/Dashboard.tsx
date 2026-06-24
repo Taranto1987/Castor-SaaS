@@ -25,14 +25,7 @@ interface DashboardData {
   descontoMedioPorVendedor: { vendedor: string; descontoMedio: number; vendasAuditadas: number }[];
 }
 
-function parseBRL(str?: string): number {
-  if (!str) return 0;
-  return parseFloat(str.replace(/[R$\s]/g, "").replace(/\./g, "").replace(",", ".")) || 0;
-}
-
-function formatBRL(val: number) {
-  return val.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
-}
+import { formatBRL, parseBRL } from "@/utils/currency";
 
 function getMesAtual() {
   const now = new Date();

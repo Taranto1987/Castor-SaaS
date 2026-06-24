@@ -38,13 +38,13 @@ export default function MapaSonoModal({ open, onClose }: Props) {
           role="dialog"
           aria-label="Mapa do Sono"
         >
-          {/* Backdrop — clique fecha */}
+          {/* Backdrop */}
           <motion.div
             className="absolute inset-0 bg-black/75 backdrop-blur-md"
             onClick={onClose}
           />
 
-          {/* Painel */}
+          {/* Painel — sem header, só conteúdo + botão fechar flutuante */}
           <motion.div
             ref={panelRef}
             tabIndex={-1}
@@ -52,33 +52,19 @@ export default function MapaSonoModal({ open, onClose }: Props) {
             animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.94, y: 24 }}
             transition={{ type: "spring", stiffness: 340, damping: 32 }}
-            className="relative z-10 w-full max-w-[420px] max-h-[88vh] bg-white rounded-3xl shadow-2xl flex flex-col outline-none overflow-hidden"
+            className="relative z-10 w-full max-w-[420px] max-h-[88vh] rounded-3xl shadow-2xl flex flex-col outline-none overflow-hidden"
+            style={{ background: "#0d0d0d" }}
             onClick={e => e.stopPropagation()}
           >
-            {/* Header fixo */}
-            <div className="flex items-center justify-between px-5 py-3.5 border-b border-slate-100 bg-white shrink-0">
-              <div className="flex items-center gap-3">
-                <div className="relative shrink-0">
-                  <img
-                    src="/thalles-avatar.webp"
-                    alt="Especialista"
-                    className="w-9 h-9 rounded-full object-cover object-top border-2 border-red-100"
-                  />
-                  <span className="absolute bottom-0 right-0 w-2.5 h-2.5 bg-green-500 border-2 border-white rounded-full" />
-                </div>
-                <div>
-                  <p className="text-sm font-extrabold text-slate-900 leading-tight">Mapa do Sono · Castor</p>
-                  <p className="text-[10px] text-green-600 font-bold">● Online agora · Diagnóstico gratuito</p>
-                </div>
-              </div>
-              <button
-                onClick={onClose}
-                aria-label="Fechar"
-                className="w-8 h-8 flex items-center justify-center rounded-xl bg-slate-100 hover:bg-red-50 hover:text-red-600 text-slate-500 transition-all active:scale-90"
-              >
-                <X className="w-4 h-4" />
-              </button>
-            </div>
+            {/* Botão fechar flutuante */}
+            <button
+              onClick={onClose}
+              aria-label="Fechar"
+              className="absolute top-3 right-3 z-20 w-8 h-8 flex items-center justify-center rounded-full transition-all active:scale-90"
+              style={{ background: "rgba(255,255,255,0.08)", color: "rgba(255,255,255,0.5)", backdropFilter: "blur(12px)" }}
+            >
+              <X className="w-4 h-4" />
+            </button>
 
             {/* Conteúdo com scroll */}
             <div className="overflow-y-auto flex-1 min-h-0 overscroll-contain">

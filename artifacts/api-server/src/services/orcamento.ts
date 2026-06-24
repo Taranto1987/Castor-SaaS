@@ -7,7 +7,18 @@ const TENANT_LOJA: Record<TenantKey, number> = {
   "araruama": 2,
   "default": 1,
 };
-import type { ProdutoResumido } from "./produtos.js";
+
+interface ProdutoResumido {
+  id: number;
+  nome: string;
+  categoria: string;
+  preco: string | null;
+  precoPix: string | null;
+  precoBase: string | null;
+  medidas: string | null;
+  disponivel: boolean;
+  encomenda: boolean;
+}
 
 interface CriarOrcamentoParams {
   tenant: TenantKey;

@@ -3,15 +3,9 @@ import { db } from "@workspace/db";
 import { orcamentosTable, produtosTable, entregasTable } from "@workspace/db/schema";
 import { desc, eq, and, sql } from "drizzle-orm";
 import { requireAuth, type AuthRequest } from "../middlewares/auth";
+import { parseBRL } from "../services/shared/currency";
 
 const router: IRouter = Router();
-
-function parseBRL(valor?: string | null): number {
-  if (!valor) return 0;
-  const limpo = valor.replace(/[R$\s.]/g, "").replace(",", ".");
-  const num = parseFloat(limpo);
-  return isNaN(num) ? 0 : num;
-}
 
 router.get("/", requireAuth, async (req: AuthRequest, res) => {
   try {
