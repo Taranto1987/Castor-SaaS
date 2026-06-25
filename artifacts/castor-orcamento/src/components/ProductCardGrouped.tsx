@@ -6,7 +6,7 @@ import type { ProductGroup, Variant } from "@/utils/groupProducts";
 import type { ProductSize } from "@/utils/normalizeSize";
 import { trackCatalogoWhatsApp } from "@/lib/tracking";
 
-const FALLBACK_IMG = "https://images.unsplash.com/photo-1584031402256-c787e148e02d?w=800&q=80";
+const FALLBACK_IMG = "https://images.unsplash.com/photo-1584031402256-c787e148e02d?w=400&q=70";
 
 interface Props {
   group: ProductGroup;
