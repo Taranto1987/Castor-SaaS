@@ -4,7 +4,7 @@ import { db } from "@workspace/db";
 import { productFamiliesTable, produtosTable } from "@workspace/db/schema";
 import { normalizeSize, SIZE_ORDER, isStandardMedidas } from "@workspace/db";
 import type { ProductSize } from "@workspace/db";
-import { eq, and, or, inArray, asc, ne, sql } from "drizzle-orm";
+import { eq, and, or, inArray, asc } from "drizzle-orm";
 import { getSession, isDono } from "../lib/sessions";
 
 const router = Router();
