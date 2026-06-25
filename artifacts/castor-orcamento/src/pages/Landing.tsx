@@ -46,10 +46,10 @@ function waLink(numero: string, loja: string, texto?: string) {
 }
 
 const fade = (delay = 0) => ({
-  initial: { opacity: 0, y: 24 },
+  initial: { opacity: 0, y: 12 },
   whileInView: { opacity: 1, y: 0 },
   viewport: { once: true },
-  transition: { duration: 0.55, delay },
+  transition: { duration: 0.45, delay },
 });
 
 const REGIOES = ["Cabo Frio", "Búzios", "Arraial do Cabo", "São Pedro da Aldeia", "Araruama", "Iguaba Grande", "Saquarema"];
@@ -81,7 +81,7 @@ export default function Landing() {
     staleTime: 10 * 60 * 1000,
   });
 
-  const { data: destaques = [] } = useQuery<CatalogFamily[]>({
+  const { data: destaques = [], isLoading: destaquesLoading } = useQuery<CatalogFamily[]>({
     queryKey: ["landing-destaques", lojaId],
     queryFn: async () => {
       const res = await fetch(`/api/catalog/families?lojaId=${lojaId}`);
@@ -186,7 +186,7 @@ export default function Landing() {
       </section>
 
       {/* ── PRODUTOS EM DESTAQUE ─────────────────────────────────────────── */}
-      {topDestaques.length > 0 && (
+      {(destaquesLoading || topDestaques.length > 0) && (
         <section className="py-14 bg-white">
           <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
             <motion.div {...fade()} className="text-center mb-8">
@@ -194,6 +194,20 @@ export default function Landing() {
               <h2 className="text-2xl md:text-3xl font-black text-slate-900 tracking-tight">Destaques da Castor {waInfo.loja}</h2>
             </motion.div>
 
+            {destaquesLoading && topDestaques.length === 0 ? (
+              <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+                {[1,2,3,4,5,6].map(i => (
+                  <div key={i} className="bg-white border border-slate-200 rounded-2xl overflow-hidden animate-pulse">
+                    <div className="aspect-[4/3] bg-slate-100" />
+                    <div className="p-3 space-y-2">
+                      <div className="h-3 bg-slate-100 rounded w-1/3" />
+                      <div className="h-4 bg-slate-100 rounded w-3/4" />
+                      <div className="h-5 bg-slate-100 rounded w-1/2" />
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
             <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
               {topDestaques.map((family, i) => {
                 const best = getBestVariant(family.variants);
@@ -247,6 +261,7 @@ export default function Landing() {
                 );
               })}
             </div>
+            )}
 
             <motion.div {...fade(0.3)} className="text-center mt-8">
               <Link href="/catalogo" className="inline-flex items-center gap-2 bg-red-600 hover:bg-red-700 text-white font-extrabold px-8 py-3.5 rounded-2xl shadow-lg transition-all active:scale-95 text-sm">
