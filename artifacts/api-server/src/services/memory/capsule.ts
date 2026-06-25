@@ -2,6 +2,7 @@ import Anthropic from "@anthropic-ai/sdk";
 import { db, relationalCapsulesTable } from "@workspace/db";
 import { eq } from "drizzle-orm";
 import type { ChatMessage } from "../chat/lead-extractor";
+import { trackAIUsage } from "../../lib/ai-usage";
 
 function getAnthropicClient(): Anthropic | null {
   const apiKey = process.env.ANTHROPIC_API_KEY?.trim();
@@ -209,6 +210,21 @@ REGRA CRÍTICA: Use APENAS dados explicitamente mencionados na conversa. Nunca i
           content: `${contextSection}Conversa:\n${transcript}\n\nGere a cápsula relacional seguida do perfil estruturado.`,
         },
       ],
+    });
+
+    const HAIKU_INPUT_MTK = 0.80, HAIKU_OUTPUT_MTK = 4.0;
+    const costUsd = parseFloat((
+      (response.usage.input_tokens / 1e6) * HAIKU_INPUT_MTK +
+      (response.usage.output_tokens / 1e6) * HAIKU_OUTPUT_MTK
+    ).toFixed(6));
+
+    void trackAIUsage({
+      lojaId,
+      modelo: "claude-haiku-4-5-20251001",
+      inputTokens: response.usage.input_tokens,
+      outputTokens: response.usage.output_tokens,
+      custoEstimado: costUsd,
+      contexto: "capsule",
     });
 
     const capsule =

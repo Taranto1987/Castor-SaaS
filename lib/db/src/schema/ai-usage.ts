@@ -9,7 +9,7 @@ export const aiUsageTable = pgTable("ai_usage", {
   outputTokens:   integer("output_tokens").notNull().default(0),
   cacheTokens:    integer("cache_tokens").notNull().default(0),
   custoEstimado:  numeric("custo_estimado", { precision: 10, scale: 6 }),
-  contexto:       text("contexto"),   // 'chat' | 'waha' | 'capsule' | 'lead'
+  contexto:       text("contexto"),   // 'chat' | 'waha' | 'capsule' | 'lead' | 'lead-context'
   requestId:      text("request_id"),
   criadoEm:       timestamp("criado_em").defaultNow(),
 });

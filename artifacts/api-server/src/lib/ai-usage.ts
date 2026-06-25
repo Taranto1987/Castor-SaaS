@@ -7,7 +7,7 @@ type AIUsageParams = {
   outputTokens: number;
   cacheTokens?: number;
   custoEstimado: number;
-  contexto:     "chat" | "waha" | "capsule" | "lead";
+  contexto:     "chat" | "waha" | "capsule" | "lead" | "lead-context";
   requestId?:   string;
 };
 
