@@ -3,6 +3,7 @@ import { MessageCircle, ExternalLink, Ruler, Layers } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { WAInfo } from "@/hooks/use-wa-info";
 import type { ProductGroup, Variant } from "@/utils/groupProducts";
+import type { ProductSize } from "@/utils/normalizeSize";
 import { trackCatalogoWhatsApp } from "@/lib/tracking";
 
 const FALLBACK_IMG = "https://images.unsplash.com/photo-1584031402256-c787e148e02d?w=800&q=80";
@@ -13,16 +14,18 @@ interface Props {
   className?: string;
   isOutlet?: boolean;
   ranking?: number;
+  defaultSize?: ProductSize | null;
 }
 
 function isOutOfStock(v: Variant): boolean {
   return v.disponivel === false || (v.estoque !== null && v.estoque !== undefined && v.estoque === 0);
 }
 
-export function ProductCardGrouped({ group, waInfo, className, isOutlet, ranking }: Props) {
+export function ProductCardGrouped({ group, waInfo, className, isOutlet, ranking, defaultSize }: Props) {
   const isTopRanked = ranking !== undefined && ranking >= 1 && ranking <= 3;
+  const targetSize = defaultSize ?? "King";
   const defaultIdx = group.hasSizes
-    ? Math.max(0, group.variants.findIndex(v => v.size === "King"))
+    ? Math.max(0, group.variants.findIndex(v => v.size === targetSize))
     : 0;
   const [activeIdx, setActiveIdx] = useState(defaultIdx);
   const v = group.variants[activeIdx];

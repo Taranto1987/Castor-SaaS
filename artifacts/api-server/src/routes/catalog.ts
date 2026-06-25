@@ -4,7 +4,7 @@ import { db } from "@workspace/db";
 import { productFamiliesTable, produtosTable } from "@workspace/db/schema";
 import { normalizeSize, SIZE_ORDER } from "@workspace/db";
 import type { ProductSize } from "@workspace/db";
-import { eq, and, inArray, asc } from "drizzle-orm";
+import { eq, and, or, inArray, asc } from "drizzle-orm";
 import { getSession, isDono } from "../lib/sessions";
 
 const router = Router();
@@ -47,7 +47,10 @@ async function deriveFamiliesFromProdutos(lojaId: number): Promise<CatalogFamily
   const products = await db
     .select()
     .from(produtosTable)
-    .where(and(eq(produtosTable.disponivel, true), eq(produtosTable.lojaId, lojaId)));
+    .where(and(
+      or(eq(produtosTable.disponivel, true), eq(produtosTable.encomenda, true)),
+      eq(produtosTable.lojaId, lojaId)
+    ));
 
   const familyMap = new Map<string, { name: string; category: string; products: typeof products }>();
   const standalone: CatalogFamily[] = [];
@@ -184,7 +187,7 @@ router.get("/catalog/families", async (req: Request, res: Response) => {
             .where(
               and(
                 inArray(produtosTable.familySlug, familyIds),
-                eq(produtosTable.disponivel, true),
+                or(eq(produtosTable.disponivel, true), eq(produtosTable.encomenda, true)),
                 eq(produtosTable.lojaId, lojaId)
               )
             )
