@@ -211,8 +211,11 @@ export default function Landing() {
                         <img
                           src={img}
                           alt={family.name}
+                          width={800}
+                          height={600}
                           className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-                          loading="lazy"
+                          loading={i < 3 ? "eager" : "lazy"}
+                          {...(i === 0 ? { fetchPriority: "high" as const } : {})}
                         />
                       </div>
                       <div className="p-3">
@@ -429,6 +432,8 @@ export default function Landing() {
                         <img
                           src={produto.imagem}
                           alt={produto.nome}
+                          width={800}
+                          height={600}
                           className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
                           loading="lazy"
                         />

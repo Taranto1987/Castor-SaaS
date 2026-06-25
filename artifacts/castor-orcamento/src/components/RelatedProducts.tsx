@@ -53,7 +53,7 @@ export function RelatedProducts({ familySlug, currentProductId, lojaId }: Props)
             >
               <div className="aspect-square bg-slate-50 flex items-center justify-center p-3">
                 {p.imagem ? (
-                  <img src={p.imagem} alt={p.nome} className="w-full h-full object-contain" loading="lazy" />
+                  <img src={p.imagem} alt={p.nome} width={160} height={160} className="w-full h-full object-contain" loading="lazy" />
                 ) : (
                   <Package className="w-10 h-10 text-slate-200" />
                 )}

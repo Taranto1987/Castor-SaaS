@@ -56,6 +56,8 @@ export function ProductCardGrouped({ group, waInfo, className, isOutlet, ranking
         <img
           src={v.imagem || FALLBACK_IMG}
           alt={group.familia}
+          width={800}
+          height={600}
           className="w-full h-full object-cover group-hover/card:scale-105 transition-transform duration-500"
           loading="lazy"
         />

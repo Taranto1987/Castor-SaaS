@@ -374,8 +374,10 @@ export default function Catalogo() {
                       <img
                         src={imgSrc}
                         alt={card.label}
+                        width={400}
+                        height={300}
                         className="max-h-full max-w-[90%] object-contain drop-shadow-md"
-                        loading="lazy"
+                        loading="eager"
                       />
                     ) : (
                       <div className="w-20 h-16 bg-stone-200/40 rounded-lg animate-pulse" />
