@@ -30,6 +30,8 @@ export const ProductCard = forwardRef<HTMLDivElement, ProductCardProps>(
           <img
             src={product.imagem || fallbackImg}
             alt={product.nome}
+            width={800}
+            height={600}
             className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
             loading="lazy"
           />
