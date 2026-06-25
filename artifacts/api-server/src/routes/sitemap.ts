@@ -5,15 +5,34 @@ import { isNotNull } from "drizzle-orm";
 
 const router = Router();
 
+const STATIC_ROUTES: { path: string; changefreq: string; priority: string }[] = [
+  { path: "/",                changefreq: "daily",   priority: "1.0" },
+  { path: "/catalogo",        changefreq: "daily",   priority: "0.9" },
+  { path: "/mapa-sono",       changefreq: "weekly",  priority: "0.7" },
+  { path: "/lp/luxo",         changefreq: "monthly", priority: "0.6" },
+  { path: "/lp/box-bau",      changefreq: "monthly", priority: "0.6" },
+  { path: "/lp/outlet",       changefreq: "monthly", priority: "0.6" },
+  { path: "/lp/saude-coluna", changefreq: "monthly", priority: "0.6" },
+  { path: "/lp/entrega-24h",  changefreq: "monthly", priority: "0.6" },
+];
+
 router.get("/sitemap.xml", async (_req, res) => {
   const siteUrl = (process.env.SITE_URL ?? "https://lojacastorcabofrio.com.br").replace(/\/$/, "");
   try {
+    const staticEntries = STATIC_ROUTES.map(r => [
+      "  <url>",
+      `    <loc>${siteUrl}${r.path}</loc>`,
+      `    <changefreq>${r.changefreq}</changefreq>`,
+      `    <priority>${r.priority}</priority>`,
+      "  </url>",
+    ].join("\n")).join("\n");
+
     const rows = await db
       .select({ slug: produtosTable.slug, criadoEm: produtosTable.criadoEm })
       .from(produtosTable)
       .where(isNotNull(produtosTable.slug));
 
-    const entries = rows.map(r => {
+    const productEntries = rows.map(r => {
       const lastmod = r.criadoEm ? r.criadoEm.toISOString().split("T")[0] : "";
       return [
         "  <url>",
@@ -28,7 +47,8 @@ router.get("/sitemap.xml", async (_req, res) => {
     const xml = [
       '<?xml version="1.0" encoding="UTF-8"?>',
       '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">',
-      entries,
+      staticEntries,
+      productEntries,
       "</urlset>",
     ].join("\n");
 

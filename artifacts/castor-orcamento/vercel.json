@@ -37,6 +37,10 @@
       "destination": "https://evolution-api-production-405f.up.railway.app/api/:path*"
     },
     {
+      "source": "/sitemap.xml",
+      "destination": "https://evolution-api-production-405f.up.railway.app/sitemap.xml"
+    },
+    {
       "source": "/(.*)",
       "destination": "/index.html"
     }
