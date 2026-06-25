@@ -97,14 +97,16 @@ function toProductGroup(family: CatalogFamily): ProductGroup {
   };
 }
 
-function parseMinPrice(variants: CatalogVariant[]): number {
+function parseMinPrice(variants: CatalogVariant[], forSize?: ProductSize | null): number {
+  let min = Infinity;
   for (const v of variants) {
+    if (forSize && v.size !== forSize) continue;
     if (v.precoPix) {
       const num = parseFloat(v.precoPix.replace(/[^0-9,]/g, "").replace(",", "."));
-      if (!isNaN(num)) return num;
+      if (!isNaN(num) && num < min) min = num;
     }
   }
-  return Infinity;
+  return min;
 }
 
 // ── Page ──────────────────────────────────────────────────────────────────────
@@ -218,7 +220,9 @@ export default function Catalogo() {
     }
 
     if (filterSize) {
-      filtered = filtered.filter(f => f.availableSizes.includes(filterSize));
+      filtered = filtered.filter(f =>
+        f.variants.some(v => v.size === filterSize && v.produtoId !== null)
+      );
     }
 
     if (filterAvailability === "disponivel") {
@@ -232,8 +236,8 @@ export default function Catalogo() {
       sorted.sort((a, b) => a.ranking - b.ranking);
     } else {
       sorted.sort((a, b) => {
-        const priceA = parseMinPrice(a.variants);
-        const priceB = parseMinPrice(b.variants);
+        const priceA = parseMinPrice(a.variants, filterSize);
+        const priceB = parseMinPrice(b.variants, filterSize);
         return sortBy === "price-asc" ? priceA - priceB : priceB - priceA;
       });
     }
@@ -362,7 +366,7 @@ export default function Catalogo() {
           </p>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
             {groups.map((group, index) => (
-              <Fragment key={group.key}>
+              <Fragment key={`${group.key}-${filterSize ?? "all"}`}>
                 {index === 8 && activeCategory === "Todas" && groups.length > 8 && (
                   <motion.div
                     initial={{ opacity: 0, y: 10 }}
@@ -389,7 +393,7 @@ export default function Catalogo() {
                   animate={{ opacity: 1, scale: 1, y: 0 }}
                   transition={{ duration: 0.3, delay: Math.min(index * 0.04, 0.4) }}
                 >
-                  <ProductCardGrouped group={group} waInfo={waInfo} isOutlet={activeCategory === "outlet"} ranking={group.ranking} />
+                  <ProductCardGrouped group={group} waInfo={waInfo} isOutlet={activeCategory === "outlet"} ranking={group.ranking} defaultSize={filterSize} />
                 </motion.div>
               </Fragment>
             ))}
