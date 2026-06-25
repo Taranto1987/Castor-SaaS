@@ -2,9 +2,9 @@ import { Router } from "express";
 import type { Request, Response } from "express";
 import { db } from "@workspace/db";
 import { productFamiliesTable, produtosTable } from "@workspace/db/schema";
-import { normalizeSize, SIZE_ORDER } from "@workspace/db";
+import { normalizeSize, SIZE_ORDER, isStandardMedidas } from "@workspace/db";
 import type { ProductSize } from "@workspace/db";
-import { eq, and, or, inArray, asc } from "drizzle-orm";
+import { eq, and, or, inArray, asc, ne, sql } from "drizzle-orm";
 import { getSession, isDono } from "../lib/sessions";
 
 const router = Router();
@@ -99,26 +99,31 @@ async function deriveFamiliesFromProdutos(lojaId: number): Promise<CatalogFamily
 
   const grouped: CatalogFamily[] = [];
   for (const [, { name, category, products: fps }] of familyMap) {
-    const variantMap = new Map<ProductSize, CatalogVariant>();
+    const variantMap = new Map<ProductSize, { variant: CatalogVariant; encomenda: boolean }>();
     for (const p of fps) {
       const size = normalizeSize(p.size);
-      if (!size || variantMap.has(size)) continue;
+      if (!size) continue;
+      const existing = variantMap.get(size);
+      if (existing && !(existing.encomenda && !p.encomenda)) continue;
       variantMap.set(size, {
-        size,
-        produtoId: p.id,
-        slug: p.slug ?? null,
-        preco: p.preco ?? null,
-        precoPix: p.precoPix ?? null,
-        parcelamento: p.parcelamento ?? null,
-        medidas: p.medidas ?? null,
-        altura: p.altura ?? null,
-        imagem: p.imagem ?? null,
-        disponivel: p.disponivel ?? true,
         encomenda: p.encomenda ?? false,
-        estoque: p.estoque ?? null,
+        variant: {
+          size,
+          produtoId: p.id,
+          slug: p.slug ?? null,
+          preco: p.preco ?? null,
+          precoPix: p.precoPix ?? null,
+          parcelamento: p.parcelamento ?? null,
+          medidas: p.medidas ?? null,
+          altura: p.altura ?? null,
+          imagem: p.imagem ?? null,
+          disponivel: p.disponivel ?? true,
+          encomenda: p.encomenda ?? false,
+          estoque: p.estoque ?? null,
+        },
       });
     }
-    const variants = [...variantMap.values()].sort(
+    const variants = [...variantMap.values()].map(v => v.variant).sort(
       (a, b) => SIZE_ORDER.indexOf(a.size) - SIZE_ORDER.indexOf(b.size)
     );
     if (variants.length === 0) continue;
@@ -201,8 +206,8 @@ router.get("/catalog/families", async (req: Request, res: Response) => {
       if (!productIndex.has(p.familySlug)) {
         productIndex.set(p.familySlug, new Map());
       }
-      // First product wins per size (should be unique)
-      if (!productIndex.get(p.familySlug)!.has(size)) {
+      const existing = productIndex.get(p.familySlug)!.get(size);
+      if (!existing || (existing.encomenda && !p.encomenda)) {
         productIndex.get(p.familySlug)!.set(size, p);
       }
     }
@@ -410,6 +415,55 @@ router.post("/catalog/families/seed", async (req: Request, res: Response) => {
       .onConflictDoNothing();
 
     res.json({ inserted: toInsert.length, skipped: familyData.size - toInsert.length });
+  } catch {
+    res.status(500).json({ error: "Erro interno" });
+  }
+});
+
+// ── POST /api/catalog/mark-non-standard (dono only) ─────────────────────────
+// Marks products whose medidas don't match the standard for their size as
+// encomenda=true, so they appear in the outlet tab instead of the main catalog.
+
+export async function markNonStandardProducts(lojaId?: number): Promise<number> {
+  const conds = lojaId ? [eq(produtosTable.lojaId, lojaId)] : [];
+  const allProducts = await db.select({
+    id: produtosTable.id,
+    size: produtosTable.size,
+    medidas: produtosTable.medidas,
+    encomenda: produtosTable.encomenda,
+  }).from(produtosTable).where(
+    conds.length > 0 ? and(...conds) : undefined
+  );
+
+  const idsToMark: number[] = [];
+  for (const p of allProducts) {
+    if (p.encomenda) continue;
+    const size = normalizeSize(p.size);
+    if (!size || !p.medidas) continue;
+    if (!isStandardMedidas(size, p.medidas)) {
+      idsToMark.push(p.id);
+    }
+  }
+
+  if (idsToMark.length > 0) {
+    await db.update(produtosTable)
+      .set({ encomenda: true })
+      .where(inArray(produtosTable.id, idsToMark));
+  }
+
+  return idsToMark.length;
+}
+
+router.post("/catalog/mark-non-standard", async (req: Request, res: Response) => {
+  const token = (req.headers["x-session-token"] ?? "") as string;
+  const session = getSession(token);
+  if (!session || !isDono(session)) {
+    res.status(403).json({ error: "Acesso restrito ao dono" });
+    return;
+  }
+  try {
+    const marked = await markNonStandardProducts(session.lojaId);
+    res.json({ marked, message: `${marked} produtos com medidas não-padrão marcados como encomenda` });
   } catch {
     res.status(500).json({ error: "Erro interno" });
   }

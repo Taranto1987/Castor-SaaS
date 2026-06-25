@@ -2,6 +2,7 @@ import { Router, type IRouter } from "express";
 import { db, extractFamilyInfo } from "@workspace/db";
 import { produtosTable, crawlerStatusTable, lojasTable } from "@workspace/db/schema";
 import { eq, lt, and, sql } from "drizzle-orm";
+import { markNonStandardProducts } from "./catalog";
 import axios from "axios";
 import { requireDono } from "../middlewares/auth";
 import { formatBRL } from "../services/shared/currency";
@@ -399,6 +400,11 @@ async function executarCrawler() {
       await atualizarStatus("error", `Falha: 0 produtos salvos, ${erros} erros. Catálogo preservado.`, produtosColetados, erros, 0, true);
       console.log(`[Crawler] Finalizado COM FALHA: 0 produtos, ${erros} erros`);
       return;
+    }
+
+    const nonStdMarked = await markNonStandardProducts();
+    if (nonStdMarked > 0) {
+      console.log(`[Crawler] Marked ${nonStdMarked} non-standard dimension products as encomenda`);
     }
 
     await atualizarStatus("completed", `✅ Coleta finalizada! ${produtosColetados} produtos salvos.`, produtosColetados, erros, produtosColetados, true);
