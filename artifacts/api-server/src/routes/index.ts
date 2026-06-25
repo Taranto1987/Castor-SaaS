@@ -26,6 +26,7 @@ import whatsappRouter from "./whatsapp";
 import leadsRouter from "./leads";
 import inboxRouter from "./inbox";
 import operacoesRouter from "./operacoes";
+import aiCustosRouter from "./ai-custos";
 
 const router: IRouter = Router();
 
@@ -57,5 +58,6 @@ router.use("/whatsapp", whatsappRouter);
 router.use(leadsRouter);
 router.use(inboxRouter);
 router.use(operacoesRouter);
+router.use(aiCustosRouter);
 
 export default router;
