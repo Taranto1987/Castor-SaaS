@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Link } from "wouter";
-import { MessageCircle, Star, MapPin, ChevronRight, Moon, Shield, Zap, Wind, RotateCcw, Award, BedDouble, Package, Box, Layers, Tag, Brain, CheckCircle2, Sparkles, X, Activity } from "lucide-react";
+import { MessageCircle, Star, MapPin, ChevronRight, Shield, Zap, Wind, RotateCcw, Award, Tag, Brain, CheckCircle2, Sparkles, X, Activity } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import MapaSonoModal from "@/components/MapaSonoModal";
 import { trackWhatsAppClick, trackPageView } from "@/lib/tracking";
@@ -306,8 +306,8 @@ export default function Landing() {
         </section>
       )}
 
-      {/* ── CATEGORIAS ───────────────────────────────────────────────────── */}
-      <section className="py-14 bg-slate-50">
+      {/* ── CATEGORIAS (visual grid 3x2 com fotos) ────────────────────── */}
+      <section className="py-14 bg-gradient-to-b from-[#f5f0ea] to-[#ede7df]">
         <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
           <motion.div {...fade()} className="text-center mb-8">
             <p className="text-red-600 font-bold text-sm uppercase tracking-wider mb-2">Portfólio completo</p>
@@ -315,28 +315,46 @@ export default function Landing() {
             <p className="text-slate-500 mt-2 text-sm">Entrega em toda a Região dos Lagos — {REGIOES.join(" · ")}</p>
           </motion.div>
 
-          <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+          <div className="grid grid-cols-3 gap-3 sm:gap-4">
             {[
-              { Icon: BedDouble, nome: "Colchões",     desc: "Mola, espuma e híbrido",      cat: "colchoes",        iconBg: "bg-red-50",     iconColor: "text-red-600"     },
-              { Icon: Package,   nome: "Cama Box",     desc: "Box + colchão conjunto",       cat: "cama-box-colchao",iconBg: "bg-amber-50",   iconColor: "text-amber-600"   },
-              { Icon: Box,       nome: "Box Avulso",   desc: "Só a base cama box",           cat: "cama-box",        iconBg: "bg-slate-100",  iconColor: "text-slate-600"   },
-              { Icon: Moon,      nome: "Travesseiros", desc: "Memória, látex e pluma",       cat: "travesseiros",    iconBg: "bg-violet-50",  iconColor: "text-violet-600"  },
-              { Icon: Shield,    nome: "Protetores",   desc: "Proteção e higiene",           cat: "protetor",        iconBg: "bg-emerald-50", iconColor: "text-emerald-600" },
-              { Icon: Layers,    nome: "Roupa de Cama",desc: "Jogo de lençóis e edredom",   cat: "roupa-de-cama",   iconBg: "bg-sky-50",     iconColor: "text-sky-600"     },
-            ].map((c, i) => (
-              <motion.div key={c.cat} {...fade(i * 0.07)}>
-                <Link href={`/catalogo?categoria=${c.cat}`} className="flex items-center gap-4 bg-white border border-slate-200 rounded-2xl px-5 py-4 hover:border-red-300 hover:shadow-md transition-all group">
-                  <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${c.iconBg}`}>
-                    <c.Icon className={`w-5 h-5 ${c.iconColor}`} strokeWidth={1.75} />
-                  </div>
-                  <div className="min-w-0">
-                    <p className="font-extrabold text-slate-900 group-hover:text-red-600 transition-colors leading-tight">{c.nome}</p>
-                    <p className="text-xs text-slate-400 mt-0.5">{c.desc}</p>
-                  </div>
-                  <ChevronRight className="w-4 h-4 text-slate-300 group-hover:text-red-400 ml-auto shrink-0 transition-colors" />
-                </Link>
-              </motion.div>
-            ))}
+              { slug: "colchoes", label: "Colchões" },
+              { slug: "cama-box-colchao", label: "Cama Box" },
+              { slug: "cama-box", label: "Box Avulso" },
+              { slug: "travesseiros", label: "Travesseiros" },
+              { slug: "protetor", label: "Protetores" },
+              { slug: "roupa-de-cama", label: "Roupa de Cama" },
+            ].map((card, i) => {
+              const family = destaques.find(f => f.category === card.slug);
+              const imgSrc = family?.imageUrl ?? family?.variants[0]?.imagem ?? null;
+              return (
+                <motion.div key={card.slug} {...fade(i * 0.06)}>
+                  <Link
+                    href={`/catalogo?categoria=${card.slug}`}
+                    className="group flex flex-col items-center text-center"
+                  >
+                    <div className="relative w-full aspect-square rounded-2xl bg-[#e8e2da] overflow-hidden mb-2 sm:mb-3">
+                      {imgSrc ? (
+                        <img
+                          src={imgSrc}
+                          alt={card.label}
+                          width={400}
+                          height={400}
+                          className="w-full h-full object-contain p-3 sm:p-4 drop-shadow-md group-hover:scale-105 transition-transform duration-300"
+                          loading="lazy"
+                        />
+                      ) : (
+                        <div className="w-full h-full flex items-center justify-center">
+                          <div className="w-16 h-12 bg-stone-300/40 rounded-lg animate-pulse" />
+                        </div>
+                      )}
+                    </div>
+                    <p className="font-bold text-slate-800 text-xs sm:text-sm group-hover:text-red-600 transition-colors leading-tight">
+                      {card.label}
+                    </p>
+                  </Link>
+                </motion.div>
+              );
+            })}
           </div>
         </div>
       </section>

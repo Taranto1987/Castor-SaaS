@@ -326,27 +326,6 @@ export default function Catalogo() {
         </div>
       </div>
 
-      {/* Mapa do Sono banner */}
-      <motion.div
-        initial={{ opacity: 0, y: 10 }}
-        animate={{ opacity: 1, y: 0 }}
-        className="bg-gradient-to-r from-red-600 to-red-800 rounded-2xl p-5 flex items-center gap-4 text-white shadow-lg"
-      >
-        <img src={avatarSrc} alt="Especialista" className="w-12 h-12 rounded-xl object-cover object-top border-2 border-white/20 shrink-0" />
-        <div className="flex-1 min-w-0">
-          <p className="font-extrabold text-sm leading-tight">Não sabe qual colchão escolher?</p>
-          <p className="text-red-100 text-xs mt-0.5">
-            Faça o Mapa do Sono com o Especialista {waInfo.contato} — 13 cliques e descubra o ideal para o seu corpo.
-          </p>
-        </div>
-        <a
-          href="/mapa-sono"
-          className="shrink-0 flex items-center gap-2 bg-white text-red-700 font-extrabold px-4 py-2.5 rounded-xl text-xs hover:bg-red-50 transition-all active:scale-95 whitespace-nowrap"
-        >
-          <Moon className="w-4 h-4" /> Fazer o Mapa
-        </a>
-      </motion.div>
-
       {/* Category grid — visual cards when on "Todas", pills when inside a category */}
       {!debouncedSearch && activeCategory === "Todas" && (
         <div className="space-y-4">
@@ -488,27 +467,6 @@ export default function Catalogo() {
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
             {groups.map((group, index) => (
               <Fragment key={`${group.key}-${filterSize ?? "all"}`}>
-                {index === 8 && activeCategory === "Todas" && groups.length > 8 && (
-                  <motion.div
-                    initial={{ opacity: 0, y: 10 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    className="col-span-full bg-gradient-to-r from-slate-900 to-red-950 rounded-2xl p-5 flex items-center gap-4 text-white"
-                  >
-                    <img src={avatarSrc} alt="Especialista" className="w-12 h-12 rounded-xl object-cover object-top border-2 border-white/20 shrink-0" />
-                    <div className="flex-1 min-w-0">
-                      <p className="font-extrabold text-sm leading-tight">Qual colchão é ideal para o seu corpo?</p>
-                      <p className="text-slate-300 text-xs mt-0.5">
-                        O Mapa do Sono analisa seu perfil biomecânico e indica o modelo certo — 13 cliques, resultado personalizado.
-                      </p>
-                    </div>
-                    <a
-                      href="/mapa-sono"
-                      className="shrink-0 flex items-center gap-2 bg-red-600 hover:bg-red-500 text-white font-extrabold px-4 py-2.5 rounded-xl text-xs transition-all active:scale-95 whitespace-nowrap"
-                    >
-                      <Moon className="w-4 h-4" /> Fazer o Mapa
-                    </a>
-                  </motion.div>
-                )}
                 <motion.div
                   initial={{ opacity: 0, scale: 0.95, y: 20 }}
                   animate={{ opacity: 1, scale: 1, y: 0 }}
