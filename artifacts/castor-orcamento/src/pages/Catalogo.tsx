@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo, Fragment } from "react";
-import { Search, PackageX, MessageCircle, Moon, Tag, X } from "lucide-react";
+import { Search, PackageX, MessageCircle, Moon, Tag, X, ArrowRight } from "lucide-react";
 import { useLocation, useSearch } from "wouter";
 import { motion, AnimatePresence } from "framer-motion";
 import { useQuery } from "@tanstack/react-query";
@@ -62,6 +62,43 @@ const CATEGORY_ORDER = [
   "roupa-de-cama",
   "protetor",
 ];
+
+const CATEGORY_CARDS: { slug: string; label: string; subtitle: string; featured: boolean }[] = [
+  { slug: "colchoes", label: "Colchões", subtitle: "Molas, espuma e híbridos", featured: true },
+  { slug: "cama-box-colchao", label: "Cama Box", subtitle: "Box + colchão conjunto", featured: false },
+  { slug: "travesseiros", label: "Travesseiros", subtitle: "Memória, látex e pluma", featured: false },
+  { slug: "roupa-de-cama", label: "Roupa de Cama", subtitle: "Jogo de lençóis e edredons", featured: false },
+];
+
+const CATEGORY_ICONS: Record<string, React.ReactNode> = {
+  colchoes: (
+    <svg viewBox="0 0 32 32" fill="none" stroke="currentColor" strokeWidth="1.5">
+      <rect x="4" y="14" width="24" height="10" rx="3" />
+      <path d="M6 14v-2a4 4 0 014-4h12a4 4 0 014 4v2" />
+    </svg>
+  ),
+  "cama-box-colchao": (
+    <svg viewBox="0 0 32 32" fill="none" stroke="currentColor" strokeWidth="1.5">
+      <rect x="3" y="16" width="26" height="6" rx="2" />
+      <rect x="5" y="10" width="22" height="6" rx="3" />
+      <line x1="7" y1="22" x2="7" y2="26" />
+      <line x1="25" y1="22" x2="25" y2="26" />
+    </svg>
+  ),
+  travesseiros: (
+    <svg viewBox="0 0 32 32" fill="none" stroke="currentColor" strokeWidth="1.5">
+      <ellipse cx="16" cy="16" rx="12" ry="7" />
+      <path d="M8 13c2-1 6-1.5 8-1.5s6 .5 8 1.5" />
+    </svg>
+  ),
+  "roupa-de-cama": (
+    <svg viewBox="0 0 32 32" fill="none" stroke="currentColor" strokeWidth="1.5">
+      <rect x="6" y="8" width="20" height="16" rx="2" />
+      <path d="M6 14h20" />
+      <path d="M6 20h20" />
+    </svg>
+  ),
+};
 
 // ── Converter: CatalogFamily → ProductGroup (for ProductCardGrouped) ──────────
 
@@ -245,6 +282,20 @@ export default function Catalogo() {
     return sorted.map(toProductGroup);
   }, [allFamilies, activeCategory, debouncedSearch, outletProducts, filterSize, filterAvailability, sortBy]);
 
+  const categoryImages = useMemo(() => {
+    const map: Record<string, string | null> = {};
+    for (const card of CATEGORY_CARDS) {
+      const family = allFamilies.find(f => f.category === card.slug);
+      map[card.slug] = family?.imageUrl ?? family?.variants[0]?.imagem ?? null;
+    }
+    return map;
+  }, [allFamilies]);
+
+  const secondaryCategories = useMemo(() => {
+    const cardSlugs = new Set(CATEGORY_CARDS.map(c => c.slug));
+    return categorias.filter(c => !cardSlugs.has(c) && c !== "Todas");
+  }, [categorias]);
+
   const effectiveIsLoading = activeCategory === "outlet" ? isLoadingOutlet : isLoading;
 
   return (
@@ -275,8 +326,78 @@ export default function Catalogo() {
         </div>
       </div>
 
-      {/* Category filters */}
-      {!debouncedSearch && (
+      {/* Category grid — visual cards when on "Todas", pills when inside a category */}
+      {!debouncedSearch && activeCategory === "Todas" && (
+        <div className="space-y-4">
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
+            {CATEGORY_CARDS.map(card => {
+              const imgSrc = categoryImages[card.slug];
+              return (
+                <button
+                  key={card.slug}
+                  onClick={() => setActiveCategory(card.slug)}
+                  className="group relative flex flex-col bg-gradient-to-br from-[#f5f0ea] to-[#ede7df] rounded-2xl border border-stone-200/60 overflow-hidden text-left transition-all hover:shadow-lg hover:shadow-stone-300/40 hover:scale-[1.02] active:scale-[0.98]"
+                >
+                  {card.featured && (
+                    <span className="absolute top-3 left-3 bg-blue-900 text-white text-[10px] font-bold uppercase tracking-wider px-2.5 py-1 rounded-md z-10">
+                      Destaque
+                    </span>
+                  )}
+
+                  <div className="absolute top-3 right-3 w-7 h-7 sm:w-8 sm:h-8 text-stone-400/50">
+                    {CATEGORY_ICONS[card.slug]}
+                  </div>
+
+                  <div className="relative w-full aspect-[4/3] flex items-end justify-center pt-8 px-3">
+                    {imgSrc ? (
+                      <img
+                        src={imgSrc}
+                        alt={card.label}
+                        width={400}
+                        height={300}
+                        className="max-h-full max-w-[90%] object-contain drop-shadow-md"
+                        loading="eager"
+                      />
+                    ) : (
+                      <div className="w-20 h-16 bg-stone-200/40 rounded-lg animate-pulse" />
+                    )}
+                  </div>
+
+                  <div className="p-3 sm:p-4 pt-2 flex items-end justify-between gap-2">
+                    <div className="min-w-0">
+                      <h3 className="font-bold text-slate-900 text-sm sm:text-base leading-tight">
+                        {card.label}
+                      </h3>
+                      <p className="text-slate-500 text-[11px] sm:text-xs mt-0.5 leading-tight">
+                        {card.subtitle}
+                      </p>
+                    </div>
+                    <div className="shrink-0 w-8 h-8 sm:w-9 sm:h-9 bg-blue-900 rounded-full flex items-center justify-center text-white group-hover:bg-blue-800 transition-colors">
+                      <ArrowRight className="w-4 h-4" />
+                    </div>
+                  </div>
+                </button>
+              );
+            })}
+          </div>
+
+          {secondaryCategories.length > 0 && (
+            <div className="flex flex-wrap gap-2">
+              {secondaryCategories.map(cat => (
+                <button
+                  key={cat}
+                  onClick={() => setActiveCategory(cat)}
+                  className="px-4 py-2 rounded-full text-sm font-semibold transition-all border bg-white text-slate-600 border-slate-200 hover:border-red-300 hover:bg-red-50"
+                >
+                  {CATEGORY_LABELS[cat] ?? cat}
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
+      {!debouncedSearch && activeCategory !== "Todas" && (
         <div className="flex flex-wrap gap-2">
           {categorias.map(cat => (
             <button

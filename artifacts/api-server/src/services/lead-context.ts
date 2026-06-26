@@ -2,6 +2,7 @@ import Anthropic from "@anthropic-ai/sdk";
 import { db, leadContextsTable } from "@workspace/db";
 import { and, eq } from "drizzle-orm";
 import type { LeadContext } from "@workspace/db";
+import { trackAIUsage } from "../lib/ai-usage";
 
 function getAnthropicClient(): Anthropic | null {
   const apiKey = process.env.ANTHROPIC_API_KEY?.trim();
@@ -77,6 +78,8 @@ export async function generateAndSaveLeadContext(
     .join("\n");
 
   try {
+    const HAIKU_INPUT_MTK = 0.80, HAIKU_OUTPUT_MTK = 4.0;
+
     const response = await client.messages.create({
       model: "claude-haiku-4-5-20251001",
       max_tokens: 500,
@@ -99,6 +102,20 @@ Para "temperatura": frio = só navegando, morno = interesse real mas sem urgênc
           content: `Conversa:\n${transcript}\n\nExtraia o contexto comercial em JSON.`,
         },
       ],
+    });
+
+    const costUsd = parseFloat((
+      (response.usage.input_tokens / 1e6) * HAIKU_INPUT_MTK +
+      (response.usage.output_tokens / 1e6) * HAIKU_OUTPUT_MTK
+    ).toFixed(6));
+
+    void trackAIUsage({
+      lojaId,
+      modelo: "claude-haiku-4-5-20251001",
+      inputTokens: response.usage.input_tokens,
+      outputTokens: response.usage.output_tokens,
+      custoEstimado: costUsd,
+      contexto: "lead-context",
     });
 
     const rawText = response.content[0]?.type === "text" ? response.content[0].text.trim() : null;

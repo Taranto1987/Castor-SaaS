@@ -5,7 +5,7 @@ import {
   FileText, Search, Clock, BarChart2, Truck,
   LogOut, User, Users, ShoppingCart, Package, DollarSign,
   TrendingUp, ClipboardPlus, UserCog, Menu, X, ChevronRight,
-  RefreshCw, MessageSquare, Sun, Moon, ChevronLeft, Command, Brain, Radar,
+  RefreshCw, MessageSquare, Sun, Moon, ChevronLeft, Command, Brain, Radar, Cpu,
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useAuth } from "@/contexts/AuthContext";
@@ -74,6 +74,7 @@ function useSections(isDono: boolean): NavSection[] {
             donoOnly: true,
             items: [
               { path: "/crawler", label: "Atualizador de Preços", icon: RefreshCw },
+              { path: "/ai-custos", label: "Custos de IA", icon: Cpu },
             ],
           },
         ]

@@ -6,7 +6,7 @@ import type { ProductGroup, Variant } from "@/utils/groupProducts";
 import type { ProductSize } from "@/utils/normalizeSize";
 import { trackCatalogoWhatsApp } from "@/lib/tracking";
 
-const FALLBACK_IMG = "https://images.unsplash.com/photo-1584031402256-c787e148e02d?w=800&q=80";
+const FALLBACK_IMG = "https://images.unsplash.com/photo-1584031402256-c787e148e02d?w=400&q=70";
 
 interface Props {
   group: ProductGroup;
@@ -56,6 +56,8 @@ export function ProductCardGrouped({ group, waInfo, className, isOutlet, ranking
         <img
           src={v.imagem || FALLBACK_IMG}
           alt={group.familia}
+          width={800}
+          height={600}
           className="w-full h-full object-cover group-hover/card:scale-105 transition-transform duration-500"
           loading="lazy"
         />

@@ -38,7 +38,7 @@ interface CatalogFamily {
 const MAPS_CABO_FRIO = "https://maps.app.goo.gl/UuF6w1nAvTgXockS6";
 const MAPS_ARARUAMA  = "https://maps.app.goo.gl/cGmvFgeubawLRNGy8";
 
-const FALLBACK_IMG = "https://images.unsplash.com/photo-1584031402256-c787e148e02d?w=800&q=80";
+const FALLBACK_IMG = "https://images.unsplash.com/photo-1584031402256-c787e148e02d?w=400&q=70";
 
 function waLink(numero: string, loja: string, texto?: string) {
   const msg = texto ?? `Olá! Vi o site da Castor ${loja} e quero saber mais sobre os colchões!`;
@@ -46,10 +46,10 @@ function waLink(numero: string, loja: string, texto?: string) {
 }
 
 const fade = (delay = 0) => ({
-  initial: { opacity: 0, y: 24 },
+  initial: { opacity: 0, y: 12 },
   whileInView: { opacity: 1, y: 0 },
   viewport: { once: true },
-  transition: { duration: 0.55, delay },
+  transition: { duration: 0.45, delay },
 });
 
 const REGIOES = ["Cabo Frio", "Búzios", "Arraial do Cabo", "São Pedro da Aldeia", "Araruama", "Iguaba Grande", "Saquarema"];
@@ -63,6 +63,36 @@ function getBestVariant(variants: CatalogVariant[]): CatalogVariant | null {
     if (found) return found;
   }
   return withPrice[0];
+}
+
+function LocalBusinessJsonLd({ lojaId }: { lojaId: number }) {
+  useEffect(() => {
+    const schema = {
+      "@context": "https://schema.org",
+      "@type": ["FurnitureStore", "LocalBusiness"],
+      "@id": "https://lojacastorcabofrio.com.br/#organization",
+      name: "Castor Colchões — Cabo Frio e Araruama",
+      description: "Colchões Castor com tecnologia suíça. Diagnóstico personalizado do sono, entrega em toda a Região dos Lagos.",
+      url: "https://lojacastorcabofrio.com.br",
+      telephone: lojaId === 2 ? "+5522988447240" : "+5522992410112",
+      image: "https://lojacastorcabofrio.com.br/opengraph.jpg",
+      address: [
+        { "@type": "PostalAddress", streetAddress: "Av. Júlia Kubitschek, 64", addressLocality: "Cabo Frio", addressRegion: "RJ", addressCountry: "BR", postalCode: "28913-100" },
+        { "@type": "PostalAddress", streetAddress: "Av. Getúlio Vargas, 137", addressLocality: "Araruama", addressRegion: "RJ", addressCountry: "BR", postalCode: "28970-000" },
+      ],
+      openingHoursSpecification: [
+        { "@type": "OpeningHoursSpecification", dayOfWeek: ["Monday","Tuesday","Wednesday","Thursday","Friday"], opens: "09:00", closes: "18:00" },
+        { "@type": "OpeningHoursSpecification", dayOfWeek: ["Saturday"], opens: "09:00", closes: "13:00" },
+      ],
+      aggregateRating: { "@type": "AggregateRating", ratingValue: "5.0", reviewCount: "142", bestRating: "5", worstRating: "1" },
+      priceRange: "$$",
+    };
+    let el = document.getElementById("lb-json-ld") as HTMLScriptElement | null;
+    if (!el) { el = document.createElement("script"); el.id = "lb-json-ld"; el.type = "application/ld+json"; document.head.appendChild(el); }
+    el.textContent = JSON.stringify(schema);
+    return () => { document.getElementById("lb-json-ld")?.remove(); };
+  }, [lojaId]);
+  return null;
 }
 
 export default function Landing() {
@@ -81,7 +111,7 @@ export default function Landing() {
     staleTime: 10 * 60 * 1000,
   });
 
-  const { data: destaques = [] } = useQuery<CatalogFamily[]>({
+  const { data: destaques = [], isLoading: destaquesLoading } = useQuery<CatalogFamily[]>({
     queryKey: ["landing-destaques", lojaId],
     queryFn: async () => {
       const res = await fetch(`/api/catalog/families?lojaId=${lojaId}`);
@@ -103,6 +133,7 @@ export default function Landing() {
 
   return (
     <div className="overflow-x-hidden">
+      <LocalBusinessJsonLd lojaId={lojaId} />
 
       {/* ── HERO (compacto) ──────────────────────────────────────────────── */}
       <section className="relative bg-gradient-to-br from-slate-900 via-red-950 to-slate-900 text-white overflow-hidden">
@@ -127,14 +158,15 @@ export default function Landing() {
               </motion.p>
 
               <motion.div {...fade(0.2)} className="mb-6">
-                  <p className="text-white/60 text-xs font-semibold uppercase tracking-widest mb-2">📍 Qual loja mais perto de você?</p>
+                  <p className="text-white/80 text-xs font-semibold uppercase tracking-widest mb-2">📍 Qual loja mais perto de você?</p>
                   <div className="inline-flex bg-white/10 backdrop-blur-sm rounded-xl p-1 border border-white/15">
                     <button
                       onClick={() => lojaId !== 1 && toggle()}
-                      className={`flex items-center gap-2 px-5 py-2.5 rounded-lg text-sm font-bold transition-all ${
+                      aria-pressed={lojaId === 1}
+                      className={`flex items-center gap-2 px-5 py-3 rounded-lg text-sm font-bold transition-all ${
                         lojaId === 1
                           ? "bg-red-600 text-white shadow-lg shadow-red-900/40"
-                          : "text-white/60 hover:text-white hover:bg-white/10"
+                          : "text-white/70 hover:text-white hover:bg-white/10"
                       }`}
                     >
                       <MapPin className="w-4 h-4" />
@@ -142,10 +174,11 @@ export default function Landing() {
                     </button>
                     <button
                       onClick={() => lojaId !== 2 && toggle()}
-                      className={`flex items-center gap-2 px-5 py-2.5 rounded-lg text-sm font-bold transition-all ${
+                      aria-pressed={lojaId === 2}
+                      className={`flex items-center gap-2 px-5 py-3 rounded-lg text-sm font-bold transition-all ${
                         lojaId === 2
                           ? "bg-red-600 text-white shadow-lg shadow-red-900/40"
-                          : "text-white/60 hover:text-white hover:bg-white/10"
+                          : "text-white/70 hover:text-white hover:bg-white/10"
                       }`}
                     >
                       <MapPin className="w-4 h-4" />
@@ -177,7 +210,7 @@ export default function Landing() {
                 <span className="text-2xl">{b.icon}</span>
                 <div>
                   <p className="text-white font-extrabold text-sm leading-tight">{b.v}</p>
-                  <p className="text-white/50 text-xs">{b.label}</p>
+                  <p className="text-white/70 text-xs">{b.label}</p>
                 </div>
               </div>
             ))}
@@ -186,7 +219,7 @@ export default function Landing() {
       </section>
 
       {/* ── PRODUTOS EM DESTAQUE ─────────────────────────────────────────── */}
-      {topDestaques.length > 0 && (
+      {(destaquesLoading || topDestaques.length > 0) && (
         <section className="py-14 bg-white">
           <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
             <motion.div {...fade()} className="text-center mb-8">
@@ -194,6 +227,20 @@ export default function Landing() {
               <h2 className="text-2xl md:text-3xl font-black text-slate-900 tracking-tight">Destaques da Castor {waInfo.loja}</h2>
             </motion.div>
 
+            {destaquesLoading && topDestaques.length === 0 ? (
+              <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+                {[1,2,3,4,5,6].map(i => (
+                  <div key={i} className="bg-white border border-slate-200 rounded-2xl overflow-hidden animate-pulse">
+                    <div className="aspect-[4/3] bg-slate-100" />
+                    <div className="p-3 space-y-2">
+                      <div className="h-3 bg-slate-100 rounded w-1/3" />
+                      <div className="h-4 bg-slate-100 rounded w-3/4" />
+                      <div className="h-5 bg-slate-100 rounded w-1/2" />
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
             <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
               {topDestaques.map((family, i) => {
                 const best = getBestVariant(family.variants);
@@ -210,9 +257,13 @@ export default function Landing() {
                       <div className="aspect-[4/3] overflow-hidden bg-slate-100">
                         <img
                           src={img}
-                          alt={family.name}
+                          alt={`Colchão ${family.name}`}
+                          width={800}
+                          height={600}
+                          sizes="(max-width: 768px) 50vw, 33vw"
                           className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-                          loading="lazy"
+                          loading={i < 3 ? "eager" : "lazy"}
+                          {...(i === 0 ? { fetchPriority: "high" as const } : {})}
                         />
                       </div>
                       <div className="p-3">
@@ -244,6 +295,7 @@ export default function Landing() {
                 );
               })}
             </div>
+            )}
 
             <motion.div {...fade(0.3)} className="text-center mt-8">
               <Link href="/catalogo" className="inline-flex items-center gap-2 bg-red-600 hover:bg-red-700 text-white font-extrabold px-8 py-3.5 rounded-2xl shadow-lg transition-all active:scale-95 text-sm">
@@ -428,7 +480,10 @@ export default function Landing() {
                       <div className="aspect-[4/3] overflow-hidden bg-white">
                         <img
                           src={produto.imagem}
-                          alt={produto.nome}
+                          alt={`${produto.familyName ?? produto.nome} - Outlet`}
+                          width={400}
+                          height={300}
+                          sizes="(max-width: 768px) 50vw, 25vw"
                           className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
                           loading="lazy"
                         />
@@ -546,7 +601,8 @@ export default function Landing() {
             >
               <button
                 onClick={() => setShowCiencia(false)}
-                className="absolute top-4 right-4 z-10 w-8 h-8 rounded-full bg-slate-100 hover:bg-slate-200 flex items-center justify-center transition-colors"
+                aria-label="Fechar"
+                className="absolute top-4 right-4 z-10 w-11 h-11 rounded-full bg-slate-100 hover:bg-slate-200 flex items-center justify-center transition-colors"
               >
                 <X className="w-4 h-4 text-slate-500" />
               </button>

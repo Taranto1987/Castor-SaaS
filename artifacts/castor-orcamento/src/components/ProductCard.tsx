@@ -11,7 +11,7 @@ interface ProductCardProps extends React.HTMLAttributes<HTMLDivElement> {
 export const ProductCard = forwardRef<HTMLDivElement, ProductCardProps>(
   ({ product, className, onClick, ...props }, ref) => {
     // Default placeholder if image is missing
-    const fallbackImg = "https://images.unsplash.com/photo-1584031402256-c787e148e02d?w=800&q=80";
+    const fallbackImg = "https://images.unsplash.com/photo-1584031402256-c787e148e02d?w=400&q=70";
 
     return (
       <div
@@ -30,6 +30,8 @@ export const ProductCard = forwardRef<HTMLDivElement, ProductCardProps>(
           <img
             src={product.imagem || fallbackImg}
             alt={product.nome}
+            width={800}
+            height={600}
             className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
             loading="lazy"
           />

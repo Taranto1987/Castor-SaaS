@@ -1,5 +1,6 @@
 import Anthropic from "@anthropic-ai/sdk";
 import { autoSalvarOrcamentoDaConversa } from "../../lib/orcamento-utils";
+import { trackAIUsage } from "../../lib/ai-usage";
 
 export interface ChatMessage {
   role: "user" | "assistant";
@@ -21,7 +22,8 @@ function getAnthropicClient(): Anthropic | null {
 
 async function extrairDadosConversa(
   messages: ChatMessage[],
-  ultimaRespostaAssistente: string
+  ultimaRespostaAssistente: string,
+  lojaId: number
 ): Promise<ExtracaoLead | null> {
   if (messages.length < 3) return null;
   const client = getAnthropicClient();
@@ -30,6 +32,8 @@ async function extrairDadosConversa(
   const conversa = messages
     .map((m) => `${m.role === "user" ? "Cliente" : "Assistente"}: ${m.content}`)
     .join("\n");
+
+  const HAIKU_INPUT_MTK = 0.80, HAIKU_OUTPUT_MTK = 4.0;
 
   try {
     const response = await client.messages.create({
@@ -44,6 +48,20 @@ async function extrairDadosConversa(
         role: "user",
         content: `Conversa:\n${conversa}\n\nÚltima resposta do assistente:\n${ultimaRespostaAssistente}`,
       }],
+    });
+
+    const costUsd = parseFloat((
+      (response.usage.input_tokens / 1e6) * HAIKU_INPUT_MTK +
+      (response.usage.output_tokens / 1e6) * HAIKU_OUTPUT_MTK
+    ).toFixed(6));
+
+    void trackAIUsage({
+      lojaId,
+      modelo: "claude-haiku-4-5-20251001",
+      inputTokens: response.usage.input_tokens,
+      outputTokens: response.usage.output_tokens,
+      custoEstimado: costUsd,
+      contexto: "lead",
     });
 
     const text = response.content[0]?.type === "text" ? response.content[0].text : null;
@@ -65,7 +83,7 @@ export async function processarLeadDaConversa(
   lojaId: number,
   fallbackProductIds: number[] = [],
 ): Promise<ExtracaoLead | null> {
-  const dados = await extrairDadosConversa(messages, ultimaRespostaAssistente);
+  const dados = await extrairDadosConversa(messages, ultimaRespostaAssistente, lojaId);
   if (!dados) return null;
 
   if (dados.produtoIds.length === 0 && fallbackProductIds.length > 0) {

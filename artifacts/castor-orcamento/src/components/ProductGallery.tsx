@@ -48,7 +48,7 @@ export function ProductGallery({ imagens, productName }: Props) {
   if (count === 1) {
     return (
       <div className="bg-white rounded-2xl overflow-hidden border border-slate-200 shadow-sm aspect-square flex items-center justify-center p-6">
-        <img src={imagens[0].url} alt={imagens[0].label ?? productName} className="w-full h-full object-contain" />
+        <img src={imagens[0].url} alt={imagens[0].label ?? productName} width={600} height={600} className="w-full h-full object-contain" />
       </div>
     );
   }
@@ -63,6 +63,8 @@ export function ProductGallery({ imagens, productName }: Props) {
                 <img
                   src={img.url}
                   alt={img.label ?? `${productName} - ${i + 1}`}
+                  width={600}
+                  height={600}
                   className="w-full h-full object-contain"
                   loading={i === 0 ? "eager" : "lazy"}
                 />

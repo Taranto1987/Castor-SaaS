@@ -93,6 +93,7 @@ export default function PublicLayout({ children }: PublicLayoutProps) {
 
             {/* Mobile toggle */}
             <button
+              aria-label={mobileOpen ? "Fechar menu" : "Abrir menu"}
               className="md:hidden p-2 rounded-lg text-slate-500 hover:bg-slate-100"
               onClick={() => setMobileOpen(v => !v)}
             >
@@ -139,7 +140,7 @@ export default function PublicLayout({ children }: PublicLayoutProps) {
       </header>
 
       {/* Main — pb-16 on mobile to compensate fixed bottom bar */}
-      <main className="flex-1 pb-16 md:pb-0">
+      <main className="flex-1 pb-20 md:pb-0">
         {children}
       </main>
 
@@ -220,11 +221,11 @@ export default function PublicLayout({ children }: PublicLayoutProps) {
 
       {/* ── Fixed bottom bar (mobile only) ──────────────────────────────── */}
       <nav className={`fixed bottom-0 inset-x-0 z-50 md:hidden bg-white border-t border-slate-200 shadow-[0_-2px_10px_rgba(0,0,0,0.06)] transition-transform duration-300 ${footerVisible ? "translate-y-full" : "translate-y-0"}`}>
-        <div className="flex justify-around items-center h-11">
+        <div className="flex justify-around items-center h-14">
           <Link
             href="/catalogo"
             className={cn(
-              "flex flex-col items-center gap-0.5 px-3 py-1 rounded-lg transition-colors",
+              "flex flex-col items-center gap-0.5 px-4 py-2 rounded-lg transition-colors",
               location === "/catalogo" ? "text-red-600" : "text-slate-500"
             )}
           >
@@ -234,7 +235,7 @@ export default function PublicLayout({ children }: PublicLayoutProps) {
           <Link
             href="/mapa-sono"
             className={cn(
-              "flex flex-col items-center gap-0.5 px-3 py-1 rounded-lg transition-colors",
+              "flex flex-col items-center gap-0.5 px-4 py-2 rounded-lg transition-colors",
               location === "/mapa-sono" ? "text-red-600" : "text-slate-500"
             )}
           >

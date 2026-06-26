@@ -49,6 +49,7 @@ const ClienteDetalhe  = lazy(() => import("@/pages/ClienteDetalhe"));
 const Outcomes        = lazy(() => import("@/pages/Outcomes"));
 const Inbox           = lazy(() => import("@/pages/Inbox"));
 const Operacoes       = lazy(() => import("@/pages/Operacoes"));
+const AICustos        = lazy(() => import("@/pages/AICustos"));
 const NotFound        = lazy(() => import("@/pages/not-found"));
 
 const queryClient = new QueryClient({
@@ -150,6 +151,7 @@ function AppRoutes() {
         <Route path="/financeiro"       component={() => <PrivateRoute component={Financeiro} />} />
         <Route path="/usuarios"         component={() => <DonoRoute component={Usuarios} />} />
         <Route path="/diagnosticos"     component={() => <DonoRoute component={Outcomes} />} />
+        <Route path="/ai-custos"        component={() => <DonoRoute component={AICustos} />} />
 
         <Route component={NotFound} />
       </Switch>
