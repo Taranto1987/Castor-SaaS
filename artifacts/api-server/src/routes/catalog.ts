@@ -104,7 +104,11 @@ async function deriveFamiliesFromProdutos(lojaId: number): Promise<CatalogFamily
       const size = normalizeSize(p.size);
       if (!size) continue;
       const existing = variantMap.get(size);
-      if (existing && !(existing.encomenda && !p.encomenda)) continue;
+      if (existing) {
+        const existingStd = isStandardMedidas(size, existing.variant.medidas);
+        const newStd = isStandardMedidas(size, p.medidas);
+        if (!(!existingStd && newStd) && !(existingStd === newStd && existing.encomenda && !p.encomenda)) continue;
+      }
       variantMap.set(size, {
         encomenda: p.encomenda ?? false,
         variant: {
@@ -207,8 +211,14 @@ router.get("/catalog/families", async (req: Request, res: Response) => {
         productIndex.set(p.familySlug, new Map());
       }
       const existing = productIndex.get(p.familySlug)!.get(size);
-      if (!existing || (existing.encomenda && !p.encomenda)) {
+      if (!existing) {
         productIndex.get(p.familySlug)!.set(size, p);
+      } else {
+        const existingStd = isStandardMedidas(size, existing.medidas);
+        const newStd = isStandardMedidas(size, p.medidas);
+        if ((!existingStd && newStd) || (existingStd === newStd && existing.encomenda && !p.encomenda)) {
+          productIndex.get(p.familySlug)!.set(size, p);
+        }
       }
     }
 
