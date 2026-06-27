@@ -25,3 +25,4 @@ export * from "./scheduler-locks";
 export * from "./diagnosticos";
 export * from "./sleep-outcomes";
 export * from "./sales-opportunities";
+export * from "./meta-catalogo";

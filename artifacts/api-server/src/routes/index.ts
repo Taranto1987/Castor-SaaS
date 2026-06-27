@@ -27,6 +27,7 @@ import leadsRouter from "./leads";
 import inboxRouter from "./inbox";
 import operacoesRouter from "./operacoes";
 import aiCustosRouter from "./ai-custos";
+import metaCatalogRouter from "./meta-catalog";
 
 const router: IRouter = Router();
 
@@ -59,5 +60,6 @@ router.use(leadsRouter);
 router.use(inboxRouter);
 router.use(operacoesRouter);
 router.use(aiCustosRouter);
+router.use(metaCatalogRouter);
 
 export default router;
