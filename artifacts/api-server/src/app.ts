@@ -50,6 +50,9 @@ app.use("/api/whatsapp/status",     makeLimiter(120, 60 * 1000));     // 120/min
 app.use("/api/mcp",                 makeLimiter(60, 60 * 60 * 1000)); // 60/hour per IP
 // Crawler — admin-only (requireDono), needs generous limit for status polling during crawl
 app.use("/api/crawler",             makeLimiter(300, 60 * 60 * 1000)); // 300/hour per IP
+// Meta catalog feed — public CSV endpoint, polled hourly by Meta
+app.use("/api/meta-catalog/feed",   makeLimiter(60, 60 * 60 * 1000));  // 60/hour per IP
+app.use("/api/meta-catalog",        makeLimiter(100));                  // 100/15min per IP
 // Product catalog — public reads
 app.use("/api/produtos",            makeLimiter(200));                 // 200/15min per IP
 // Financeiro + Dashboard — authenticated but DB-heavy
