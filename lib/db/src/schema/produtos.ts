@@ -40,6 +40,8 @@ export const produtosTable = pgTable("produtos", {
   familySlug: text("family_slug"),
   familyName: text("family_name"),
   size: text("size"),
+  largura: integer("largura"),
+  comprimento: integer("comprimento"),
   // Descrição comercial completa do fabricante (HTML sanitizado, preservado p/ PDP/SEO/chat).
   // Antes era buscada no GraphQL só para extrair medidas/altura e descartada.
   descricao: text("descricao"),

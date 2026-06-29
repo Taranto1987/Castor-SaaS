@@ -223,11 +223,11 @@ router.get("/catalog/families", async (req: Request, res: Response) => {
     }
 
     const result: CatalogFamily[] = filtered.map(family => {
-      const availableSizes = (family.availableSizes ?? ["Solteiro", "Casal", "Queen", "King"] as ProductSize[])
-        .slice()
-        .sort((a, b) => SIZE_ORDER.indexOf(a) - SIZE_ORDER.indexOf(b));
-
       const sizeMap = productIndex.get(family.id) ?? new Map<ProductSize, typeof products[number]>();
+
+      const declaredSizes = new Set<ProductSize>(family.availableSizes ?? ["Solteiro", "Casal", "Queen", "King"] as ProductSize[]);
+      for (const size of sizeMap.keys()) declaredSizes.add(size);
+      const availableSizes = [...declaredSizes].sort((a, b) => SIZE_ORDER.indexOf(a) - SIZE_ORDER.indexOf(b));
 
       const variants: CatalogVariant[] = availableSizes.map(size => {
         const p = sizeMap.get(size) ?? null;
