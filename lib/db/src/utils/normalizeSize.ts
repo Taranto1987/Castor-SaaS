@@ -40,10 +40,12 @@ export function normalizeSize(raw: string | null | undefined): ProductSize | nul
 // Dimensions the store actually stocks per canonical size.
 // Products with different medidas are non-standard (go to outlet/encomenda).
 export const STANDARD_MEDIDAS: Record<ProductSize, string> = {
-  Solteiro: "88x188",
-  Casal:    "138x188",
-  Queen:    "158x198",
-  King:     "193x203",
+  Solteiro:        "88x188",
+  "Solteiro King": "100x200",
+  "Viúvo":         "120x203",
+  Casal:           "138x188",
+  Queen:           "158x198",
+  King:            "193x203",
 };
 
 export function isStandardMedidas(size: ProductSize | null, medidas: string | null): boolean {
