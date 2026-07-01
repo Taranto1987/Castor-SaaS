@@ -7,8 +7,21 @@ import { seedColaboradores, hydrateSessionsFromDB, cleanupExpiredSessions } from
 import { seedLojas } from "./lib/seed-lojas";
 import { refreshLojaRegistry } from "./middlewares/auth";
 import { logger } from "./lib/logger";
-import { pool } from "@workspace/db";
+import { pool, db } from "@workspace/db";
+import { crawlerStatusTable } from "@workspace/db/schema";
+import { eq } from "drizzle-orm";
 import { registerEvolutionWebhooks } from "./services/whatsapp/webhook-registrar";
+
+async function resetStaleCrawler(): Promise<void> {
+  try {
+    await db.update(crawlerStatusTable)
+      .set({ status: "error", mensagem: "Interrompido por reinício do servidor.", atualizadoEm: new Date() })
+      .where(eq(crawlerStatusTable.status, "running"));
+    logger.info("[Crawler] Verificação de status stale no boot concluída.");
+  } catch (err) {
+    logger.warn({ err }, "[Crawler] Não foi possível resetar status stale no boot.");
+  }
+}
 
 // Must run before anything else — exits with code 1 if required vars are missing
 validateEnv();
@@ -35,6 +48,7 @@ const server = app.listen(port, () => {
   hydrateSessionsFromDB().catch(() => null);
   seedLojas().catch((err: unknown) => logger.error({ err }, "seedLojas failed"));
   seedColaboradores().catch((err: unknown) => logger.error({ err }, "seedColaboradores failed"));
+  resetStaleCrawler().catch(() => null);
   refreshLojaRegistry().catch(() => null);
   registerEvolutionWebhooks().catch(() => null);
   _refreshHandle = setInterval(() => refreshLojaRegistry().catch(() => null), 5 * 60_000);

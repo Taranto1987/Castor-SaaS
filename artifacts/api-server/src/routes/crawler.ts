@@ -483,4 +483,14 @@ router.get("/status", async (_req, res) => {
   }
 });
 
+// Resets stale "running" status left by a killed process (e.g. after server restart).
+router.post("/resetar", requireDono, async (_req, res) => {
+  crawlerRunning = false;
+  await db.update(crawlerStatusTable)
+    .set({ status: "idle", mensagem: "Resetado manualmente.", atualizadoEm: new Date() })
+    .where(eq(crawlerStatusTable.status, "running"));
+  res.json({ ok: true, mensagem: "Status do crawler resetado para idle." });
+});
+
+export { crawlerRunning };
 export default router;
