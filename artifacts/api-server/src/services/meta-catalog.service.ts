@@ -1,112 +1,117 @@
 import { db } from "@workspace/db";
-import { metaCatalogoConfigTable, metaProdutosTable, produtosTable } from "@workspace/db/schema";
-import { eq, and } from "drizzle-orm";
+import {
+  metaCatalogoConfigTable,
+  metaProdutosTable,
+  metaSyncJobsTable,
+} from "@workspace/db/schema";
+import { eq, and, inArray, sql } from "drizzle-orm";
+import { encryptToken, isEncrypted } from "../lib/meta-crypto";
 
-const GRAPH_API_BASE = "https://graph.facebook.com/v19.0";
+// ── Token helpers (encrypt on save, never return plaintext) ────────────────────
 
-interface SyncDetail {
-  metaProductId: string;
-  produtoId: number;
-  status: "ok" | "error";
-  error?: string;
-}
-
-interface SyncResult {
-  sincronizados: number;
-  erros: number;
-  detalhes: SyncDetail[];
-}
-
-async function graphPatch(
-  metaProductId: string,
-  body: Record<string, string>,
+export async function saveConfig(
+  lojaId: number,
+  catalogId: string,
+  feedId: string | null,
   accessToken: string,
-): Promise<{ ok: boolean; error?: string }> {
-  try {
-    const res = await fetch(`${GRAPH_API_BASE}/${metaProductId}?access_token=${encodeURIComponent(accessToken)}`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(body),
+): Promise<void> {
+  const stored = isEncrypted(accessToken) ? accessToken : encryptToken(accessToken);
+
+  const [existing] = await db
+    .select({ id: metaCatalogoConfigTable.id })
+    .from(metaCatalogoConfigTable)
+    .where(eq(metaCatalogoConfigTable.lojaId, lojaId));
+
+  if (existing) {
+    await db
+      .update(metaCatalogoConfigTable)
+      .set({ catalogId, feedId: feedId ?? null, accessToken: stored, atualizadoEm: new Date() })
+      .where(eq(metaCatalogoConfigTable.id, existing.id));
+  } else {
+    await db.insert(metaCatalogoConfigTable).values({
+      lojaId,
+      catalogId,
+      feedId: feedId ?? null,
+      accessToken: stored,
     });
-    const data = await res.json() as Record<string, unknown>;
-    if (!res.ok) {
-      const errorObj = data.error as Record<string, unknown> | undefined;
-      return { ok: false, error: errorObj?.message as string ?? `HTTP ${res.status}` };
-    }
-    return { ok: true };
-  } catch (err) {
-    return { ok: false, error: err instanceof Error ? err.message : String(err) };
   }
 }
 
-export async function sincronizarProdutos(lojaId: number): Promise<SyncResult> {
+// ── Job queue ───────────────────────────────────────────────────────────────────
+
+/**
+ * Idempotently enqueue sync jobs for the given loja.
+ * - If no produtoIds given: enqueue all active mappings.
+ * - If a job already exists for a product and is 'processing', it is left alone.
+ * - Otherwise the existing row is reset to 'pending' (natural dedup).
+ */
+export async function enqueueMetaSync(
+  lojaId: number,
+  produtoIds?: number[],
+  prioridade = 0,
+): Promise<{ enqueued: number }> {
+  const where = produtoIds?.length
+    ? and(
+        eq(metaProdutosTable.lojaId, lojaId),
+        eq(metaProdutosTable.ativo, true),
+        inArray(metaProdutosTable.produtoId, produtoIds),
+      )
+    : and(eq(metaProdutosTable.lojaId, lojaId), eq(metaProdutosTable.ativo, true));
+
+  const mappings = await db
+    .select({ produtoId: metaProdutosTable.produtoId, metaProductId: metaProdutosTable.metaProductId })
+    .from(metaProdutosTable)
+    .where(where);
+
+  if (mappings.length === 0) return { enqueued: 0 };
+
+  for (const m of mappings) {
+    // Upsert: insert new job or reset existing (except processing) back to pending
+    await db.execute(sql`
+      INSERT INTO meta_sync_jobs (loja_id, produto_id, meta_product_id, prioridade, status, scheduled_at, created_at)
+      VALUES (${lojaId}, ${m.produtoId}, ${m.metaProductId}, ${prioridade}, 'pending', NOW(), NOW())
+      ON CONFLICT (produto_id, loja_id) DO UPDATE SET
+        status        = CASE WHEN meta_sync_jobs.status = 'processing' THEN 'processing' ELSE 'pending' END,
+        meta_product_id = EXCLUDED.meta_product_id,
+        prioridade    = GREATEST(meta_sync_jobs.prioridade, EXCLUDED.prioridade),
+        scheduled_at  = CASE WHEN meta_sync_jobs.status = 'processing' THEN meta_sync_jobs.scheduled_at ELSE NOW() END,
+        error         = CASE WHEN meta_sync_jobs.status = 'processing' THEN meta_sync_jobs.error ELSE NULL END
+    `);
+  }
+
+  console.log(JSON.stringify({ event: "meta_sync_enqueued", lojaId, enqueued: mappings.length, prioridade }));
+  return { enqueued: mappings.length };
+}
+
+/**
+ * Backward-compatible entry point used by the crawler trigger and /sincronizar route.
+ * Now enqueues instead of calling the Graph API directly — returns immediately.
+ */
+export async function sincronizarProdutos(lojaId: number): Promise<{ enqueued: number }> {
   const [config] = await db
-    .select()
+    .select({ id: metaCatalogoConfigTable.id })
     .from(metaCatalogoConfigTable)
     .where(and(eq(metaCatalogoConfigTable.lojaId, lojaId), eq(metaCatalogoConfigTable.ativo, true)))
     .limit(1);
 
   if (!config) {
-    throw new Error(`Meta Catalog config não encontrada para loja ${lojaId}`);
+    throw new Error(`Meta Catalog config não encontrada ou inativa para loja ${lojaId}`);
   }
 
-  const mappings = await db
-    .select({
-      id: metaProdutosTable.id,
-      metaProductId: metaProdutosTable.metaProductId,
-      produtoId: metaProdutosTable.produtoId,
-      retailerId: metaProdutosTable.retailerId,
-    })
-    .from(metaProdutosTable)
-    .where(and(eq(metaProdutosTable.lojaId, lojaId), eq(metaProdutosTable.ativo, true)));
+  return enqueueMetaSync(lojaId);
+}
 
-  const detalhes: SyncDetail[] = [];
-  let sincronizados = 0;
-  let erros = 0;
-
-  for (const m of mappings) {
-    try {
-      const [produto] = await db
-        .select({ precoBase: produtosTable.precoBase, disponivel: produtosTable.disponivel })
-        .from(produtosTable)
-        .where(and(eq(produtosTable.id, m.produtoId), eq(produtosTable.lojaId, lojaId)))
-        .limit(1);
-
-      if (!produto || !produto.precoBase) {
-        detalhes.push({ metaProductId: m.metaProductId, produtoId: m.produtoId, status: "error", error: "Produto ou preço não encontrado" });
-        erros++;
-        console.log(JSON.stringify({ event: "meta_sync_skip", lojaId, metaProductId: m.metaProductId, reason: "produto_not_found" }));
-        continue;
-      }
-
-      const priceCents = Math.round(Number(produto.precoBase) * 100);
-      const result = await graphPatch(
-        m.metaProductId,
-        {
-          price: `${priceCents} BRL`,
-          availability: produto.disponivel ? "in stock" : "out of stock",
-        },
-        config.accessToken,
-      );
-
-      if (!result.ok) {
-        detalhes.push({ metaProductId: m.metaProductId, produtoId: m.produtoId, status: "error", error: result.error });
-        erros++;
-        console.log(JSON.stringify({ event: "meta_sync_error", lojaId, metaProductId: m.metaProductId, error: result.error }));
-        continue;
-      }
-
-      sincronizados++;
-      detalhes.push({ metaProductId: m.metaProductId, produtoId: m.produtoId, status: "ok" });
-      console.log(JSON.stringify({ event: "meta_sync_ok", lojaId, metaProductId: m.metaProductId }));
-    } catch (err) {
-      const msg = err instanceof Error ? err.message : String(err);
-      detalhes.push({ metaProductId: m.metaProductId, produtoId: m.produtoId, status: "error", error: msg });
-      erros++;
-      console.log(JSON.stringify({ event: "meta_sync_exception", lojaId, metaProductId: m.metaProductId, error: msg }));
-    }
-  }
-
-  console.log(JSON.stringify({ event: "meta_sync_complete", lojaId, sincronizados, erros, total: mappings.length }));
-  return { sincronizados, erros, detalhes };
+/**
+ * Mark dead jobs for a loja as pending again (manual retry from dashboard).
+ */
+export async function retryDeadJobs(lojaId: number): Promise<{ retried: number }> {
+  const raw = await db.execute(sql`
+    UPDATE meta_sync_jobs
+    SET status = 'pending', retry_count = 0, error = NULL, scheduled_at = NOW()
+    WHERE loja_id = ${lojaId} AND status = 'dead'
+    RETURNING id
+  `);
+  const rows = (Array.isArray(raw) ? raw : (raw as { rows?: unknown[] }).rows ?? []) as unknown[];
+  console.log(JSON.stringify({ event: "meta_dead_jobs_retried", lojaId, retried: rows.length }));
+  return { retried: rows.length };
 }

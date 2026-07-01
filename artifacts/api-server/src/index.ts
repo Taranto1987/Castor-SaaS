@@ -2,6 +2,7 @@ import app from "./app";
 import { validateEnv } from "./utils/env.js";
 import { iniciarSchedulerRecorrentes, stopSchedulerRecorrentes } from "./lib/recorrentes-scheduler";
 import { iniciarSchedulerFollowUps, stopSchedulerFollowUps } from "./lib/followup-scheduler";
+import { iniciarWorkerMetaSync, stopWorkerMetaSync } from "./services/meta-catalog.worker";
 import { stopWahaSessionCleanup } from "./routes/waha";
 import { seedColaboradores, hydrateSessionsFromDB, cleanupExpiredSessions } from "./lib/sessions";
 import { seedLojas } from "./lib/seed-lojas";
@@ -30,6 +31,7 @@ const server = app.listen(port, () => {
   logger.info({ port }, "Server listening");
   iniciarSchedulerRecorrentes();
   iniciarSchedulerFollowUps();
+  iniciarWorkerMetaSync();
   cleanupExpiredSessions().catch(() => null);
   hydrateSessionsFromDB().catch(() => null);
   seedLojas().catch((err: unknown) => logger.error({ err }, "seedLojas failed"));
@@ -49,6 +51,7 @@ async function shutdown(signal: string): Promise<void> {
   if (_refreshHandle) { clearInterval(_refreshHandle); _refreshHandle = null; }
   stopSchedulerRecorrentes();
   stopSchedulerFollowUps();
+  stopWorkerMetaSync();
   stopWahaSessionCleanup();
 
   server.close(async () => {

@@ -26,3 +26,4 @@ export * from "./diagnosticos";
 export * from "./sleep-outcomes";
 export * from "./sales-opportunities";
 export * from "./meta-catalogo";
+export * from "./meta-sync-jobs";

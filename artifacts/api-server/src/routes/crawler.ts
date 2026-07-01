@@ -429,7 +429,7 @@ async function executarCrawler() {
     for (const lid of lojaIds) {
       try {
         const result = await sincronizarMetaCatalogo(lid);
-        console.log(JSON.stringify({ event: "crawler_meta_sync_done", lojaId: lid, sincronizados: result.sincronizados, erros: result.erros }));
+        console.log(JSON.stringify({ event: "crawler_meta_sync_done", lojaId: lid, enqueued: result.enqueued }));
       } catch (err) {
         console.log(JSON.stringify({ event: "crawler_meta_sync_skip", lojaId: lid, reason: err instanceof Error ? err.message : String(err) }));
       }
