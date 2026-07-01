@@ -23,9 +23,10 @@ const ENV_SPEC: EnvSpec[] = [
   { name: "AI_INTEGRATIONS_GEMINI_API_KEY", required: false, description: "Gemini Vision (OCR NF-e)" },
 
   // ── WhatsApp — Evolution API (primary) ────────────────────────────────────
-  { name: "EVOLUTION_API_URL",      required: false, description: "Evolution API base URL (fallback: hardcoded Railway URL)" },
-  { name: "EVOLUTION_API_KEY",      required: false, description: "Evolution API auth token (fallback: AUTHENTICATION_API_KEY)" },
-  { name: "EVOLUTION_WEBHOOK_TOKEN",required: false, description: "Evolution webhook secret (fallback: AUTHENTICATION_API_KEY)" },
+  { name: "EVOLUTION_API_URL",        required: false, description: "Evolution API base URL (fallback: hardcoded Railway URL)" },
+  { name: "EVOLUTION_API_KEY",        required: false, description: "Evolution API auth token (fallback: AUTHENTICATION_API_KEY)" },
+  { name: "EVOLUTION_WEBHOOK_TOKEN",  required: false, description: "Evolution webhook secret (fallback: AUTHENTICATION_API_KEY)" },
+  { name: "AUTHENTICATION_API_KEY",   required: false, description: "Evolution API master key (fallback for EVOLUTION_API_KEY + EVOLUTION_WEBHOOK_TOKEN)" },
 
   // ── WhatsApp — WAHA fallback ──────────────────────────────────────────────
   { name: "WAHA_URL",             required: false, description: "WAHA API base URL" },

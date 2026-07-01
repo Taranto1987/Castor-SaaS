@@ -15,6 +15,7 @@ import {
   getConnectionState,
   logoutInstance,
   sendTextViaEvolution,
+  setWebhookForInstance,
 } from "../services/whatsapp/evolution-client";
 import {
   getOrCreateInstance,
@@ -311,6 +312,11 @@ router.post("/connect", async (req: Request, res: Response) => {
     } catch (err) {
       logger.warn({ err, instanceId }, "createInstance warning");
     }
+
+    // Register webhook immediately after instance creation (don't block QR on failure)
+    setWebhookForInstance(instanceId).catch((err) =>
+      logger.warn({ err, instanceId }, "setWebhookForInstance warning"),
+    );
 
     const qrcode = await getQRCode(instanceId);
     await updateStatus(instanceId, "awaiting_qr");
