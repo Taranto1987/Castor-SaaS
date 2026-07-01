@@ -384,9 +384,10 @@ router.delete("/disconnect", async (req: Request, res: Response) => {
 // Auth: EVOLUTION_WEBHOOK_TOKEN obrigatório via header "apikey".
 // Responde 200 imediatamente para evitar retries desnecessários da Evolution.
 router.post("/webhook", async (req: Request, res: Response) => {
-  const webhookToken = process.env.EVOLUTION_WEBHOOK_TOKEN ?? "";
+  const webhookToken =
+    process.env.EVOLUTION_WEBHOOK_TOKEN ?? process.env.AUTHENTICATION_API_KEY ?? "";
   if (!webhookToken) {
-    logger.warn("evolution webhook: EVOLUTION_WEBHOOK_TOKEN não configurado — rejeitando");
+    logger.warn("evolution webhook: token não configurado — rejeitando");
     res.status(503).json({ error: "Webhook não configurado" });
     return;
   }

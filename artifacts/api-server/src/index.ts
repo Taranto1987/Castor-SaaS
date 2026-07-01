@@ -8,6 +8,7 @@ import { seedLojas } from "./lib/seed-lojas";
 import { refreshLojaRegistry } from "./middlewares/auth";
 import { logger } from "./lib/logger";
 import { pool } from "@workspace/db";
+import { registerEvolutionWebhooks } from "./services/whatsapp/webhook-registrar";
 
 // Must run before anything else — exits with code 1 if required vars are missing
 validateEnv();
@@ -35,6 +36,7 @@ const server = app.listen(port, () => {
   seedLojas().catch((err: unknown) => logger.error({ err }, "seedLojas failed"));
   seedColaboradores().catch((err: unknown) => logger.error({ err }, "seedColaboradores failed"));
   refreshLojaRegistry().catch(() => null);
+  registerEvolutionWebhooks().catch(() => null);
   _refreshHandle = setInterval(() => refreshLojaRegistry().catch(() => null), 5 * 60_000);
 });
 
