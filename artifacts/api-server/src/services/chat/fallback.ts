@@ -134,7 +134,7 @@ export async function buildRecommendationFallback(
 
   if (products.length === 0) {
     return (
-      "Tive uma instabilidade ao montar sua recomendação agora, mas seu perfil ficou registrado. " +
+      "Não encontrei uma recomendação específica para o que você pediu, mas seu perfil ficou registrado. " +
       "Me chama no WhatsApp que um especialista finaliza na hora: Cabo Frio (22) 99241-0112 ou Araruama (22) 98844-7240."
     );
   }
