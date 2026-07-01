@@ -2,9 +2,9 @@ import { useState, useEffect } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
-import { 
-  Database, Play, RefreshCw, CheckCircle2, 
-  AlertTriangle, Clock, HardDrive, ShieldCheck
+import {
+  Database, Play, RefreshCw, CheckCircle2,
+  AlertTriangle, Clock, HardDrive, ShieldCheck, RotateCcw
 } from "lucide-react";
 import { motion } from "framer-motion";
 import { useToast } from "@/hooks/use-toast";
@@ -53,15 +53,32 @@ export default function Crawler() {
     }
   });
 
+  const [isResetting, setIsResetting] = useState(false);
+
   const isRunning = status?.status === 'running';
-  const progressPercent = status?.totalProdutos 
-    ? Math.round((status.produtosColetados / status.totalProdutos) * 100) 
+  const progressPercent = status?.totalProdutos
+    ? Math.round((status.produtosColetados / status.totalProdutos) * 100)
     : 0;
 
   const handleStart = () => {
     if (isRunning) return;
     if (confirm("Tem certeza que deseja iniciar a varredura completa? Isso pode demorar alguns minutos e atualizará o banco de dados atual.")) {
       startCrawler();
+    }
+  };
+
+  const handleReset = async () => {
+    if (!confirm("Forçar reset vai marcar o crawler como parado. Use apenas se ele estiver travado.")) return;
+    setIsResetting(true);
+    try {
+      await fetch("/api/crawler/resetar", { method: "POST", headers: { "x-session-token": sessionStorage.getItem("sessionToken") ?? "" } });
+      toast({ title: "Reset feito", description: "Status resetado. Pode iniciar uma nova varredura." });
+      queryClient.invalidateQueries({ queryKey: getStatusCrawlerQueryKey() });
+      refetch();
+    } catch {
+      toast({ title: "Erro", description: "Não foi possível resetar.", variant: "destructive" });
+    } finally {
+      setIsResetting(false);
     }
   };
 
@@ -155,7 +172,7 @@ export default function Crawler() {
             </div>
           </div>
 
-          <div className="relative z-10 flex gap-4 pt-4 border-t border-slate-100">
+          <div className="relative z-10 flex gap-3 pt-4 border-t border-slate-100">
             <button
               onClick={handleStart}
               disabled={isRunning || isStarting}
@@ -167,6 +184,17 @@ export default function Crawler() {
                 <><Play className="w-5 h-5" /> Iniciar Varredura Completa</>
               )}
             </button>
+            {isRunning && (
+              <button
+                onClick={handleReset}
+                disabled={isResetting}
+                title="Forçar reset se o crawler estiver travado"
+                className="px-4 py-4 bg-amber-50 hover:bg-amber-100 text-amber-700 border border-amber-200 font-bold rounded-xl transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 text-sm"
+              >
+                <RotateCcw className="w-4 h-4" />
+                {isResetting ? "Resetando..." : "Forçar Reset"}
+              </button>
+            )}
           </div>
         </div>
 
