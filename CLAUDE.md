@@ -298,6 +298,7 @@ QueryClientProvider → TooltipProvider → ThemeProvider → LojaProvider → A
 - Schemas em `lib/db/src/schema/` — um arquivo por dominio
 - `drizzle-zod` gera schemas Zod automaticamente das tabelas
 - Sem pasta de migrations — schema gerenciado via `push` (reconcile.mjs)
+- `reconcile.mjs` é auto-convergente: qualquer `CREATE TABLE` em `reconcile.sql` é decomposto em `CREATE TABLE IF NOT EXISTS` + um `ALTER TABLE ADD COLUMN IF NOT EXISTS` por coluna, aplicado sempre — inclusive em tabelas que já existem. **Não é mais necessário colar ALTER manual depois de `push:generate`** (isso já causou 2 incidentes de produção por esquecimento: loja Araruama sem produtos, e depois `produtos.largura/comprimento`/`diagnosticos.resultado` faltando derrubando o catálogo inteiro com 500). A cada deploy, o log `[reconcile] verificação de convergência: N tabelas checadas, M colunas ainda ausentes` reporta se sobrou algum drift — `M > 0` é sinal de alerta e deve ser investigado no log de deploy do Railway (procurar `DRIFT NÃO RESOLVIDO`).
 
 ### Tabelas (28 schema files)
 

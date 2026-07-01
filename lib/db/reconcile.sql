@@ -621,4 +621,31 @@ ALTER TABLE "leads" ADD COLUMN IF NOT EXISTS "score_intencao" integer;--> statem
 ALTER TABLE "leads" ADD COLUMN IF NOT EXISTS "status_funil" text;--> statement-breakpoint
 ALTER TABLE "leads" ADD COLUMN IF NOT EXISTS "produto_final_vendido" text;--> statement-breakpoint
 ALTER TABLE "leads" ADD COLUMN IF NOT EXISTS "motivo_nao_venda" text;--> statement-breakpoint
-ALTER TABLE "leads" ADD COLUMN IF NOT EXISTS "satisfacao_pos_venda" integer;
+ALTER TABLE "leads" ADD COLUMN IF NOT EXISTS "satisfacao_pos_venda" integer;--> statement-breakpoint
+ALTER TABLE "diagnosticos" ADD COLUMN IF NOT EXISTS "resultado" jsonb;--> statement-breakpoint
+ALTER TABLE "produtos" ADD COLUMN IF NOT EXISTS "largura" integer;--> statement-breakpoint
+ALTER TABLE "produtos" ADD COLUMN IF NOT EXISTS "comprimento" integer;--> statement-breakpoint
+CREATE TABLE IF NOT EXISTS "meta_catalogo_config" (
+	"id" serial PRIMARY KEY NOT NULL,
+	"loja_id" integer NOT NULL,
+	"catalog_id" text NOT NULL,
+	"feed_id" text,
+	"access_token" text NOT NULL,
+	"ativo" boolean DEFAULT true NOT NULL,
+	"criado_em" timestamp DEFAULT now(),
+	"atualizado_em" timestamp DEFAULT now()
+);
+--> statement-breakpoint
+CREATE TABLE IF NOT EXISTS "meta_produtos" (
+	"id" serial PRIMARY KEY NOT NULL,
+	"loja_id" integer NOT NULL,
+	"meta_product_id" text NOT NULL,
+	"retailer_id" text,
+	"produto_id" integer NOT NULL,
+	"ativo" boolean DEFAULT true NOT NULL,
+	"criado_em" timestamp DEFAULT now()
+);
+--> statement-breakpoint
+CREATE UNIQUE INDEX IF NOT EXISTS "meta_catalogo_config_loja_unique" ON "meta_catalogo_config" USING btree ("loja_id");--> statement-breakpoint
+CREATE UNIQUE INDEX IF NOT EXISTS "meta_produtos_meta_id_loja_unique" ON "meta_produtos" USING btree ("meta_product_id","loja_id");--> statement-breakpoint
+CREATE UNIQUE INDEX IF NOT EXISTS "meta_produtos_produto_loja_unique" ON "meta_produtos" USING btree ("produto_id","loja_id");
