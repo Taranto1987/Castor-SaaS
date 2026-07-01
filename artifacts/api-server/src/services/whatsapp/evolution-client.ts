@@ -1,5 +1,11 @@
-const baseUrl = () => process.env.EVOLUTION_API_URL ?? "";
-const apiKey = () => process.env.EVOLUTION_API_KEY ?? "";
+// Known stable Railway URLs — used as fallback when env vars aren't set
+const EVOLUTION_FALLBACK_URL = "https://eloquent-laughter-production-a0b7.up.railway.app";
+const CASTOR_WEBHOOK_FALLBACK = "https://evolution-api-production-405f.up.railway.app/api/whatsapp/webhook";
+
+const baseUrl = () => process.env.EVOLUTION_API_URL ?? EVOLUTION_FALLBACK_URL;
+// AUTHENTICATION_API_KEY is the Evolution API key already present on the service
+const apiKey = () =>
+  process.env.EVOLUTION_API_KEY ?? process.env.AUTHENTICATION_API_KEY ?? "";
 
 function headers(): Record<string, string> {
   return { "Content-Type": "application/json", "apikey": apiKey() };
@@ -73,6 +79,42 @@ export async function deleteInstance(instanceName: string): Promise<void> {
   });
   if (!res.ok && res.status !== 404) {
     throw new Error(`[Evolution] deleteInstance ${res.status}`);
+  }
+}
+
+export async function fetchInstances(): Promise<string[]> {
+  if (!apiKey()) return [];
+  const res = await fetch(`${baseUrl()}/instance/fetchInstances`, {
+    headers: { apikey: apiKey() },
+    signal: AbortSignal.timeout(15_000),
+  }).catch(() => null);
+  if (!res?.ok) return [];
+  const data = await res.json() as Array<{ instance?: { instanceName?: string } }>;
+  return data.map(d => d.instance?.instanceName ?? "").filter(Boolean);
+}
+
+export async function setWebhookForInstance(instanceName: string): Promise<void> {
+  assertInstanceName(instanceName);
+  const webhookUrl = process.env.PUBLIC_URL
+    ? `${process.env.PUBLIC_URL}/api/whatsapp/webhook`
+    : CASTOR_WEBHOOK_FALLBACK;
+  const webhookSecret =
+    process.env.EVOLUTION_WEBHOOK_TOKEN ?? process.env.AUTHENTICATION_API_KEY ?? "";
+  const res = await fetch(`${baseUrl()}/webhook/set/${instanceName}`, {
+    method: "POST",
+    headers: headers(),
+    body: JSON.stringify({
+      url: webhookUrl,
+      webhook_by_events: false,
+      webhook_base64: false,
+      events: ["MESSAGES_UPSERT", "CONNECTION_UPDATE", "QRCODE_UPDATED"],
+      headers: { apikey: webhookSecret },
+    }),
+    signal: AbortSignal.timeout(15_000),
+  });
+  if (!res.ok) {
+    const body = await res.text();
+    throw new Error(`[Evolution] setWebhook ${res.status}: ${body}`);
   }
 }
 
