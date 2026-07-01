@@ -3,7 +3,7 @@ import { SlidersHorizontal, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { ProductSize } from "@/utils/normalizeSize";
 
-const SIZE_OPTIONS: ProductSize[] = ["Solteiro", "Casal", "Queen", "King"];
+const SIZE_OPTIONS: ProductSize[] = ["Solteiro", "Solteiro King", "Viúvo", "Casal", "Queen", "King"];
 
 type Availability = "all" | "disponivel" | "encomenda";
 type SortBy = "ranking" | "price-asc" | "price-desc";

@@ -57,7 +57,7 @@ const REGIOES = ["Cabo Frio", "Búzios", "Arraial do Cabo", "São Pedro da Aldei
 function getBestVariant(variants: CatalogVariant[]): CatalogVariant | null {
   const withPrice = variants.filter(v => v.precoPix && v.disponivel);
   if (withPrice.length === 0) return variants.find(v => v.precoPix) ?? variants[0] ?? null;
-  const sizeOrder: ProductSize[] = ["King", "Queen", "Casal", "Solteiro"];
+  const sizeOrder: ProductSize[] = ["King", "Queen", "Casal", "Viúvo", "Solteiro King", "Solteiro"];
   for (const s of sizeOrder) {
     const found = withPrice.find(v => v.size === s);
     if (found) return found;

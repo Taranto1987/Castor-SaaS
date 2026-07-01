@@ -1,19 +1,21 @@
-export type ProductSize = "Solteiro" | "Casal" | "Queen" | "King";
+export type ProductSize = "Solteiro" | "Solteiro King" | "Viúvo" | "Casal" | "Queen" | "King";
 
-export const SIZE_ORDER: readonly ProductSize[] = ["Solteiro", "Casal", "Queen", "King"];
+export const SIZE_ORDER: readonly ProductSize[] = ["Solteiro", "Solteiro King", "Viúvo", "Casal", "Queen", "King"];
 
 const SIZE_MAP: Record<string, ProductSize> = {
-  solteiro:  "Solteiro",
-  solteirao: "Solteiro",
-  casal:     "Casal",
-  queen:     "Queen",
-  queensize: "Queen",
-  king:      "King",
-  kingsize:  "King",
-  // Wrong translations from web scraping
+  solteiro:      "Solteiro",
+  solteiroking:  "Solteiro King",
+  solteiraoking: "Solteiro King",
+  solteirao:     "Viúvo",
+  viuvo:         "Viúvo",
+  viuva:         "Viúvo",
+  casal:         "Casal",
+  queen:         "Queen",
+  queensize:     "Queen",
+  king:          "King",
+  kingsize:      "King",
   rei:    "King",
   rainha: "Queen",
-  // English aliases
   single: "Solteiro",
   twin:   "Solteiro",
   full:   "Casal",

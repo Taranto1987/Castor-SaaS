@@ -8,22 +8,29 @@ export interface FamilyInfo {
 
 // Order matters: longer/more specific entries must come first.
 const SIZE_SLUG_ENTRIES: { slug: string; size: ProductSize }[] = [
-  { slug: "king-size",  size: "King"     },
-  { slug: "queen-size", size: "Queen"    },
-  { slug: "king",       size: "King"     },
-  { slug: "queen",      size: "Queen"    },
-  { slug: "casal",      size: "Casal"    },
-  { slug: "solteiro",   size: "Solteiro" },
+  { slug: "solteiro-king-size", size: "Solteiro King" },
+  { slug: "solteiro-king",      size: "Solteiro King" },
+  { slug: "solteirao",          size: "Viúvo"          },
+  { slug: "viuvo",              size: "Viúvo"          },
+  { slug: "viuva",              size: "Viúvo"          },
+  { slug: "king-size",          size: "King"           },
+  { slug: "queen-size",         size: "Queen"          },
+  { slug: "king",               size: "King"           },
+  { slug: "queen",              size: "Queen"          },
+  { slug: "casal",              size: "Casal"          },
+  { slug: "solteiro",           size: "Solteiro"       },
 ];
 
 const NAME_SIZE_PATTERNS: { re: RegExp; size: ProductSize }[] = [
-  { re: /\s+King\s+Size(\s+\d[\dxX×.,cm\s]*)?$/i,  size: "King"     },
-  { re: /\s+Queen\s+Size(\s+\d[\dxX×.,cm\s]*)?$/i, size: "Queen"    },
-  { re: /\s+King(\s+\d[\dxX×.,cm\s]*)?$/i,         size: "King"     },
-  { re: /\s+Queen(\s+\d[\dxX×.,cm\s]*)?$/i,        size: "Queen"    },
-  { re: /\s+Casal(\s+\d[\dxX×.,cm\s]*)?$/i,        size: "Casal"    },
-  { re: /\s+Solteirão(\s+\d[\dxX×.,cm\s]*)?$/i,    size: "Solteiro" },
-  { re: /\s+Solteiro(\s+\d[\dxX×.,cm\s]*)?$/i,     size: "Solteiro" },
+  { re: /\s+Solteiro\s+King(\s+Size)?(\s+\d[\dxX×.,cm\s]*)?$/i, size: "Solteiro King" },
+  { re: /\s+Solteirão(\s+\d[\dxX×.,cm\s]*)?$/i,                 size: "Viúvo"          },
+  { re: /\s+Vi[úu]v[oa](\s+\d[\dxX×.,cm\s]*)?$/i,              size: "Viúvo"          },
+  { re: /\s+King\s+Size(\s+\d[\dxX×.,cm\s]*)?$/i,               size: "King"           },
+  { re: /\s+Queen\s+Size(\s+\d[\dxX×.,cm\s]*)?$/i,              size: "Queen"          },
+  { re: /\s+King(\s+\d[\dxX×.,cm\s]*)?$/i,                      size: "King"           },
+  { re: /\s+Queen(\s+\d[\dxX×.,cm\s]*)?$/i,                     size: "Queen"          },
+  { re: /\s+Casal(\s+\d[\dxX×.,cm\s]*)?$/i,                     size: "Casal"          },
+  { re: /\s+Solteiro(\s+\d[\dxX×.,cm\s]*)?$/i,                  size: "Solteiro"       },
 ];
 
 function familyNameFromNome(nome: string): string {

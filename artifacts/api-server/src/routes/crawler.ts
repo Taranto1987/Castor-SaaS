@@ -303,7 +303,7 @@ async function executarCrawler() {
         const link = `https://lojacastor.com.br/${item.url_key}`;
         const slug = item.url_key;
         const imagem = item.small_image?.url ?? "";
-        const { familySlug, familyName, size } = extractFamilyInfo(slug, item.name);
+        let { familySlug, familyName, size } = extractFamilyInfo(slug, item.name);
 
         // Extract dimensions from description HTML
         const html = item.description?.html ?? "";
@@ -312,6 +312,20 @@ async function executarCrawler() {
         const medidas = medidasMatch ? `${medidasMatch[1]}x${medidasMatch[2]}` : "";
         const alturaMatch = text.match(/(\d{2,3})\s*cm/i);
         const altura = alturaMatch ? alturaMatch[0] : "";
+
+        const largura = medidasMatch ? parseInt(medidasMatch[1], 10) : null;
+        const comprimento = medidasMatch ? parseInt(medidasMatch[2], 10) : null;
+
+        // Refine Solteiro classification by width when name-based detection is ambiguous
+        if (size === "Solteiro" && largura) {
+          if (largura >= 96 && largura <= 100) size = "Solteiro King" as typeof size;
+          else if (largura >= 110 && largura <= 130) size = "Viúvo" as typeof size;
+        }
+
+        // Business rule: only Solteiro 88x188 is pronta_entrega; larger Solteiro variants are sob_encomenda
+        const isSolteiroEncomenda = size === "Solteiro King" || size === "Viúvo";
+        const encomenda = isSolteiroEncomenda;
+        const deliveryStrategy = isSolteiroEncomenda ? "sob_encomenda" as const : "pronta_entrega" as const;
 
         // Descrição comercial completa (HTML preservado) + ficha técnica normalizada.
         const shortHtml = item.short_description?.html ?? "";
@@ -331,11 +345,15 @@ async function executarCrawler() {
           parcelamento: `12x de ${formatBRL(precoRegular / 12)}`,
           medidas: medidas || null,
           altura: altura || null,
+          largura,
+          comprimento,
           categoria: categoriaReal,
           imagem: imagem || null,
           familySlug,
           familyName,
           size,
+          encomenda,
+          deliveryStrategy,
           descricao,
           fichaTecnica,
           disponivel: true,
