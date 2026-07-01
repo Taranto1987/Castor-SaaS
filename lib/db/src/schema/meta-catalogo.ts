@@ -1,5 +1,4 @@
-import { pgTable, serial, integer, text, boolean, timestamp, uniqueIndex } from "drizzle-orm/pg-core";
-import { sql } from "drizzle-orm";
+import { pgTable, serial, integer, text, boolean, timestamp, numeric, uniqueIndex } from "drizzle-orm/pg-core";
 
 export const metaCatalogoConfigTable = pgTable("meta_catalogo_config", {
   id: serial("id").primaryKey(),
@@ -22,6 +21,16 @@ export const metaProdutosTable = pgTable("meta_produtos", {
   produtoId: integer("produto_id").notNull(),
   ativo: boolean("ativo").notNull().default(true),
   criadoEm: timestamp("criado_em").defaultNow(),
+  // Sync state — updated by the async worker after each sync attempt
+  // idle | ok | error | dead
+  syncStatus: text("sync_status").notNull().default("idle"),
+  ultimoSyncAt: timestamp("ultimo_sync_at"),
+  ultimoHash: text("ultimo_hash"),
+  ultimoPreco: numeric("ultimo_preco", { precision: 12, scale: 2 }),
+  ultimoDisponivel: boolean("ultimo_disponivel"),
+  ultimaRespostaMeta: text("ultima_resposta_meta"),
+  tentativas: integer("tentativas").notNull().default(0),
+  ultimoErro: text("ultimo_erro"),
 }, (t) => [
   uniqueIndex("meta_produtos_meta_id_loja_unique").on(t.metaProductId, t.lojaId),
   uniqueIndex("meta_produtos_produto_loja_unique").on(t.produtoId, t.lojaId),
