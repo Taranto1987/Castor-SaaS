@@ -3,6 +3,7 @@ import { logger } from "../../lib/logger";
 
 export async function registerEvolutionWebhooks(): Promise<void> {
   const instances = await fetchInstances();
+  logger.info({ count: instances.length }, "evolution: startup webhook registration");
   if (instances.length === 0) return;
 
   for (const name of instances) {
