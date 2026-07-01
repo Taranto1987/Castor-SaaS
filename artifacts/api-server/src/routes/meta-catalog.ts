@@ -1,7 +1,8 @@
 import { Router, type IRouter } from "express";
 import { db, metaCatalogoConfigTable, metaProdutosTable, produtosTable, lojasTable } from "@workspace/db";
-import { eq, and } from "drizzle-orm";
+import { eq, and, inArray } from "drizzle-orm";
 import { requireDono, type AuthRequest } from "../middlewares/auth";
+import { sincronizarProdutos } from "../services/meta-catalog.service";
 
 const router: IRouter = Router();
 
@@ -49,7 +50,6 @@ router.get("/meta-catalog/feed/:lojaSlug", async (req, res) => {
       return;
     }
 
-    const productIds = mappings.map(m => m.produtoId);
     const products = await db.select()
       .from(produtosTable)
       .where(and(
@@ -235,6 +235,20 @@ router.post("/meta-catalog/produtos", requireDono, async (req: AuthRequest, res)
   } catch (err) {
     console.error("[meta-catalog] produtos save error:", err);
     res.status(500).json({ error: "Erro interno" });
+  }
+});
+
+// POST /api/meta-catalog/sincronizar
+// Triggers Graph API price/availability sync for the session's loja
+router.post("/meta-catalog/sincronizar", requireDono, async (req: AuthRequest, res) => {
+  try {
+    const lojaId = req.session!.lojaId;
+    const resultado = await sincronizarProdutos(lojaId);
+    res.json({ success: true, data: resultado });
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    console.log(JSON.stringify({ event: "meta_sync_route_error", error: msg }));
+    res.status(500).json({ success: false, data: null, error: msg });
   }
 });
 

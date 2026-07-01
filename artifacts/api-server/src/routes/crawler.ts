@@ -6,6 +6,7 @@ import { markNonStandardProducts } from "./catalog";
 import axios from "axios";
 import { requireDono } from "../middlewares/auth";
 import { formatBRL } from "../services/shared/currency";
+import { sincronizarProdutos as sincronizarMetaCatalogo } from "../services/meta-catalog.service";
 
 const router: IRouter = Router();
 
@@ -405,6 +406,15 @@ async function executarCrawler() {
     const nonStdMarked = await markNonStandardProducts();
     if (nonStdMarked > 0) {
       console.log(`[Crawler] Marked ${nonStdMarked} non-standard dimension products as encomenda`);
+    }
+
+    for (const lid of lojaIds) {
+      try {
+        const result = await sincronizarMetaCatalogo(lid);
+        console.log(JSON.stringify({ event: "crawler_meta_sync_done", lojaId: lid, sincronizados: result.sincronizados, erros: result.erros }));
+      } catch (err) {
+        console.log(JSON.stringify({ event: "crawler_meta_sync_skip", lojaId: lid, reason: err instanceof Error ? err.message : String(err) }));
+      }
     }
 
     await atualizarStatus("completed", `✅ Coleta finalizada! ${produtosColetados} produtos salvos.`, produtosColetados, erros, produtosColetados, true);
