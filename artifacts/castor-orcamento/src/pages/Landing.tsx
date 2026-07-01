@@ -65,27 +65,87 @@ function getBestVariant(variants: CatalogVariant[]): CatalogVariant | null {
   return withPrice[0];
 }
 
+// sameAs → Wikipédia PT das cidades atendidas (REGIOES), para desambiguação geográfica por crawlers de IA.
+const REGIOES_WIKI: Record<string, string> = {
+  "Cabo Frio": "https://pt.wikipedia.org/wiki/Cabo_Frio",
+  "Búzios": "https://pt.wikipedia.org/wiki/Arma%C3%A7%C3%A3o_dos_B%C3%BAzios",
+  "Arraial do Cabo": "https://pt.wikipedia.org/wiki/Arraial_do_Cabo",
+  "São Pedro da Aldeia": "https://pt.wikipedia.org/wiki/S%C3%A3o_Pedro_da_Aldeia",
+  "Araruama": "https://pt.wikipedia.org/wiki/Araruama",
+  "Iguaba Grande": "https://pt.wikipedia.org/wiki/Iguaba_Grande",
+  "Saquarema": "https://pt.wikipedia.org/wiki/Saquarema",
+};
+
+// FAQ reaproveitado do conteúdo comercial real já usado nas landing pages (lpConfigs.ts).
+const HOME_FAQ = [
+  {
+    q: "O que é a certificação INER e por que importa?",
+    a: "O INER (Instituto Nacional de Engenharia de Recursos) certifica que a densidade declarada na etiqueta é real. D33 significa 33 kg/m³ de matéria-prima verdadeira — sem carga mineral escondida. Colchão sem laudo INER pode ter densidade real bem menor que a anunciada.",
+  },
+  {
+    q: "Qual a diferença entre o Pocket® Spring e o colchão de mola comum?",
+    a: "No colchão de mola comum, todas as molas estão soldadas — uma mexe, todas mexem. No Pocket® Spring cada mola fica dentro de um cilindro de tecido separado, dando suporte individualizado para cada parte do corpo e eliminando a transferência de movimento entre parceiros.",
+  },
+  {
+    q: "Qual o prazo de entrega para a Região dos Lagos?",
+    a: "Cabo Frio, Arraial do Cabo, Búzios e São Pedro da Aldeia: até 48h úteis com equipe própria. Araruama, Iguaba Grande e Saquarema são atendidas pela unidade Araruama. Montagem e retirada da embalagem sempre incluídas.",
+  },
+  {
+    q: "E se eu não me adaptar ao colchão?",
+    a: "30 dias para testar. Se não dormir melhor, trocamos pelo modelo mais adequado ao seu perfil — sem formulário, sem taxa, sem discussão.",
+  },
+];
+
 function LocalBusinessJsonLd({ lojaId }: { lojaId: number }) {
   useEffect(() => {
     const schema = {
       "@context": "https://schema.org",
-      "@type": ["FurnitureStore", "LocalBusiness"],
-      "@id": "https://lojacastorcabofrio.com.br/#organization",
-      name: "Castor Colchões — Cabo Frio e Araruama",
-      description: "Colchões Castor com tecnologia suíça. Diagnóstico personalizado do sono, entrega em toda a Região dos Lagos.",
-      url: "https://lojacastorcabofrio.com.br",
-      telephone: lojaId === 2 ? "+5522988447240" : "+5522992410112",
-      image: "https://lojacastorcabofrio.com.br/opengraph.jpg",
-      address: [
-        { "@type": "PostalAddress", streetAddress: "Av. Júlia Kubitschek, 64", addressLocality: "Cabo Frio", addressRegion: "RJ", addressCountry: "BR", postalCode: "28913-100" },
-        { "@type": "PostalAddress", streetAddress: "Av. Getúlio Vargas, 137", addressLocality: "Araruama", addressRegion: "RJ", addressCountry: "BR", postalCode: "28970-000" },
+      "@graph": [
+        {
+          "@type": "Organization",
+          "@id": "https://lojacastorcabofrio.com.br/#organization",
+          name: "Castor Colchões",
+          url: "https://lojacastorcabofrio.com.br",
+          logo: "https://lojacastorcabofrio.com.br/logo-castor.png",
+          parentOrganization: { "@type": "Organization", name: "Castor Colchões", url: "https://lojacastor.com.br" },
+        },
+        {
+          "@type": ["FurnitureStore", "LocalBusiness"],
+          "@id": "https://lojacastorcabofrio.com.br/#store",
+          name: "Castor Colchões — Cabo Frio e Araruama",
+          description: "Colchões Castor com tecnologia suíça. Diagnóstico personalizado do sono, entrega em toda a Região dos Lagos.",
+          url: "https://lojacastorcabofrio.com.br",
+          telephone: lojaId === 2 ? "+5522988447240" : "+5522992410112",
+          image: "https://lojacastorcabofrio.com.br/opengraph.jpg",
+          branchOf: { "@id": "https://lojacastorcabofrio.com.br/#organization" },
+          address: [
+            { "@type": "PostalAddress", streetAddress: "Av. Júlia Kubitschek, 64", addressLocality: "Cabo Frio", addressRegion: "RJ", addressCountry: "BR", postalCode: "28913-100" },
+            { "@type": "PostalAddress", streetAddress: "Av. Getúlio Vargas, 137", addressLocality: "Araruama", addressRegion: "RJ", addressCountry: "BR", postalCode: "28970-000" },
+          ],
+          openingHoursSpecification: [
+            { "@type": "OpeningHoursSpecification", dayOfWeek: ["Monday","Tuesday","Wednesday","Thursday","Friday"], opens: "09:00", closes: "18:00" },
+            { "@type": "OpeningHoursSpecification", dayOfWeek: ["Saturday"], opens: "09:00", closes: "13:00" },
+          ],
+          aggregateRating: { "@type": "AggregateRating", ratingValue: "5.0", reviewCount: "142", bestRating: "5", worstRating: "1" },
+          priceRange: "$$",
+          areaServed: REGIOES.map(nome => ({ "@type": "AdministrativeArea", name: nome, sameAs: REGIOES_WIKI[nome] })),
+          knowsAbout: [
+            "https://pt.wikipedia.org/wiki/Colch%C3%A3o",
+            "Molas ensacadas Pocket® Spring",
+            "Densidade de espuma certificada INER",
+            "Ergonomia e alinhamento da coluna vertebral no sono",
+          ],
+        },
+        {
+          "@type": "FAQPage",
+          "@id": "https://lojacastorcabofrio.com.br/#faq",
+          mainEntity: HOME_FAQ.map(f => ({
+            "@type": "Question",
+            name: f.q,
+            acceptedAnswer: { "@type": "Answer", text: f.a },
+          })),
+        },
       ],
-      openingHoursSpecification: [
-        { "@type": "OpeningHoursSpecification", dayOfWeek: ["Monday","Tuesday","Wednesday","Thursday","Friday"], opens: "09:00", closes: "18:00" },
-        { "@type": "OpeningHoursSpecification", dayOfWeek: ["Saturday"], opens: "09:00", closes: "13:00" },
-      ],
-      aggregateRating: { "@type": "AggregateRating", ratingValue: "5.0", reviewCount: "142", bestRating: "5", worstRating: "1" },
-      priceRange: "$$",
     };
     let el = document.getElementById("lb-json-ld") as HTMLScriptElement | null;
     if (!el) { el = document.createElement("script"); el.id = "lb-json-ld"; el.type = "application/ld+json"; document.head.appendChild(el); }
