@@ -327,22 +327,31 @@ export default function Landing() {
           </div>
 
           {/* Trust strip */}
-          <motion.div {...fade(0.35)} className="mt-10 md:mt-12 border-t border-white/10 pt-6 flex flex-wrap items-center justify-center md:justify-between gap-x-8 gap-y-4">
+          <div className="mt-10 md:mt-12 border-t border-white/10 pt-6 grid grid-cols-2 md:flex md:items-center md:justify-between gap-x-4 gap-y-4">
             {[
-              { icon: "⭐", v: "5.0", label: "Google Reviews" },
-              { icon: "🏆", v: "Campeã", label: "ReclameAQUI 2025" },
-              { icon: "🇨🇭", v: "60 anos", label: "Tecnologia Castor" },
-              { icon: "✅", v: "ISO 9001", label: "Certificação INER" },
-            ].map(b => (
-              <div key={b.label} className="flex items-center gap-2.5">
-                <span className="text-xl">{b.icon}</span>
-                <div className="flex items-baseline gap-1.5">
-                  <p className="text-white font-extrabold text-sm leading-tight">{b.v}</p>
-                  <p className="text-white/60 text-xs">{b.label}</p>
+              { icon: Star, v: "5.0", label: "Google Reviews", chip: "bg-amber-400/10 border-amber-400/20", cls: "text-amber-400 fill-amber-400" },
+              { icon: Award, v: "Campeã", label: "ReclameAQUI 2025", chip: "bg-orange-400/10 border-orange-400/20", cls: "text-orange-300" },
+              { icon: Shield, v: "60 anos", label: "Tecnologia suíça", chip: "bg-red-500/10 border-red-400/20", cls: "text-red-300" },
+              { icon: CheckCircle2, v: "ISO 9001", label: "Certificação INER", chip: "bg-emerald-400/10 border-emerald-400/20", cls: "text-emerald-300" },
+            ].map((b, i) => (
+              <motion.div
+                key={b.label}
+                initial={{ opacity: 0, y: 10 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                viewport={{ once: true }}
+                transition={{ duration: 0.4, delay: 0.35 + i * 0.12 }}
+                className="flex items-center gap-2.5"
+              >
+                <div className={`w-8 h-8 rounded-lg border flex items-center justify-center shrink-0 ${b.chip}`}>
+                  <b.icon className={`w-4 h-4 ${b.cls}`} />
                 </div>
-              </div>
+                <div className="leading-tight">
+                  <p className="text-white font-extrabold text-[13px]">{b.v}</p>
+                  <p className="text-white/50 text-[11px]">{b.label}</p>
+                </div>
+              </motion.div>
             ))}
-          </motion.div>
+          </div>
         </div>
       </section>
 
