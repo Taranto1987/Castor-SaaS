@@ -27,3 +27,9 @@ export {
   resolverTermoBusca,
   type ResultadoClassificacao,
 } from "./classificador";
+
+export {
+  backfillMedidasProdutos,
+  type ResultadoBackfillMedidas,
+  type ItemRevisaoMedida,
+} from "./backfill";
