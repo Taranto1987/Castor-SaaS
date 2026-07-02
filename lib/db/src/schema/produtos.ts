@@ -1,4 +1,4 @@
-import { pgTable, serial, text, timestamp, boolean, integer, numeric, jsonb, uniqueIndex, pgEnum } from "drizzle-orm/pg-core";
+import { pgTable, serial, text, timestamp, boolean, integer, numeric, jsonb, uniqueIndex, index, pgEnum } from "drizzle-orm/pg-core";
 import { sql } from "drizzle-orm";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod/v4";
@@ -42,6 +42,18 @@ export const produtosTable = pgTable("produtos", {
   size: text("size"),
   largura: integer("largura"),
   comprimento: integer("comprimento"),
+  // ── Dicionário Mestre de Medidas (Single Source of Truth) ──────────────────
+  // Campos derivados EXCLUSIVAMENTE da MEDIDA do produto (nunca do nome).
+  // Preenchidos pelo crawler e pelo backfill via classificarDeTextoLivre().
+  // `nome` continua sendo o título original Castor (auditoria) — nenhuma query
+  // de negócio filtra por ele. As decisões de tamanho usam `categoriaInterna`.
+  // medida canônica "LARGURAxCOMPRIMENTO" em cm, ex: "88x188".
+  medida: text("medida"),
+  // Categoria de TAMANHO (SOLTEIRO, CASAL, QUEEN, ...), distinta de `categoria`
+  // (que é o tipo de produto: colchoes, cama-box, travesseiros...).
+  // Default NAO_MAPEADA: nunca chuta — produto sem medida válida fica fora do catálogo.
+  categoriaInterna: text("categoria_interna").default("NAO_MAPEADA"),
+  statusMedida: text("status_medida"), // 'padrao' | 'sob_encomenda' | null (não mapeada)
   // Descrição comercial completa do fabricante (HTML sanitizado, preservado p/ PDP/SEO/chat).
   // Antes era buscada no GraphQL só para extrair medidas/altura e descartada.
   descricao: text("descricao"),
@@ -63,6 +75,8 @@ export const produtosTable = pgTable("produtos", {
   // Composite per-loja: same SKU/slug allowed across different lojas (multi-tenant safe)
   uniqueIndex("produtos_sku_loja_unique").on(t.sku, t.lojaId).where(sql`${t.sku} IS NOT NULL`),
   uniqueIndex("produtos_slug_loja_unique").on(t.slug, t.lojaId).where(sql`${t.slug} IS NOT NULL`),
+  // Caminho de consulta do catálogo/filtro: WHERE loja_id = X AND categoria_interna = 'SOLTEIRO'
+  index("produtos_loja_categoria_interna_idx").on(t.lojaId, t.categoriaInterna),
 ]);
 
 export const insertProdutoSchema = createInsertSchema(produtosTable).omit({ id: true, criadoEm: true });

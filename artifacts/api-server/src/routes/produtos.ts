@@ -16,9 +16,10 @@ const VALID_LOJA_IDS = [1, 2];
 router.get("/", async (req, res) => {
   try {
     const lojaId = resolveLojaId(req);
-    const { categoria, limite, interno } = req.query;
+    const { categoria, categoriaInterna, limite, interno } = req.query;
     const result = await listProdutos(lojaId, {
       categoria: categoria as string | undefined,
+      categoriaInterna: categoriaInterna as string | undefined,
       limite: limite ? parseInt(limite as string) : undefined,
       interno: interno === "1",
     });

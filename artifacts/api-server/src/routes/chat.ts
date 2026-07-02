@@ -21,6 +21,7 @@ import { runTools } from "../lib/tool-runner";
 import { logger, routeLogger } from "../lib/logger";
 import { generateAndSaveLeadContext } from "../services/lead-context";
 import { trackAIUsage } from "../lib/ai-usage";
+import { classificarDeTextoLivre } from "../medidas";
 
 const router = Router();
 
@@ -36,6 +37,31 @@ interface ToolProduct {
   slug: string | null;
   precoPix: string | null;
   size: string | null;
+  statusMedida: string | null; // 'sob_encomenda' → NUNCA vira link de produto
+}
+
+/**
+ * Guarda de MEDIDA (SSOT): classifica a mensagem do cliente pela medida, nunca
+ * pelo nome. Retorna instrução determinística para o modelo quando o cliente
+ * cita uma medida sob-encomenda ou não mapeada. Aplica-se em ambos os passos.
+ */
+function buildMedidaGuard(text: string): string | null {
+  const r = classificarDeTextoLivre(text);
+  if (r.status === "sob_encomenda") {
+    return [
+      `MEDIDA SOB ENCOMENDA detectada (${r.medida} — ${r.nomeExibido}).`,
+      "Responda com o template de sob encomenda: essa medida é fabricada sob encomenda pela Castor,",
+      "com condições especiais, e ofereça montar um orçamento. NÃO envie link de produto.",
+    ].join(" ");
+  }
+  if (r.motivo === "medida_nao_mapeada") {
+    return [
+      `MEDIDA NÃO MAPEADA detectada (${r.medida}).`,
+      'Diga que vai verificar essa medida e retorna, e ofereça encaminhar para um especialista.',
+      "NUNCA envie link de produto nem chute um tamanho equivalente.",
+    ].join(" ");
+  }
+  return null;
 }
 
 function cleanProductName(raw: string): string {
@@ -179,6 +205,18 @@ router.post("/", async (req, res) => {
       }
     }
 
+    // Block 6: guarda de medida (SSOT) — quando a última mensagem do cliente cita
+    // uma medida sob-encomenda ou não mapeada, instrui o modelo a usar o template
+    // correto e nunca mandar link errado. Vale para os dois passos de streaming.
+    const lastUserMsg = [...chatMessages].reverse().find((m) => m.role === "user");
+    const medidaGuard =
+      lastUserMsg && typeof lastUserMsg.content === "string"
+        ? buildMedidaGuard(lastUserMsg.content)
+        : null;
+    if (medidaGuard) {
+      systemBlocks.push({ type: "text", text: medidaGuard });
+    }
+
     // ── Tool-aware streaming ──────────────────────────────────────────────────
     // Pass 1: buffer-then-flush. ALL text is buffered during streaming.
     // After finalMessage(): if no tool_use → flush buffer to client.
@@ -239,14 +277,17 @@ router.post("/", async (req, res) => {
                 slug: item.slug ?? null,
                 precoPix: item.precoPix ?? null,
                 size: item.size ?? null,
+                statusMedida: item.statusMedida ?? null,
               });
             }
           }
         } catch { /* skip non-JSON */ }
       }
 
-      // Pass 2: stream final answer with tool results injected
+      // Pass 2: stream final answer with tool results injected.
+      // SSOT: produtos sob encomenda NUNCA viram link — são tratados por template.
       const formattedLines = toolProducts
+        .filter((p) => p.statusMedida !== "sob_encomenda")
         .slice(0, 5)
         .map(formatProductLine)
         .filter(Boolean);

@@ -625,6 +625,10 @@ ALTER TABLE "leads" ADD COLUMN IF NOT EXISTS "satisfacao_pos_venda" integer;--> 
 ALTER TABLE "diagnosticos" ADD COLUMN IF NOT EXISTS "resultado" jsonb;--> statement-breakpoint
 ALTER TABLE "produtos" ADD COLUMN IF NOT EXISTS "largura" integer;--> statement-breakpoint
 ALTER TABLE "produtos" ADD COLUMN IF NOT EXISTS "comprimento" integer;--> statement-breakpoint
+ALTER TABLE "produtos" ADD COLUMN IF NOT EXISTS "medida" text;--> statement-breakpoint
+ALTER TABLE "produtos" ADD COLUMN IF NOT EXISTS "categoria_interna" text DEFAULT 'NAO_MAPEADA';--> statement-breakpoint
+ALTER TABLE "produtos" ADD COLUMN IF NOT EXISTS "status_medida" text;--> statement-breakpoint
+CREATE INDEX IF NOT EXISTS "produtos_loja_categoria_interna_idx" ON "produtos" USING btree ("loja_id","categoria_interna");--> statement-breakpoint
 CREATE TABLE IF NOT EXISTS "meta_catalogo_config" (
 	"id" serial PRIMARY KEY NOT NULL,
 	"loja_id" integer NOT NULL,

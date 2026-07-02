@@ -59,6 +59,9 @@ export interface ProdutoCatalogoInput {
   familyName: string | null;
   familySlug: string | null;
   size: string | null;
+  // Categoria de tamanho do Dicionário Mestre de Medidas (SSOT), derivada da MEDIDA.
+  // Preferida sobre `size` (palavra) para casar tamanho no motor de regras.
+  categoriaInterna?: string | null;
   precoPix: string | null;
   custoBRL: string | null;
   imagem: string | null;

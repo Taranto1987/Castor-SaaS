@@ -7,6 +7,7 @@ import axios from "axios";
 import { requireDono } from "../middlewares/auth";
 import { formatBRL } from "../services/shared/currency";
 import { sincronizarProdutos as sincronizarMetaCatalogo } from "../services/meta-catalog.service";
+import { classificarDeTextoLivre } from "../medidas";
 
 const router: IRouter = Router();
 
@@ -334,6 +335,43 @@ async function executarCrawler() {
 
         const categoriaReal = resolveCategory(item.name, slug, categoria.nome);
 
+        // ── Dicionário Mestre de Medidas (SSOT) ────────────────────────────────
+        // Classifica por MEDIDA, nunca por nome. A medida extraída da descrição
+        // ("medidas") é a fonte primária; o título é fallback. O crawler apenas
+        // CONSOME a Tabela Mestre — nunca a escreve.
+        const classificacao = classificarDeTextoLivre(
+          [medidas, item.name, altura].filter(Boolean).join(" "),
+        );
+        // Só colchões/cama-box têm medida de cama esperada. Travesseiros, protetores
+        // e roupa de cama não têm tamanho de leito — ficam NAO_MAPEADA legitimamente
+        // e são navegados por `categoria` (tipo de produto), não por tamanho.
+        const esperaMedidaDeCama =
+          categoriaReal === "colchoes" ||
+          categoriaReal === "cama-box" ||
+          categoriaReal === "cama-box-colchao";
+        if (esperaMedidaDeCama && classificacao.categoria === "NAO_MAPEADA") {
+          console.error(
+            JSON.stringify({
+              modulo: "crawler",
+              evento: "produto_sem_medida_mapeada",
+              sku: item.sku,
+              nome: item.name,
+              medidas: medidas || null,
+              motivo: classificacao.motivo,
+            }),
+          );
+        }
+        // Quando classificado, o status da Tabela Mestre é a fonte de verdade para
+        // pronta-entrega vs sob-encomenda (substitui a inferência por nome).
+        const encomendaFinal = classificacao.status
+          ? classificacao.status === "sob_encomenda"
+          : encomenda;
+        const deliveryStrategyFinal = classificacao.status
+          ? (classificacao.status === "sob_encomenda"
+              ? ("sob_encomenda" as const)
+              : ("pronta_entrega" as const))
+          : deliveryStrategy;
+
         const productValues = {
           nome: item.name,
           sku: item.sku,
@@ -345,15 +383,19 @@ async function executarCrawler() {
           parcelamento: `12x de ${formatBRL(precoRegular / 12)}`,
           medidas: medidas || null,
           altura: altura || null,
-          largura,
-          comprimento,
+          largura: classificacao.largura ?? largura,
+          comprimento: classificacao.comprimento ?? comprimento,
+          // SSOT: medida canônica + categoria de tamanho + status derivados da MEDIDA.
+          medida: classificacao.medida,
+          categoriaInterna: classificacao.categoria,
+          statusMedida: classificacao.status,
           categoria: categoriaReal,
           imagem: imagem || null,
           familySlug,
           familyName,
           size,
-          encomenda,
-          deliveryStrategy,
+          encomenda: encomendaFinal,
+          deliveryStrategy: deliveryStrategyFinal,
           descricao,
           fichaTecnica,
           disponivel: true,
