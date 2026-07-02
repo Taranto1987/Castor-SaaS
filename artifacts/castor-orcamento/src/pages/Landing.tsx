@@ -200,86 +200,145 @@ export default function Landing() {
     <div className="overflow-x-hidden">
       <LocalBusinessJsonLd lojaId={lojaId} />
 
-      {/* ── HERO (compacto) ──────────────────────────────────────────────── */}
-      <section className="relative bg-gradient-to-br from-slate-900 via-red-950 to-slate-900 text-white overflow-hidden">
-        <div className="absolute inset-0 opacity-[0.04]" style={{
-          backgroundImage: "repeating-linear-gradient(0deg,#fff 0,#fff 1px,transparent 1px,transparent 60px),repeating-linear-gradient(90deg,#fff 0,#fff 1px,transparent 1px,transparent 60px)"
+      {/* ── HERO (editorial, 2 colunas) ──────────────────────────────────── */}
+      <section className="relative bg-gradient-to-br from-slate-950 via-red-950 to-slate-900 text-white overflow-hidden">
+        <div className="absolute inset-0 pointer-events-none" style={{
+          backgroundImage: "radial-gradient(ellipse at 15% 0%, rgba(220,38,38,0.22) 0%, transparent 55%), radial-gradient(ellipse at 95% 100%, rgba(59,130,246,0.10) 0%, transparent 50%)"
         }} />
 
-        <div className="relative max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 pt-14 pb-14 md:pt-20 md:pb-16">
-          <div className="max-w-2xl mx-auto md:mx-0 text-center md:text-left">
+        <div className="relative max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 pt-14 pb-10 md:pt-20 md:pb-14">
+          <div className="grid md:grid-cols-[1.05fr_0.95fr] gap-10 lg:gap-14 items-center">
+            <div className="text-center md:text-left">
               <motion.div {...fade(0)} className="inline-flex items-center gap-2 bg-red-500/20 border border-red-400/30 rounded-full px-4 py-1.5 text-red-300 text-xs font-bold uppercase tracking-wider mb-5">
                 <Star className="w-3.5 h-3.5 fill-red-400 text-red-400" /> Especialistas em Sono · Região dos Lagos – RJ
               </motion.div>
 
-              <motion.h1 {...fade(0.1)} className="text-3xl md:text-4xl lg:text-5xl font-black leading-[1.08] tracking-tight mb-4">
+              <motion.h1 {...fade(0.1)} className="text-[2.1rem] md:text-4xl lg:text-[3.2rem] font-black leading-[1.06] tracking-tight mb-4">
                 Não vendemos{" "}
-                <span className="text-transparent bg-clip-text bg-gradient-to-r from-red-400 to-red-300">colchão.</span>{" "}
+                <span className="text-transparent bg-clip-text bg-gradient-to-r from-red-400 to-red-300">colchão.</span>
+                <br className="hidden lg:block" />{" "}
                 Resolvemos o seu sono.
               </motion.h1>
 
-              <motion.p {...fade(0.15)} className="text-slate-300 text-base leading-relaxed mb-5 max-w-xl mx-auto md:mx-0">
+              <motion.p {...fade(0.15)} className="text-slate-300 text-base lg:text-lg leading-relaxed mb-6 max-w-xl mx-auto md:mx-0">
                 Descubra qual colchão seu corpo realmente precisa. Diagnóstico personalizado com tecnologia suíça Castor.
               </motion.p>
 
-              <motion.div {...fade(0.2)} className="mb-6">
-                  <p className="text-white/80 text-xs font-semibold uppercase tracking-widest mb-2">📍 Qual loja mais perto de você?</p>
-                  <div className="inline-flex bg-white/10 backdrop-blur-sm rounded-xl p-1 border border-white/15">
-                    <button
-                      onClick={() => lojaId !== 1 && toggle()}
-                      aria-pressed={lojaId === 1}
-                      className={`flex items-center gap-2 px-5 py-3 rounded-lg text-sm font-bold transition-all ${
-                        lojaId === 1
-                          ? "bg-red-600 text-white shadow-lg shadow-red-900/40"
-                          : "text-white/70 hover:text-white hover:bg-white/10"
-                      }`}
-                    >
-                      <MapPin className="w-4 h-4" />
-                      Cabo Frio
-                    </button>
-                    <button
-                      onClick={() => lojaId !== 2 && toggle()}
-                      aria-pressed={lojaId === 2}
-                      className={`flex items-center gap-2 px-5 py-3 rounded-lg text-sm font-bold transition-all ${
-                        lojaId === 2
-                          ? "bg-red-600 text-white shadow-lg shadow-red-900/40"
-                          : "text-white/70 hover:text-white hover:bg-white/10"
-                      }`}
-                    >
-                      <MapPin className="w-4 h-4" />
-                      Araruama
-                    </button>
-                  </div>
-                </motion.div>
-
-              <motion.div {...fade(0.25)} className="flex flex-col sm:flex-row gap-3 justify-center md:justify-start">
-                <button onClick={() => setShowCiencia(true)} className="flex items-center justify-center gap-2 bg-red-600 hover:bg-red-500 text-white font-extrabold px-7 py-3.5 rounded-2xl transition-all shadow-xl shadow-red-900/40 active:scale-95 text-sm">
+              <motion.div {...fade(0.2)} className="flex flex-col sm:flex-row gap-3 justify-center md:justify-start">
+                <button onClick={() => setShowCiencia(true)} className="flex items-center justify-center gap-2 bg-red-600 hover:bg-red-500 text-white font-extrabold px-7 py-4 rounded-2xl transition-all shadow-xl shadow-red-900/50 active:scale-95 text-[15px]">
                   <Brain className="w-5 h-5" />
                   Fazer Mapa do Sono
                 </button>
-                <Link href="/catalogo" className="flex items-center justify-center gap-2 bg-white/10 hover:bg-white/20 border border-white/20 text-white font-bold px-7 py-3.5 rounded-2xl transition-all text-sm">
+                <Link href="/catalogo" className="flex items-center justify-center gap-2 bg-white/10 hover:bg-white/20 border border-white/20 text-white font-bold px-7 py-4 rounded-2xl transition-all text-[15px]">
                   Ver catálogo <ChevronRight className="w-4 h-4" />
                 </Link>
               </motion.div>
 
-              <motion.p {...fade(0.28)} className="text-white/60 text-xs mt-4">
+              <motion.p {...fade(0.25)} className="text-white/50 text-xs mt-4 mb-6">
                 Durma bem hoje. Viva melhor amanhã. · Entrega rápida em toda a Região dos Lagos
               </motion.p>
+
+              <motion.div {...fade(0.3)} className="inline-flex items-center gap-2 bg-white/[0.06] backdrop-blur-sm rounded-xl p-1 border border-white/10">
+                <span className="text-white/60 text-[11px] font-semibold uppercase tracking-wider pl-3 pr-1">📍 Sua loja</span>
+                <button
+                  onClick={() => lojaId !== 1 && toggle()}
+                  aria-pressed={lojaId === 1}
+                  className={`flex items-center gap-1.5 px-4 py-2 rounded-lg text-[13px] font-bold transition-all ${
+                    lojaId === 1
+                      ? "bg-red-600 text-white shadow-lg shadow-red-900/40"
+                      : "text-white/70 hover:text-white hover:bg-white/10"
+                  }`}
+                >
+                  <MapPin className="w-3.5 h-3.5" />
+                  Cabo Frio
+                </button>
+                <button
+                  onClick={() => lojaId !== 2 && toggle()}
+                  aria-pressed={lojaId === 2}
+                  className={`flex items-center gap-1.5 px-4 py-2 rounded-lg text-[13px] font-bold transition-all ${
+                    lojaId === 2
+                      ? "bg-red-600 text-white shadow-lg shadow-red-900/40"
+                      : "text-white/70 hover:text-white hover:bg-white/10"
+                  }`}
+                >
+                  <MapPin className="w-3.5 h-3.5" />
+                  Araruama
+                </button>
+              </motion.div>
+            </div>
+
+            {/* Visual: foto lifestyle + cards de diagnóstico flutuantes */}
+            <motion.div
+              initial={{ opacity: 0, y: 16 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true }}
+              transition={{ duration: 0.55, delay: 0.15 }}
+              className="hidden md:block relative"
+            >
+              <div className="relative rounded-3xl overflow-hidden shadow-2xl shadow-black/50 ring-1 ring-white/10">
+                <img
+                  src="/lp/sono-ciencia.webp"
+                  alt="Dormir profundamente em um colchão Castor"
+                  width={720}
+                  height={540}
+                  className="w-full h-[420px] object-cover"
+                  loading="eager"
+                  fetchPriority="high"
+                />
+                <div className="absolute inset-0 bg-gradient-to-t from-slate-950/60 via-transparent to-slate-950/20" />
+              </div>
+
+              {/* Card flutuante: perfil do sono */}
+              <motion.div
+                initial={{ opacity: 0, y: 10 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                viewport={{ once: true }}
+                transition={{ duration: 0.5, delay: 0.45 }}
+                className="absolute -left-5 top-8 bg-white/10 backdrop-blur-md border border-white/20 rounded-2xl px-4 py-3 shadow-xl"
+              >
+                <div className="flex items-center gap-2 mb-1">
+                  <div className="w-6 h-6 rounded-lg bg-blue-500/30 flex items-center justify-center">
+                    <Brain className="w-3.5 h-3.5 text-blue-300" />
+                  </div>
+                  <p className="text-[10px] font-bold uppercase tracking-wider text-blue-200">Mapa do Sono</p>
+                </div>
+                <p className="text-white text-xs font-semibold">Perfil: dorme de lado · sente calor</p>
+              </motion.div>
+
+              {/* Card flutuante: compatibilidade */}
+              <motion.div
+                initial={{ opacity: 0, y: 10 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                viewport={{ once: true }}
+                transition={{ duration: 0.5, delay: 0.6 }}
+                className="absolute -right-4 bottom-8 bg-white rounded-2xl px-4 py-3 shadow-2xl"
+              >
+                <div className="flex items-center gap-3">
+                  <div className="w-9 h-9 rounded-full bg-green-100 flex items-center justify-center">
+                    <CheckCircle2 className="w-5 h-5 text-green-600" />
+                  </div>
+                  <div>
+                    <p className="text-slate-900 font-black text-sm leading-tight">97% compatível</p>
+                    <p className="text-slate-500 text-[11px]">Pocket® híbrido com gel</p>
+                  </div>
+                </div>
+              </motion.div>
+            </motion.div>
           </div>
 
-          {/* Trust bar */}
-          <motion.div {...fade(0.3)} className="mt-10 grid grid-cols-2 md:grid-cols-4 gap-3">
+          {/* Trust strip */}
+          <motion.div {...fade(0.35)} className="mt-10 md:mt-12 border-t border-white/10 pt-6 flex flex-wrap items-center justify-center md:justify-between gap-x-8 gap-y-4">
             {[
               { icon: "⭐", v: "5.0", label: "Google Reviews" },
               { icon: "🏆", v: "Campeã", label: "ReclameAQUI 2025" },
               { icon: "🇨🇭", v: "60 anos", label: "Tecnologia Castor" },
               { icon: "✅", v: "ISO 9001", label: "Certificação INER" },
             ].map(b => (
-              <div key={b.label} className="bg-white/5 border border-white/10 rounded-xl px-4 py-3 flex items-center gap-3">
-                <span className="text-2xl">{b.icon}</span>
-                <div>
+              <div key={b.label} className="flex items-center gap-2.5">
+                <span className="text-xl">{b.icon}</span>
+                <div className="flex items-baseline gap-1.5">
                   <p className="text-white font-extrabold text-sm leading-tight">{b.v}</p>
-                  <p className="text-white/70 text-xs">{b.label}</p>
+                  <p className="text-white/60 text-xs">{b.label}</p>
                 </div>
               </div>
             ))}
@@ -297,35 +356,30 @@ export default function Landing() {
           </motion.div>
 
           <div className="grid grid-cols-2 md:grid-cols-4 auto-rows-[8.5rem] md:auto-rows-[10rem] gap-3 sm:gap-4">
-            {/* Colchões — card principal */}
+            {/* Colchões — card principal (foto full-bleed) */}
             <motion.div {...fade(0)} className="col-span-2 row-span-2">
               <Link
                 href="/catalogo?categoria=colchoes"
-                className="group relative flex h-full flex-col rounded-2xl bg-[#e8e2da] overflow-hidden hover:shadow-lg transition-shadow"
+                className="group relative flex h-full flex-col justify-end rounded-2xl overflow-hidden hover:shadow-xl transition-shadow"
               >
+                <img
+                  src="/lp/colchao-premium.webp"
+                  alt="Colchões Castor"
+                  width={720}
+                  height={540}
+                  className="absolute inset-0 w-full h-full object-cover group-hover:scale-[1.03] transition-transform duration-500"
+                  loading="lazy"
+                />
+                <div className="absolute inset-0 bg-gradient-to-t from-slate-950/85 via-slate-950/25 to-transparent" />
                 <span className="absolute top-3 left-3 z-10 bg-red-600 text-white text-[10px] font-bold uppercase tracking-wide px-2.5 py-1 rounded-full">
                   Mais procurados
                 </span>
-                <div className="flex-1 min-h-0 flex items-center justify-center p-4">
-                  {catImg("colchoes") ? (
-                    <img
-                      src={catImg("colchoes")!}
-                      alt="Colchões Castor"
-                      width={600}
-                      height={450}
-                      className="max-h-full w-auto object-contain drop-shadow-md group-hover:scale-105 transition-transform duration-300"
-                      loading="eager"
-                    />
-                  ) : (
-                    <div className="w-24 h-16 bg-stone-300/40 rounded-lg animate-pulse" />
-                  )}
-                </div>
-                <div className="px-4 pb-4 flex items-end justify-between gap-2">
+                <div className="relative px-4 pb-4 md:px-5 md:pb-5 flex items-end justify-between gap-2">
                   <div>
-                    <p className="font-black text-slate-900 text-lg leading-tight group-hover:text-red-600 transition-colors">Colchões</p>
-                    <p className="text-slate-500 text-xs mt-0.5">Pocket®, espuma certificada INER e híbridos</p>
+                    <p className="font-black text-white text-xl md:text-2xl leading-tight">Colchões</p>
+                    <p className="text-white/70 text-xs mt-0.5">Pocket®, espuma certificada INER e híbridos</p>
                   </div>
-                  <span className="flex items-center gap-1 text-red-600 text-xs font-bold shrink-0 mb-0.5">
+                  <span className="flex items-center gap-1 bg-white/15 backdrop-blur-sm border border-white/25 text-white text-xs font-bold shrink-0 px-3 py-1.5 rounded-lg group-hover:bg-white group-hover:text-slate-900 transition-colors">
                     Ver todos <ChevronRight className="w-3.5 h-3.5" />
                   </span>
                 </div>
@@ -397,15 +451,23 @@ export default function Landing() {
             <motion.div {...fade(0.36)} className="col-span-2">
               <Link
                 href="/catalogo?categoria=outlet"
-                className="group relative flex h-full w-full flex-col justify-between rounded-2xl bg-gradient-to-br from-orange-500 to-red-600 overflow-hidden p-4 hover:shadow-xl transition-shadow"
+                className="group relative flex h-full w-full flex-col justify-between rounded-2xl overflow-hidden p-4 hover:shadow-xl transition-shadow"
               >
-                <div className="flex items-center gap-2">
+                <img
+                  src="/lp/colchao-goldstar.webp"
+                  alt=""
+                  aria-hidden="true"
+                  className="absolute inset-0 w-full h-full object-cover"
+                  loading="lazy"
+                />
+                <div className="absolute inset-0 bg-gradient-to-r from-orange-600/95 via-orange-600/85 to-red-600/75" />
+                <div className="relative flex items-center gap-2">
                   <div className="w-8 h-8 rounded-xl bg-white/15 border border-white/20 flex items-center justify-center">
                     <Tag className="w-4 h-4 text-white" />
                   </div>
                   <span className="text-orange-100 text-[10px] font-bold uppercase tracking-wider">Preços especiais</span>
                 </div>
-                <div>
+                <div className="relative">
                   <p className="font-black text-white text-lg leading-tight">Outlet Castor 🔥</p>
                   <p className="text-orange-100 text-xs mt-0.5 flex items-center gap-1">
                     Peças selecionadas com preço de fábrica <ChevronRight className="w-3.5 h-3.5" />
