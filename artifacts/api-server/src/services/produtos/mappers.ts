@@ -1,4 +1,5 @@
 import { extractFamilyInfo } from "@workspace/db";
+import { TABELA_MESTRE } from "../../medidas";
 import type { ProdutoRow, MappedProduto, MappedProdutoPublic } from "./types";
 
 export function deduplicateBySku<T extends { id: number; sku?: string | null }>(rows: T[]): T[] {
@@ -48,6 +49,11 @@ export function mapProduto(p: ProdutoRow): MappedProduto {
     familySlug: family.familySlug,
     familyName: family.familyName,
     size: family.size,
+    medida: p.medida,
+    categoriaInterna: p.categoriaInterna,
+    // nomeExibido deriva da Tabela Mestre pela medida canônica (SSOT), nunca do nome.
+    nomeExibido: p.medida ? (TABELA_MESTRE[p.medida]?.nomeExibido ?? null) : null,
+    statusMedida: p.statusMedida,
     descricao: p.descricao,
     fichaTecnica: p.fichaTecnica as Record<string, unknown> | null,
     imagens: extractGallery(p),

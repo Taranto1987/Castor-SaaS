@@ -61,6 +61,7 @@ router.post("/mapa-sono/compatibilidade", async (req: Request, res: Response) =>
         familyName: produtosTable.familyName,
         familySlug: produtosTable.familySlug,
         size: produtosTable.size,
+        categoriaInterna: produtosTable.categoriaInterna,
         precoPix: produtosTable.precoPix,
         custoBRL: produtosTable.custoBRL,
         imagem: produtosTable.imagem,

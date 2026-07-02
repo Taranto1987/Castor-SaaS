@@ -625,6 +625,13 @@ ALTER TABLE "leads" ADD COLUMN IF NOT EXISTS "satisfacao_pos_venda" integer;--> 
 ALTER TABLE "diagnosticos" ADD COLUMN IF NOT EXISTS "resultado" jsonb;--> statement-breakpoint
 ALTER TABLE "produtos" ADD COLUMN IF NOT EXISTS "largura" integer;--> statement-breakpoint
 ALTER TABLE "produtos" ADD COLUMN IF NOT EXISTS "comprimento" integer;--> statement-breakpoint
+ALTER TABLE "produtos" ADD COLUMN IF NOT EXISTS "medida" text;--> statement-breakpoint
+-- SEM default: linhas existentes ficam NULL = "ainda não classificado", o que dá um
+-- guard limpo e idempotente para o backfill no boot (WHERE categoria_interna IS NULL).
+-- Após o backfill, TODA linha recebe um valor não-nulo (NAO_MAPEADA para as sem medida).
+ALTER TABLE "produtos" ADD COLUMN IF NOT EXISTS "categoria_interna" text;--> statement-breakpoint
+ALTER TABLE "produtos" ADD COLUMN IF NOT EXISTS "status_medida" text;--> statement-breakpoint
+CREATE INDEX IF NOT EXISTS "produtos_loja_categoria_interna_idx" ON "produtos" USING btree ("loja_id","categoria_interna");--> statement-breakpoint
 CREATE TABLE IF NOT EXISTS "meta_catalogo_config" (
 	"id" serial PRIMARY KEY NOT NULL,
 	"loja_id" integer NOT NULL,

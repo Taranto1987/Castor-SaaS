@@ -4,15 +4,20 @@ import { ilike, or, eq, and, isNull, gt, desc, count, max, inArray, sql, type SQ
 import { deduplicateBySku, mapProduto, mapProdutoPublic } from "./mappers";
 import { getLojaPricing, calcOutletPrice } from "./pricing";
 import type { MappedProduto, MappedProdutoPublic } from "./types";
+import { resolverTermoBusca } from "../../medidas";
 
 // ── List / Query ────────────────────────────────────────────────────────────────
 
 export async function listProdutos(
   lojaId: number,
-  opts: { categoria?: string; limite?: number; interno?: boolean },
+  opts: { categoria?: string; categoriaInterna?: string; limite?: number; interno?: boolean },
 ): Promise<MappedProduto[]> {
   const conds: SQL[] = [eq(produtosTable.lojaId, lojaId)];
   if (opts.categoria) conds.push(eq(produtosTable.categoria, opts.categoria));
+  // SSOT: filtro por categoria de TAMANHO (SOLTEIRO/CASAL/...). Opt-in — quando
+  // presente, exclui automaticamente NAO_MAPEADA (só medidas válidas aparecem).
+  // Ex: categoriaInterna=SOLTEIRO retorna só 88x188; nunca 100x200/120x203 (ESPECIAL).
+  if (opts.categoriaInterna) conds.push(eq(produtosTable.categoriaInterna, opts.categoriaInterna));
   if (!opts.interno) conds.push(or(isNull(produtosTable.estoque), gt(produtosTable.estoque, 0))!);
 
   const results = await db.select().from(produtosTable)
@@ -85,6 +90,11 @@ export async function searchProdutos(
   q: string,
   categoria?: string,
 ): Promise<MappedProduto[]> {
+  // SSOT: se a query é medida ou sinônimo de tamanho ("96x203", "solteirão",
+  // "solteiro king"), resolve a categoria de tamanho e filtra por
+  // categoria_interna — nunca por nome. Os três termos retornam o mesmo conjunto.
+  const categoriaTamanho = resolverTermoBusca(q);
+
   const termos = q.trim().split(/\s+/);
   const textoConds = termos.map(t =>
     or(
@@ -98,7 +108,9 @@ export async function searchProdutos(
   const stockCond = or(isNull(produtosTable.estoque), gt(produtosTable.estoque, 0));
   const allConds = [
     eq(produtosTable.lojaId, lojaId),
-    ...(textoConds.length === 1 ? [textoConds[0]] : [and(...textoConds)]),
+    ...(categoriaTamanho
+      ? [eq(produtosTable.categoriaInterna, categoriaTamanho)]
+      : textoConds.length === 1 ? [textoConds[0]] : [and(...textoConds)]),
     ...(categoriaCond ? [categoriaCond] : []),
     stockCond,
   ].filter(Boolean) as SQL[];

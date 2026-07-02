@@ -11,6 +11,30 @@ import { pool, db } from "@workspace/db";
 import { crawlerStatusTable } from "@workspace/db/schema";
 import { eq } from "drizzle-orm";
 import { registerEvolutionWebhooks } from "./services/whatsapp/webhook-registrar";
+import { backfillMedidasProdutos } from "./medidas";
+
+// Auto-alinhamento pós-deploy: classifica por medida os produtos ainda sem
+// categoria_interna (linhas antigas, criadas antes da coluna existir). One-shot
+// e idempotente — o guard `categoria_interna IS NULL` garante que só roda uma vez.
+// Roda em background para não atrasar o boot.
+async function backfillMedidasNoBoot(): Promise<void> {
+  try {
+    const r = await backfillMedidasProdutos();
+    if (r.processados > 0) {
+      logger.info(
+        {
+          processados: r.processados,
+          classificados: r.classificados,
+          naoMapeados: r.naoMapeados,
+          revisaoManual: r.revisaoManual.length,
+        },
+        "[Medidas] Backfill de categoria_interna no boot concluído",
+      );
+    }
+  } catch (err) {
+    logger.warn({ err }, "[Medidas] Backfill no boot falhou (não bloqueia o boot)");
+  }
+}
 
 async function resetStaleCrawler(): Promise<void> {
   try {
@@ -51,6 +75,7 @@ const server = app.listen(port, () => {
   resetStaleCrawler().catch(() => null);
   refreshLojaRegistry().catch(() => null);
   registerEvolutionWebhooks().catch(() => null);
+  backfillMedidasNoBoot().catch(() => null);
   _refreshHandle = setInterval(() => refreshLojaRegistry().catch(() => null), 5 * 60_000);
 });
 

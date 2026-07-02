@@ -2,6 +2,7 @@ import { db } from "@workspace/db";
 import { produtosTable, lojasTable, productFamiliesTable } from "@workspace/db/schema";
 import { normalizeSize, SIZE_ORDER } from "@workspace/db";
 import { eq, and, ilike, or } from "drizzle-orm";
+import { resolverTermoBusca, TABELA_MESTRE } from "../../medidas";
 
 // ── Return types ──────────────────────────────────────────────────────────────
 
@@ -20,6 +21,11 @@ export interface ProductResult {
   disponivel: boolean;
   encomenda: boolean;
   slug: string | null;
+  // ── Dicionário Mestre de Medidas (SSOT) ──
+  medida: string | null;
+  categoriaInterna: string | null; // SOLTEIRO | CASAL | QUEEN | ... | NAO_MAPEADA
+  nomeExibido: string | null; // rótulo canônico da categoria de tamanho
+  statusMedida: string | null; // 'padrao' | 'sob_encomenda' — sob_encomenda NÃO recebe link
 }
 
 export interface FamilyVariant {
@@ -63,6 +69,13 @@ export async function searchProducts(params: {
   const terms = query.trim().split(/\s+/).filter(t => t.length > 1);
   const fullQ = `%${query}%`;
 
+  // SSOT: se a query é uma MEDIDA ou um SINÔNIMO de tamanho ("96x203",
+  // "solteirão", "solteiro king"), resolve para uma categoria de tamanho e
+  // filtra por categoria_interna — nunca por nome. Assim os três termos acima
+  // retornam exatamente o mesmo conjunto (SOLTEIRAO). Termos de tecnologia
+  // (pocket, gel, látex) não resolvem categoria e caem na busca textual.
+  const categoriaTamanho = resolverTermoBusca(query);
+
   const searchConds = or(
     ilike(produtosTable.nome, fullQ),
     ilike(produtosTable.sku, fullQ),
@@ -82,7 +95,9 @@ export async function searchProducts(params: {
       and(
         eq(produtosTable.disponivel, true),
         eq(produtosTable.lojaId, lojaId),
-        searchConds,
+        categoriaTamanho
+          ? eq(produtosTable.categoriaInterna, categoriaTamanho)
+          : searchConds,
         ...(category ? [eq(produtosTable.categoria, category)] : []),
       )
     )
@@ -103,6 +118,10 @@ export async function searchProducts(params: {
     disponivel: p.disponivel ?? true,
     encomenda: p.encomenda ?? false,
     slug: p.slug ?? null,
+    medida: p.medida ?? null,
+    categoriaInterna: p.categoriaInterna ?? null,
+    nomeExibido: p.medida ? (TABELA_MESTRE[p.medida]?.nomeExibido ?? null) : null,
+    statusMedida: p.statusMedida ?? null,
   }));
 }
 

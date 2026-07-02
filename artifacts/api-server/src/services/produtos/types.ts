@@ -26,6 +26,11 @@ export interface MappedProduto {
   familySlug: string | null;
   familyName: string | null;
   size: string | null;
+  // ── Dicionário Mestre de Medidas (SSOT) — o frontend só recebe estes campos ──
+  medida: string | null;
+  categoriaInterna: string | null; // SOLTEIRO | CASAL | QUEEN | ... | NAO_MAPEADA
+  nomeExibido: string | null; // rótulo canônico da categoria de tamanho
+  statusMedida: string | null; // 'padrao' | 'sob_encomenda'
   descricao: string | null;
   fichaTecnica: Record<string, unknown> | null;
   imagens: Array<{ url: string; label: string | null }>;

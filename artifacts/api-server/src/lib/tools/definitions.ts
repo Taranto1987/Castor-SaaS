@@ -10,8 +10,11 @@ export const CASTOR_READ_TOOLS: Anthropic.Messages.Tool[] = [
       "Busca produtos do catálogo Castor por tecnologia, nome de modelo ou tamanho. " +
       "Use termos de tecnologia (pocket, bonnel, ensacadas, espuma, látex, gel) — o catálogo NÃO contém termos como 'médio', 'firme' ou 'macio'. " +
       "Se retornar lista vazia: chame imediatamente get_catalog com category='colchoes' como fallback. " +
+      "Também aceita MEDIDAS ('88x188', '96x203', '100x200') e sinônimos ('solteirão', 'solteiro king') — o sistema resolve pela medida, não pelo nome. " +
       "Retorna array com campos: familyName (nome limpo da família — use para exibição), " +
-      "slug (para montar link clicável: /produto/{slug}), precoPix, preco, parcelamento, size, medidas, id.",
+      "slug (para montar link clicável: /produto/{slug}), precoPix, preco, parcelamento, size, medidas, id, " +
+      "categoriaInterna (categoria de tamanho), nomeExibido, statusMedida. " +
+      "IMPORTANTE: produtos com statusMedida='sob_encomenda' NÃO devem receber link — ofereça orçamento sob encomenda.",
     input_schema: {
       type: "object" as const,
       properties: {

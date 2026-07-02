@@ -27,6 +27,7 @@ import {
   gerarMotivos,
   gerarResumo,
 } from "./motor-v2";
+import { resolverTermoBusca } from "../medidas";
 
 // ── Perfil estendido (motor v2 + sinais do fluxo 3.0) ───────────────────────────
 export interface PerfilRegras extends PerfilDiagnostico {
@@ -130,6 +131,14 @@ function casar(
   const cands = produtos.filter((p) => !usados.has(p.id) && nomeCompleto(p).includes(f));
   if (cands.length === 0) return undefined;
   if (tamanho) {
+    // SSOT: casa por categoria de tamanho derivada da MEDIDA (categoria_interna),
+    // nunca pelo nome. Ex: "solteiro" → SOLTEIRO só casa 88x188.
+    const catAlvo = resolverTermoBusca(tamanho);
+    if (catAlvo) {
+      const naCategoria = cands.find((p) => p.categoriaInterna === catAlvo);
+      if (naCategoria) return naCategoria;
+    }
+    // Fallback legado (produtos ainda sem backfill de categoria_interna): palavra em `size`.
     const t = norm(tamanho);
     const naMedida = cands.find((p) => p.size && norm(p.size).includes(t));
     if (naMedida) return naMedida;
