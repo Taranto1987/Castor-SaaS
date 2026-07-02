@@ -183,6 +183,11 @@ export default function Landing() {
 
   const topDestaques = destaques.slice(0, 6);
 
+  const catImg = (slug: string) => {
+    const family = destaques.find(f => f.category === slug);
+    return family?.imageUrl ?? family?.variants[0]?.imagem ?? null;
+  };
+
   const toggle = () => {
     const newId = lojaId === 2 ? 1 : 2;
     selecionarLoja(newId);
@@ -214,7 +219,7 @@ export default function Landing() {
               </motion.h1>
 
               <motion.p {...fade(0.15)} className="text-slate-300 text-base leading-relaxed mb-5 max-w-xl mx-auto md:mx-0">
-                Diagnóstico personalizado, tecnologia suíça Castor e atendimento de quem realmente entende do assunto.
+                Descubra qual colchão seu corpo realmente precisa. Diagnóstico personalizado com tecnologia suíça Castor.
               </motion.p>
 
               <motion.div {...fade(0.2)} className="mb-6">
@@ -250,12 +255,16 @@ export default function Landing() {
               <motion.div {...fade(0.25)} className="flex flex-col sm:flex-row gap-3 justify-center md:justify-start">
                 <button onClick={() => setShowCiencia(true)} className="flex items-center justify-center gap-2 bg-red-600 hover:bg-red-500 text-white font-extrabold px-7 py-3.5 rounded-2xl transition-all shadow-xl shadow-red-900/40 active:scale-95 text-sm">
                   <Brain className="w-5 h-5" />
-                  Descobrir meu perfil do sono
+                  Fazer Mapa do Sono
                 </button>
                 <Link href="/catalogo" className="flex items-center justify-center gap-2 bg-white/10 hover:bg-white/20 border border-white/20 text-white font-bold px-7 py-3.5 rounded-2xl transition-all text-sm">
                   Ver catálogo <ChevronRight className="w-4 h-4" />
                 </Link>
               </motion.div>
+
+              <motion.p {...fade(0.28)} className="text-white/60 text-xs mt-4">
+                Durma bem hoje. Viva melhor amanhã. · Entrega rápida em toda a Região dos Lagos
+              </motion.p>
           </div>
 
           {/* Trust bar */}
@@ -275,6 +284,136 @@ export default function Landing() {
               </div>
             ))}
           </motion.div>
+        </div>
+      </section>
+
+      {/* ── ENGENHARIA DO DESCANSO (navegação por intenção) ─────────────── */}
+      <section className="py-14 bg-gradient-to-b from-[#f5f0ea] to-[#ede7df]">
+        <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
+          <motion.div {...fade()} className="text-center mb-8">
+            <p className="text-red-600 font-bold text-sm uppercase tracking-wider mb-2">Engenharia do Descanso</p>
+            <h2 className="text-2xl md:text-3xl font-black text-slate-900">Tudo o que o seu sono precisa</h2>
+            <p className="text-slate-500 mt-2 text-sm">Entrega rápida em toda a Região dos Lagos — {REGIOES.join(" · ")}</p>
+          </motion.div>
+
+          <div className="grid grid-cols-2 md:grid-cols-4 auto-rows-[8.5rem] md:auto-rows-[10rem] gap-3 sm:gap-4">
+            {/* Colchões — card principal */}
+            <motion.div {...fade(0)} className="col-span-2 row-span-2">
+              <Link
+                href="/catalogo?categoria=colchoes"
+                className="group relative flex h-full flex-col rounded-2xl bg-[#e8e2da] overflow-hidden hover:shadow-lg transition-shadow"
+              >
+                <span className="absolute top-3 left-3 z-10 bg-red-600 text-white text-[10px] font-bold uppercase tracking-wide px-2.5 py-1 rounded-full">
+                  Mais procurados
+                </span>
+                <div className="flex-1 min-h-0 flex items-center justify-center p-4">
+                  {catImg("colchoes") ? (
+                    <img
+                      src={catImg("colchoes")!}
+                      alt="Colchões Castor"
+                      width={600}
+                      height={450}
+                      className="max-h-full w-auto object-contain drop-shadow-md group-hover:scale-105 transition-transform duration-300"
+                      loading="eager"
+                    />
+                  ) : (
+                    <div className="w-24 h-16 bg-stone-300/40 rounded-lg animate-pulse" />
+                  )}
+                </div>
+                <div className="px-4 pb-4 flex items-end justify-between gap-2">
+                  <div>
+                    <p className="font-black text-slate-900 text-lg leading-tight group-hover:text-red-600 transition-colors">Colchões</p>
+                    <p className="text-slate-500 text-xs mt-0.5">Pocket®, espuma certificada INER e híbridos</p>
+                  </div>
+                  <span className="flex items-center gap-1 text-red-600 text-xs font-bold shrink-0 mb-0.5">
+                    Ver todos <ChevronRight className="w-3.5 h-3.5" />
+                  </span>
+                </div>
+              </Link>
+            </motion.div>
+
+            {/* Mapa do Sono IA */}
+            <motion.div {...fade(0.06)} className="col-span-2">
+              <button
+                onClick={() => setShowCiencia(true)}
+                className="group relative flex h-full w-full flex-col justify-between text-left rounded-2xl bg-gradient-to-br from-slate-900 via-blue-950 to-slate-900 overflow-hidden p-4 hover:shadow-xl transition-shadow"
+              >
+                <div className="absolute inset-0 opacity-[0.12]" style={{
+                  backgroundImage: "radial-gradient(circle at 80% 20%, rgba(59,130,246,0.6) 0%, transparent 55%)"
+                }} />
+                <div className="relative flex items-center gap-2">
+                  <div className="w-8 h-8 rounded-xl bg-blue-500/20 border border-blue-400/30 flex items-center justify-center">
+                    <Brain className="w-4 h-4 text-blue-300" />
+                  </div>
+                  <span className="text-blue-300 text-[10px] font-bold uppercase tracking-wider">Diagnóstico gratuito</span>
+                </div>
+                <div className="relative">
+                  <p className="font-black text-white text-lg leading-tight">Mapa do Sono IA</p>
+                  <p className="text-slate-300 text-xs mt-0.5 mb-2">Descubra o colchão ideal para o seu corpo em 2 minutos</p>
+                  <span className="inline-flex items-center gap-1 bg-white text-slate-900 text-xs font-extrabold px-3 py-1.5 rounded-lg group-hover:bg-blue-50 transition-colors">
+                    <Sparkles className="w-3.5 h-3.5 text-blue-600" /> Começar agora
+                  </span>
+                </div>
+              </button>
+            </motion.div>
+
+            {/* Categorias secundárias */}
+            {[
+              { slug: "cama-box-colchao", label: "Cama Box" },
+              { slug: "travesseiros", label: "Travesseiros" },
+              { slug: "roupa-de-cama", label: "Roupa de Cama" },
+              { slug: "protetor", label: "Protetores" },
+            ].map((card, i) => {
+              const imgSrc = catImg(card.slug);
+              return (
+                <motion.div key={card.slug} {...fade(0.12 + i * 0.06)}>
+                  <Link
+                    href={`/catalogo?categoria=${card.slug}`}
+                    className="group flex h-full flex-col rounded-2xl bg-[#e8e2da] overflow-hidden hover:shadow-md transition-shadow"
+                  >
+                    <div className="flex-1 min-h-0 flex items-center justify-center p-2">
+                      {imgSrc ? (
+                        <img
+                          src={imgSrc}
+                          alt={card.label}
+                          width={300}
+                          height={225}
+                          className="max-h-full w-auto object-contain drop-shadow-md group-hover:scale-105 transition-transform duration-300"
+                          loading="lazy"
+                        />
+                      ) : (
+                        <div className="w-14 h-10 bg-stone-300/40 rounded-lg animate-pulse" />
+                      )}
+                    </div>
+                    <p className="px-3 pb-2.5 font-bold text-slate-800 text-xs sm:text-sm leading-tight group-hover:text-red-600 transition-colors">
+                      {card.label}
+                    </p>
+                  </Link>
+                </motion.div>
+              );
+            })}
+
+            {/* Outlet Castor */}
+            <motion.div {...fade(0.36)} className="col-span-2">
+              <Link
+                href="/catalogo?categoria=outlet"
+                className="group relative flex h-full w-full flex-col justify-between rounded-2xl bg-gradient-to-br from-orange-500 to-red-600 overflow-hidden p-4 hover:shadow-xl transition-shadow"
+              >
+                <div className="flex items-center gap-2">
+                  <div className="w-8 h-8 rounded-xl bg-white/15 border border-white/20 flex items-center justify-center">
+                    <Tag className="w-4 h-4 text-white" />
+                  </div>
+                  <span className="text-orange-100 text-[10px] font-bold uppercase tracking-wider">Preços especiais</span>
+                </div>
+                <div>
+                  <p className="font-black text-white text-lg leading-tight">Outlet Castor 🔥</p>
+                  <p className="text-orange-100 text-xs mt-0.5 flex items-center gap-1">
+                    Peças selecionadas com preço de fábrica <ChevronRight className="w-3.5 h-3.5" />
+                  </p>
+                </div>
+              </Link>
+            </motion.div>
+          </div>
         </div>
       </section>
 
@@ -365,59 +504,6 @@ export default function Landing() {
           </div>
         </section>
       )}
-
-      {/* ── CATEGORIAS (visual grid 3x2 com fotos) ────────────────────── */}
-      <section className="py-14 bg-gradient-to-b from-[#f5f0ea] to-[#ede7df]">
-        <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
-          <motion.div {...fade()} className="text-center mb-8">
-            <p className="text-red-600 font-bold text-sm uppercase tracking-wider mb-2">Portfólio completo</p>
-            <h2 className="text-2xl md:text-3xl font-black text-slate-900">Explore nossos produtos</h2>
-            <p className="text-slate-500 mt-2 text-sm">Entrega em toda a Região dos Lagos — {REGIOES.join(" · ")}</p>
-          </motion.div>
-
-          <div className="grid grid-cols-3 gap-3 sm:gap-4">
-            {[
-              { slug: "colchoes", label: "Colchões" },
-              { slug: "cama-box-colchao", label: "Cama Box" },
-              { slug: "cama-box", label: "Box Avulso" },
-              { slug: "travesseiros", label: "Travesseiros" },
-              { slug: "protetor", label: "Protetores" },
-              { slug: "roupa-de-cama", label: "Roupa de Cama" },
-            ].map((card, i) => {
-              const family = destaques.find(f => f.category === card.slug);
-              const imgSrc = family?.imageUrl ?? family?.variants[0]?.imagem ?? null;
-              return (
-                <motion.div key={card.slug} {...fade(i * 0.06)}>
-                  <Link
-                    href={`/catalogo?categoria=${card.slug}`}
-                    className="group flex flex-col items-center text-center"
-                  >
-                    <div className="relative w-full aspect-square rounded-2xl bg-[#e8e2da] overflow-hidden mb-2 sm:mb-3">
-                      {imgSrc ? (
-                        <img
-                          src={imgSrc}
-                          alt={card.label}
-                          width={400}
-                          height={400}
-                          className="w-full h-full object-contain p-3 sm:p-4 drop-shadow-md group-hover:scale-105 transition-transform duration-300"
-                          loading="lazy"
-                        />
-                      ) : (
-                        <div className="w-full h-full flex items-center justify-center">
-                          <div className="w-16 h-12 bg-stone-300/40 rounded-lg animate-pulse" />
-                        </div>
-                      )}
-                    </div>
-                    <p className="font-bold text-slate-800 text-xs sm:text-sm group-hover:text-red-600 transition-colors leading-tight">
-                      {card.label}
-                    </p>
-                  </Link>
-                </motion.div>
-              );
-            })}
-          </div>
-        </div>
-      </section>
 
       {/* ── CIÊNCIA DO SONO CTA ─────────────────────────────────────────── */}
       <section className="bg-gradient-to-br from-slate-900 via-blue-950 to-slate-900 text-white py-16 relative overflow-hidden">
